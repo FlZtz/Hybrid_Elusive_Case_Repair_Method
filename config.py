@@ -1,4 +1,6 @@
 from pathlib import Path
+import tkinter as tk
+from tkinter import filedialog
 
 
 def get_config():
@@ -8,7 +10,7 @@ def get_config():
         "lr": 10 ** -4,
         "seq_len": 12,
         "d_model": 512,
-        "log_path": "C:/Users/felix/Downloads/running-example.xes",
+        "log_path": get_file_path(),
         "tf_input": "Activity",
         "tf_output": "Case ID",
         "model_folder": "weights",
@@ -34,3 +36,16 @@ def latest_weights_file_path(config):
         return None
     weights_files.sort()
     return str(weights_files[-1])
+
+
+def get_file_path():
+    root = tk.Tk()
+    root.withdraw()  # Hide the main window
+
+    file_path = filedialog.askopenfilename(title="Select the file that contains the event log")
+
+    # Check if the user selected a file or canceled the dialog
+    if file_path:
+        return file_path
+    else:
+        raise ValueError("Error: No file selected.")
