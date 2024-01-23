@@ -38,8 +38,9 @@ def greedy_decode(model, source, source_mask, tokenizer_src, tokenizer_tgt, max_
     encoder_output = model.encode(source, source_mask)
     # Initialize the decoder input with the sos token
     decoder_input = torch.empty(1, 1).fill_(sos_idx).type_as(source).to(device)
+
     while True:
-        if decoder_input.size(1) == max_len:
+        if decoder_input.size(1) == max_len - 1:
             break
 
         # build mask for target
@@ -50,7 +51,12 @@ def greedy_decode(model, source, source_mask, tokenizer_src, tokenizer_tgt, max_
 
         # get next token
         prob = model.project(out[:, -1])
-        _, next_output = torch.max(prob, dim=1)
+        _, indices = torch.topk(prob, k=2, dim=1)
+        next_index = indices[:, 0]
+        if next_index == eos_idx:
+            next_output = indices[:, 1]
+        else:
+            next_output = next_index
         decoder_input = torch.cat(
             [decoder_input, torch.empty(1, 1).type_as(source).fill_(next_output.item()).to(device)], dim=1
         )
