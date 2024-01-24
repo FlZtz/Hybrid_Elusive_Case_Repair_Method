@@ -1,6 +1,7 @@
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog
+import os
 
 
 def get_config():
@@ -39,13 +40,24 @@ def latest_weights_file_path(config):
 
 
 def get_file_path():
-    root = tk.Tk()
-    root.withdraw()  # Hide the main window
+    if "DISPLAY" in os.environ:
+        # GUI components can be used
+        root = tk.Tk()
+        root.withdraw()  # Hide the main window
 
-    file_path = filedialog.askopenfilename(title="Select the file that contains the event log")
+        file_path = filedialog.askopenfilename(title="Select the file that contains the event log")
 
-    # Check if the user selected a file or canceled the dialog
-    if file_path:
-        return file_path
+        # Check if the user selected a file or canceled the dialog
+        if file_path:
+            return file_path
+        else:
+            raise ValueError("Error: No file selected.")
     else:
-        raise ValueError("Error: No file selected.")
+        # No display available, use alternative method (e.g., manual input)
+        file_path = input("Enter the path to the file: ")
+
+        # Check if the user entered a file path
+        if file_path:
+            return file_path
+        else:
+            raise ValueError("Error: No file selected.")
