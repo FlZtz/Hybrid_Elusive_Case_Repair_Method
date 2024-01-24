@@ -54,7 +54,7 @@ def get_file_path():
             raise ValueError("Error: No file selected.")
     else:
         # No display available, use alternative method (e.g., manual input)
-        file_path = input("Enter the path to the file: ")
+        file_path = input("Enter the path to the file that contains the event log: ")
 
         # Check if the user entered a file path
         if file_path:
