@@ -165,7 +165,7 @@ def get_or_build_tokenizer(config, ds, data):
     return tokenizer
 
 
-def read_log(config, length):
+def read_log(config, complete=False):
     if config['log_path'].endswith('.csv'):
         df = pd.read_csv(config['log_path'])
     elif config['log_path'].endswith('.xes'):
@@ -189,6 +189,11 @@ def read_log(config, length):
 
     df_copy = df[[config['tf_input'], config['tf_output']]].copy()
 
+    if complete:
+        return df_copy
+
+    length = config['seq_len'] - 2
+
     if len(df) >= length:
         for i in range(len(df) - length + 1):
             df_copy.at[i, config['tf_input']] = ' '.join(df[config['tf_input']].iloc[i:i + length])
@@ -202,7 +207,7 @@ def read_log(config, length):
 
 
 def get_ds(config):
-    df = read_log(config, 10)
+    df = read_log(config)
     # TODO: shuffle = false ?
     train, test = train_test_split(df, test_size=0.1)
     ds_raw = Dataset.from_pandas(train)

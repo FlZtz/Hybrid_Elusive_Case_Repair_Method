@@ -3,15 +3,20 @@ import tkinter as tk
 from tkinter import filedialog
 import os
 
+log_path = None  # Variable to store the result of get_file_path
+
 
 def get_config():
+    global log_path  # Use the global variable
+    if log_path is None:
+        log_path = get_file_path()  # Call get_file_path only if log_path is not already set
     return {
         "batch_size": 8,
         "num_epochs": 20,
         "lr": 10 ** -4,
         "seq_len": 12,
         "d_model": 512,
-        "log_path": get_file_path(),
+        "log_path": log_path,  # Use the stored value
         "tf_input": "Activity",
         "tf_output": "Case ID",
         "model_folder": "weights",
@@ -58,6 +63,7 @@ def get_file_path():
 
         # Check if the user entered a file path
         if file_path:
+            file_path = file_path.strip('"')
             return file_path
         else:
             raise ValueError("Error: No file selected.")
