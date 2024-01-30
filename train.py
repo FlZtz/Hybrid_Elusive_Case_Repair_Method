@@ -348,7 +348,53 @@ def train_model(config):
         }, model_filename)
 
 
+def create_log(config):
+    df = read_log(config, True)
+    ds_raw = Dataset.from_pandas(df)
+    vocab_src = get_or_build_tokenizer(config, ds_raw, config['tf_input'])
+    vocab_tgt = get_or_build_tokenizer(config, ds_raw, config['tf_output'])
+    ds = BilingualDataset(ds_raw, vocab_src, vocab_tgt, config['tf_input'], config['tf_output'], config['seq_len'])
+    ds_dataloader = DataLoader(ds, batch_size=1, shuffle=False)
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = get_model(config, vocab_src.get_vocab_size(), vocab_tgt.get_vocab_size()).to(device)
+
+    # Load the pretrained weights
+    model_filename = get_weights_file_path(config, f"19")
+    state = torch.load(model_filename)
+    model.load_state_dict(state['model_state_dict'])
+
+    # Initialize an empty list to store tuples representing rows
+    determined_log = []
+
+    for batch in ds_dataloader:
+        encoder_input = batch["encoder_input"].to(device)
+        encoder_mask = batch["encoder_mask"].to(device)
+
+        # Ensure batch size is 1
+        assert encoder_input.size(0) == 1, "Batch size must be 1 for evaluation"
+
+        model_out = greedy_decode(model, encoder_input, encoder_mask, vocab_src, vocab_tgt, 3, device)
+
+        source_text = batch["src_text"][0]
+        target_text = batch["tgt_text"][0]
+        model_out_text = vocab_tgt.decode(model_out.detach().cpu().numpy())
+
+        # Append the current results as a tuple to the list
+        determined_log.append((model_out_text, target_text, source_text))
+
+    # Convert the list of tuples to a DataFrame
+    determined_log = pd.DataFrame(determined_log, columns=['Determined Case ID', 'Actual Case ID', 'Activity'])
+
+    # Save as CSV
+    determined_log.to_csv('determined_event_log.csv')
+    print("Determined log saved as CSV")
+
+    return determined_log
+
+
 if __name__ == '__main__':
     warnings.filterwarnings("ignore")
     config = get_config()
     train_model(config)
+    create_log(config)
