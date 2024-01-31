@@ -44,6 +44,11 @@ def latest_weights_file_path(config):
     return str(weights_files[-1])
 
 
+def reset_log_path():
+    global log_path
+    log_path = None
+
+
 def get_file_path():
     if "DISPLAY" in os.environ:
         # GUI components can be used

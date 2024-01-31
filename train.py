@@ -388,7 +388,6 @@ def create_log(config):
 
     # Save as CSV
     determined_log.to_csv('determined_event_log.csv')
-    print("Determined log saved as CSV")
 
     return determined_log
 
