@@ -1,55 +1,97 @@
-from pathlib import Path
+import os
 import tkinter as tk
 from tkinter import filedialog
-import os
+from pathlib import Path
 
-log_path = None  # Variable to store the result of get_file_path
+# Global variables to store log_path and extracted log_name
+log_path = None
+log_name = None
 
 
-def get_config():
-    global log_path  # Use the global variable
+def get_config() -> dict:
+    """
+    Get configuration parameters for the model training.
+
+    :return: Dictionary containing various configuration parameters.
+    """
+    global log_path, log_name
+
+    # If log_path is not set, get it using the get_file_path function
     if log_path is None:
-        log_path = get_file_path()  # Call get_file_path only if log_path is not already set
+        log_path = get_file_path()
+
+    # If log_name is not set, extract it from log_path
+    if log_name is None:
+        log_name = extract_log_name(log_path)
+
+    # Return a dictionary with configuration parameters
     return {
         "batch_size": 8,
         "num_epochs": 20,
         "lr": 10 ** -4,
         "seq_len": 12,
         "d_model": 512,
-        "log_path": log_path,  # Use the stored value
+        "log_path": log_path,
+        "log_name": log_name,
         "tf_input": "Activity",
         "tf_output": "Case ID",
-        "model_folder": "weights",
+        "model_folder": f"{log_name}_weights",
         "model_basename": "tmodel_",
         "preload": "latest",
-        "tokenizer_file": "tokenizer_{0}.json",
-        "experiment_name": "runs/tmodel"
+        "tokenizer_file": "{0}_tokenizer_{1}.json",
+        "experiment_name": f"runs/{log_name}_tmodel",
+        "result_file_name": f"determined_{log_name}.csv"
     }
 
 
-def get_weights_file_path(config, epoch: str):
+def get_weights_file_path(config: dict, epoch: str) -> str:
+    """
+    Get the file path for the weights of the model at a specific epoch.
+
+    :param config: Configuration parameters.
+    :param epoch: Epoch number.
+    :return: File path for the weights of the model at the specified epoch.
+    """
     model_folder = f"{config['model_folder']}"
     model_filename = f"{config['model_basename']}{epoch}.pt"
     return str(Path('.') / model_folder / model_filename)
 
 
-# Find the latest weights file in the weights folder
-def latest_weights_file_path(config):
+def latest_weights_file_path(config: dict) -> str or None:
+    """
+    Get the file path for the latest weights of the model.
+
+    :param config: Configuration parameters.
+    :return: File path for the latest weights of the model, or None if no weights are found.
+    """
     model_folder = f"{config['model_folder']}"
     model_filename = f"{config['model_basename']}*"
     weights_files = list(Path(model_folder).glob(model_filename))
+
+    # Check if any weights files are found
     if len(weights_files) == 0:
         return None
+
+    # Sort the list of weights files and return the path of the latest one
     weights_files.sort()
     return str(weights_files[-1])
 
 
-def reset_log_path():
-    global log_path
+def reset_log():
+    """
+    Reset log_path and log_name to None.
+    """
+    global log_path, log_name
     log_path = None
+    log_name = None
 
 
-def get_file_path():
+def get_file_path() -> str:
+    """
+    Get the file path for the event log, either through GUI or manual input.
+
+    :return: File path for the event log.
+    """
     if "DISPLAY" in os.environ:
         # GUI components can be used
         root = tk.Tk()
@@ -72,3 +114,16 @@ def get_file_path():
             return file_path
         else:
             raise ValueError("Error: No file selected.")
+
+
+def extract_log_name(log_path: str) -> str:
+    """
+    Extract the log_name from the given log_path.
+
+    :param log_path: File path to the event log.
+    :return: Extracted log_name.
+    """
+    # Extract log_name from log_path
+    base_name = os.path.basename(log_path)
+    log_name, _ = os.path.splitext(base_name)
+    return log_name

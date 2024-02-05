@@ -140,7 +140,7 @@ def get_all_sentences(ds, data):
 
 
 def get_or_build_tokenizer(config, ds, data):
-    tokenizer_path = Path(config['tokenizer_file'].format(data))
+    tokenizer_path = Path(config['tokenizer_file'].format(config['log_name'], data))
 
     if not Path.exists(tokenizer_path):
         # Most code taken from: https://huggingface.co/docs/tokenizers/quicktour
@@ -439,7 +439,7 @@ def create_log(config, chunk_size=10) -> pd.DataFrame:
     determined_log = pd.DataFrame(determined_log, columns=['Determined Case ID', 'Actual Case ID', 'Activity'])
 
     # Save the determined log as a CSV file
-    determined_log.to_csv('determined_event_log.csv')
+    determined_log.to_csv(config['result_file_name'])
 
     # Return the determined log DataFrame
     return determined_log
