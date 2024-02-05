@@ -348,18 +348,63 @@ def train_model(config):
         }, model_filename)
 
 
-def create_log(config):
-    df = read_log(config, True)
+def create_log(config, chunk_size=10) -> pd.DataFrame:
+    """
+    Creates a log with determined case IDs based on the given configuration and chunk size.
+
+    :param config: Dictionary containing configuration parameters for log creation. It includes keys like 'tf_input',
+    'tf_output', and 'seq_len'.
+    :param chunk_size: Number of rows to be processed as a single chunk. Default is set to 10.
+    :return: DataFrame representing the log with determined cases, including columns for 'Determined Case ID',
+    'Actual Case ID', and 'Activity'.
+    """
+    # Read the complete log data
+    data_complete = read_log(config, True)
+
+    # Create a copy of the complete data
+    df = data_complete.copy()
+
+    # Loop through the data in chunks and concatenate values for input and output features
+    for i in range(len(data_complete) // chunk_size):
+        start_idx = i * chunk_size
+        end_idx = (i + 1) * chunk_size
+
+        # Concatenate values for input feature
+        df.at[start_idx, config['tf_input']] = ' '.join(data_complete[config['tf_input']].iloc[start_idx:end_idx])
+        # Concatenate values for output feature
+        df.at[start_idx, config['tf_output']] = ' '.join(data_complete[config['tf_output']].iloc[start_idx:end_idx])
+
+    # Handle remaining rows if any
+    remaining_rows = len(data_complete) % chunk_size
+    if remaining_rows > 0:
+        start_idx = len(data_complete) - remaining_rows
+        # Concatenate values for input and output features for remaining rows
+        df.loc[start_idx:, config['tf_input']] = ' '.join(data_complete[config['tf_input']].iloc[start_idx:])
+        df.loc[start_idx:, config['tf_output']] = ' '.join(data_complete[config['tf_output']].iloc[start_idx:])
+
+    # Drop unnecessary rows to keep only one row per chunk
+    df = df.iloc[::chunk_size].reset_index(drop=True)
+
+    # Create a raw dataset from the DataFrame
     ds_raw = Dataset.from_pandas(df)
+
+    # Get or build tokenizers for source and target features
     vocab_src = get_or_build_tokenizer(config, ds_raw, config['tf_input'])
     vocab_tgt = get_or_build_tokenizer(config, ds_raw, config['tf_output'])
+
+    # Create a BilingualDataset using source and target tokenizers
     ds = BilingualDataset(ds_raw, vocab_src, vocab_tgt, config['tf_input'], config['tf_output'], config['seq_len'])
+
+    # Create a DataLoader for the BilingualDataset
     ds_dataloader = DataLoader(ds, batch_size=1, shuffle=False)
 
+    # Determine the device to use for training (GPU if available, else CPU)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Get the model based on the configuration and move it to the selected device
     model = get_model(config, vocab_src.get_vocab_size(), vocab_tgt.get_vocab_size()).to(device)
 
-    # Load the pretrained weights
+    # Load the pretrained weights for the model
     model_filename = get_weights_file_path(config, f"19")
     state = torch.load(model_filename)
     model.load_state_dict(state['model_state_dict'])
@@ -367,28 +412,36 @@ def create_log(config):
     # Initialize an empty list to store tuples representing rows
     determined_log = []
 
+    # Iterate over batches in the DataLoader
     for batch in ds_dataloader:
+        # Get input and mask tensors
         encoder_input = batch["encoder_input"].to(device)
         encoder_mask = batch["encoder_mask"].to(device)
 
-        # Ensure batch size is 1
+        # Split source and target text into lists of values
+        source_text = batch["src_text"][0].split()
+        target_text = batch["tgt_text"][0].split()
+        batch_size = len(target_text)
+
+        # Ensure batch size is 1 for evaluation
         assert encoder_input.size(0) == 1, "Batch size must be 1 for evaluation"
 
-        model_out = greedy_decode(model, encoder_input, encoder_mask, vocab_src, vocab_tgt, 3, device)
+        # Perform greedy decoding using the pre-trained model
+        model_out = greedy_decode(model, encoder_input, encoder_mask, vocab_src, vocab_tgt, batch_size + 2, device)
+        model_out_values = vocab_tgt.decode(model_out.detach().cpu().numpy()).split()
 
-        source_text = batch["src_text"][0]
-        target_text = batch["tgt_text"][0]
-        model_out_text = vocab_tgt.decode(model_out.detach().cpu().numpy())
-
-        # Append the current results as a tuple to the list
-        determined_log.append((model_out_text, target_text, source_text))
+        # Extend the determined_log list with tuples representing rows
+        determined_log.extend((model_out_value, target_value, source_value)
+                              for source_value, target_value, model_out_value
+                              in zip(source_text, target_text, model_out_values))
 
     # Convert the list of tuples to a DataFrame
     determined_log = pd.DataFrame(determined_log, columns=['Determined Case ID', 'Actual Case ID', 'Activity'])
 
-    # Save as CSV
+    # Save the determined log as a CSV file
     determined_log.to_csv('determined_event_log.csv')
 
+    # Return the determined log DataFrame
     return determined_log
 
 
