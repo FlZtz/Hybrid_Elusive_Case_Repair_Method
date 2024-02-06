@@ -405,16 +405,19 @@ def train_model(config: Namespace) -> None:
         }, model_filename)
 
 
-def create_log(config: Namespace, chunk_size: int = 10) -> pd.DataFrame:
+def create_log(config: Namespace, chunk_size: int = None) -> pd.DataFrame:
     """
     Creates a log with determined case IDs based on the given configuration and chunk size.
 
     :param config: Dictionary containing configuration parameters for log creation. It includes keys like 'tf_input',
     'tf_output', and 'seq_len'.
-    :param chunk_size: Number of rows to be processed as a single chunk. Default is set to 10.
+    :param chunk_size: Number of rows to be processed as a single chunk. Default is set to `config['seq_len']` - 2.
     :return: DataFrame representing the log with determined cases, including columns for 'Determined Case ID',
     'Actual Case ID', and 'Activity'.
     """
+    if chunk_size is None:
+        chunk_size = config['seq_len'] - 2
+
     # Read the complete log data
     data_complete = read_log(config, True)
 

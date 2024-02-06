@@ -25,12 +25,14 @@ def get_config() -> dict:
     if log_name is None:
         log_name = extract_log_name(log_path)
 
+    num_tokens = 2
+
     # Return a dictionary with configuration parameters
     return {
         "batch_size": 8,
         "num_epochs": 20,
         "lr": 10 ** -4,
-        "seq_len": 12,
+        "seq_len": 10 + num_tokens,  # Adjusted seq_len accounting for SOS and EOS tokens
         "d_model": 512,
         "log_path": log_path,
         "log_name": log_name,
