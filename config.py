@@ -1,3 +1,4 @@
+# config.py - Configuration parameters and utility functions for model training.
 import os
 import tkinter as tk
 from tkinter import filedialog
@@ -77,7 +78,7 @@ def latest_weights_file_path(config: dict) -> str or None:
     return str(weights_files[-1])
 
 
-def reset_log():
+def reset_log() -> None:
     """
     Reset log_path and log_name to None.
     """

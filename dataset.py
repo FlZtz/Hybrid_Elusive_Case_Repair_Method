@@ -1,11 +1,24 @@
+# dataset.py - Definition of BilingualDataset class for handling bilingual text data and related utilities.
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset
 
 
 class BilingualDataset(Dataset):
+    """
+    Dataset class for bilingual text data.
+    """
+    def __init__(self, ds: list, tokenizer_src, tokenizer_tgt, tf_input: str, tf_output: str, seq_len: int) -> None:
+        """
+        Initialize the dataset.
 
-    def __init__(self, ds, tokenizer_src, tokenizer_tgt, tf_input, tf_output, seq_len):
+        :param ds: List of dictionaries containing source and target text pairs.
+        :param tokenizer_src: Source language tokenizer.
+        :param tokenizer_tgt: Target language tokenizer.
+        :param tf_input: Key indicating the source text in the dictionary.
+        :param tf_output: Key indicating the target text in the dictionary.
+        :param seq_len: Maximum sequence length for inputs and outputs.
+        """
         super().__init__()
         self.seq_len = seq_len
 
@@ -15,14 +28,27 @@ class BilingualDataset(Dataset):
         self.tf_input = tf_input
         self.tf_output = tf_output
 
+        # Special tokens for start of sequence (SOS), end of sequence (EOS), and padding (PAD)
         self.sos_token = torch.tensor([tokenizer_tgt.token_to_id("[SOS]")], dtype=torch.int64)
         self.eos_token = torch.tensor([tokenizer_tgt.token_to_id("[EOS]")], dtype=torch.int64)
         self.pad_token = torch.tensor([tokenizer_tgt.token_to_id("[PAD]")], dtype=torch.int64)
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """
+        Get the number of items in the dataset.
+
+        :return: Number of items in the dataset.
+        """
         return len(self.ds)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> dict:
+        """
+        Generate a single training example.
+
+        :param idx: Index of the example in the dataset.
+        :return: Dictionary containing encoder input, decoder input, encoder mask, decoder mask, label,
+        source text, and target text.
+        """
         src_target_pair = self.ds[idx]
         src_text = src_target_pair[self.tf_input]
         tgt_text = src_target_pair[self.tf_output]
@@ -31,16 +57,15 @@ class BilingualDataset(Dataset):
         enc_input_tokens = self.tokenizer_src.encode(src_text).ids
         dec_input_tokens = self.tokenizer_tgt.encode(tgt_text).ids
 
-        # Add sos, eos and padding to each sentence
-        enc_num_padding_tokens = self.seq_len - len(enc_input_tokens) - 2  # We will add <s> and </s>
-        # We will only add <s>, and </s> only on the label
-        dec_num_padding_tokens = self.seq_len - len(dec_input_tokens) - 1
+        # Calculate the number of padding tokens to add
+        enc_num_padding_tokens = self.seq_len - len(enc_input_tokens) - 2  # Accounting for SOS and EOS tokens
+        dec_num_padding_tokens = self.seq_len - len(dec_input_tokens) - 1  # Accounting for SOS token only
 
-        # Make sure the number of padding tokens is not negative. If it is, the sentence is too long
+        # Ensure the length of the sequences does not exceed the specified maximum
         if enc_num_padding_tokens < 0 or dec_num_padding_tokens < 0:
             raise ValueError("Sentence is too long")
 
-        # Add <s> and </s> token
+        # Construct encoder input tensor with SOS, EOS, and padding tokens
         encoder_input = torch.cat(
             [
                 self.sos_token,
@@ -51,7 +76,7 @@ class BilingualDataset(Dataset):
             dim=0,
         )
 
-        # Add only <s> token
+        # Construct decoder input tensor with SOS and padding tokens
         decoder_input = torch.cat(
             [
                 self.sos_token,
@@ -61,7 +86,7 @@ class BilingualDataset(Dataset):
             dim=0,
         )
 
-        # Add only </s> token
+        # Construct label tensor with EOS and padding tokens
         label = torch.cat(
             [
                 torch.tensor(dec_input_tokens, dtype=torch.int64),
@@ -71,7 +96,7 @@ class BilingualDataset(Dataset):
             dim=0,
         )
 
-        # Double-check the size of the tensors to make sure they are all seq_len long
+        # Ensure all tensors have the correct sequence length
         assert encoder_input.size(0) == self.seq_len
         assert decoder_input.size(0) == self.seq_len
         assert label.size(0) == self.seq_len
@@ -79,9 +104,9 @@ class BilingualDataset(Dataset):
         return {
             "encoder_input": encoder_input,  # (seq_len)
             "decoder_input": decoder_input,  # (seq_len)
-            # PAD tokens should not participate in self-attention
+            # Mask indicating which tokens should participate in self-attention (excluding PAD tokens)
             "encoder_mask": (encoder_input != self.pad_token).unsqueeze(0).unsqueeze(0).int(),  # (1, 1, seq_len)
-            # PAD tokens should not participate in self-attention and words should not look at words that come after it
+            # Mask indicating self-attention and causal mask (excluding PAD tokens)
             "decoder_mask": (decoder_input != self.pad_token).unsqueeze(0).int() & causal_mask(decoder_input.size(0)),
             # (1, seq_len) & (1, seq_len, seq_len),
             "label": label,  # (seq_len)
@@ -90,6 +115,12 @@ class BilingualDataset(Dataset):
         }
 
 
-def causal_mask(size):
+def causal_mask(size: int) -> torch.Tensor:
+    """
+    Generate a causal mask for self-attention.
+
+    :param size: Size of the mask.
+    :return: Causal mask tensor.
+    """
     mask = torch.triu(torch.ones((1, size, size)), diagonal=1).type(torch.int)
     return mask == 0

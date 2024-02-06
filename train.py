@@ -1,36 +1,44 @@
-import shutil
-
-import pandas as pd
-import pm4py
-from pm4py.objects.conversion.log import converter as log_converter
-
-from model import build_transformer
-from dataset import BilingualDataset, causal_mask
-from config import get_config, get_weights_file_path, latest_weights_file_path
-
-import torchtext.datasets as datasets
-import torch
-import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader, random_split
-from torch.optim.lr_scheduler import LambdaLR
-
-import warnings
-from tqdm import tqdm
-import os
-from pathlib import Path
-
-from dateutil import parser
-from sklearn.model_selection import train_test_split
-
-# Huggingface datasets and tokenizers
-from datasets import load_dataset, Dataset
-from tokenizers import Tokenizer, models, trainers, pre_tokenizers
-
-import torchmetrics
-from torch.utils.tensorboard import SummaryWriter
+# train.py - Script for training a Transformer model and creating a log with determined case IDs
+import shutil  # For filesystem operations
+import pandas as pd  # For working with dataframes
+import pm4py  # For process mining operations
+from pm4py.objects.conversion.log import converter as log_converter  # For log conversion
+from model import build_transformer, Transformer  # Importing Transformer model builder
+from dataset import BilingualDataset, causal_mask  # Importing custom dataset and mask functions
+from config import get_config, get_weights_file_path, latest_weights_file_path  # For loading configurations
+import torchtext.datasets as datasets  # For accessing torchtext datasets
+import torch  # PyTorch library
+import torch.nn as nn  # PyTorch neural network module
+from torch.utils.data import Dataset, DataLoader, random_split  # For working with PyTorch datasets
+from torch.optim.lr_scheduler import LambdaLR  # For learning rate scheduling
+import warnings  # For managing warnings
+from tqdm import tqdm  # For progress bars
+import os  # For operating system related operations
+from pathlib import Path  # For working with file paths
+from dateutil import parser  # For parsing date strings
+from sklearn.model_selection import train_test_split  # For splitting dataset into train and test
+from datasets import load_dataset, Dataset  # For Huggingface datasets
+from tokenizers import Tokenizer, models, trainers, pre_tokenizers  # For tokenization
+import torchmetrics  # For evaluation metrics
+from torch.utils.tensorboard import SummaryWriter  # For TensorBoard visualization
+from typing import Callable, Tuple  # For type hints
+from argparse import Namespace  # For argument parsing
 
 
-def greedy_decode(model, source, source_mask, tokenizer_src, tokenizer_tgt, max_len, device):
+def greedy_decode(model: Transformer, source: torch.Tensor, source_mask: torch.Tensor, tokenizer_src: Tokenizer,
+                  tokenizer_tgt: Tokenizer, max_len: int, device: torch.device) -> torch.Tensor:
+    """
+    Greedy decoding algorithm for generating target sequences based on a trained Transformer model.
+
+    :param model: The trained Transformer model.
+    :param source: The source input tensor.
+    :param source_mask: The mask for source sequence.
+    :param tokenizer_src: Tokenizer for source language.
+    :param tokenizer_tgt: Tokenizer for target language.
+    :param max_len: Maximum length of the output sequence.
+    :param device: Device to perform computations on.
+    :return: The decoded target sequence tensor.
+    """
     sos_idx = tokenizer_tgt.token_to_id('[SOS]')
     eos_idx = tokenizer_tgt.token_to_id('[EOS]')
 
@@ -67,8 +75,23 @@ def greedy_decode(model, source, source_mask, tokenizer_src, tokenizer_tgt, max_
     return decoder_input.squeeze(0)
 
 
-def run_validation(model, validation_ds, tokenizer_src, tokenizer_tgt, max_len, device, print_msg, global_step, writer,
-                   num_examples=2):
+def run_validation(model: Transformer, validation_ds: DataLoader, tokenizer_src: Tokenizer, tokenizer_tgt: Tokenizer,
+                   max_len: int, device: torch.device, print_msg: Callable[[str], None], global_step: int,
+                   writer: SummaryWriter, num_examples: int = 2) -> None:
+    """
+    Run validation on the trained model and log evaluation metrics.
+
+    :param model: The trained Transformer model.
+    :param validation_ds: DataLoader for the validation dataset.
+    :param tokenizer_src: Tokenizer for source language.
+    :param tokenizer_tgt: Tokenizer for target language.
+    :param max_len: Maximum length of the output sequence.
+    :param device: Device to perform computations on.
+    :param print_msg: Function to print messages.
+    :param global_step: Current global step in training.
+    :param writer: TensorBoard SummaryWriter.
+    :param num_examples: Number of examples to show during validation. Defaults to 2.
+    """
     model.eval()
     count = 0
 
@@ -134,38 +157,52 @@ def run_validation(model, validation_ds, tokenizer_src, tokenizer_tgt, max_len, 
         writer.flush()
 
 
-def get_all_sentences(ds, data):
+def get_all_sentences(ds: Dataset, data: str) -> str:
+    """
+    Generator function to yield all sentences in a dataset.
+
+    :param ds: Dataset to extract sentences from.
+    :param data: Name of the data field.
+    :return: Sentences from the dataset.
+    """
     for item in ds:
         yield item[data]
 
 
-def get_or_build_tokenizer(config, ds, data):
+def get_or_build_tokenizer(config: Namespace, ds: Dataset, data: str) -> Tokenizer:
+    """
+    Get or build a tokenizer for a specific dataset and data field.
+
+    :param config: Configuration options.
+    :param ds: Dataset to build tokenizer for.
+    :param data: Name of the data field.
+    :return: Tokenizer for the dataset.
+    """
+    # Check if tokenizer file exists
     tokenizer_path = Path(config['tokenizer_file'].format(config['log_name'], data))
-
     if not Path.exists(tokenizer_path):
-        # Most code taken from: https://huggingface.co/docs/tokenizers/quicktour
-        # Initialize the Tokenizer
+        # Train a new tokenizer
         tokenizer = Tokenizer(models.WordLevel(unk_token="[UNK]"))
-
-        # Set the pre_tokenizer
+        # Customize pre-tokenization and training
         tokenizer.pre_tokenizer = pre_tokenizers.Whitespace()
-
-        # Initialize the Trainer
         trainer = trainers.WordLevelTrainer(special_tokens=["[UNK]", "[PAD]", "[SOS]", "[EOS]"])
-
-        # Train the tokenizer
         tokenizer.train_from_iterator(get_all_sentences(ds, data), trainer=trainer)
-
-        # Save the tokenizer
         tokenizer.save(str(tokenizer_path))
     else:
-        # Load the tokenizer from the saved file
+        # Load existing tokenizer
         tokenizer = Tokenizer.from_file(str(tokenizer_path))
-
     return tokenizer
 
 
-def read_log(config, complete=False):
+def read_log(config: Namespace, complete: bool = False) -> pd.DataFrame:
+    """
+    Reads the log file and preprocesses it.
+
+    :param config: Configuration options.
+    :param complete: Whether to return the complete DataFrame or processed DataFrame. Defaults to False.
+    :return: Represents the log data.
+    """
+    # Check the file type and read the log file accordingly
     if config['log_path'].endswith('.csv'):
         df = pd.read_csv(config['log_path'])
     elif config['log_path'].endswith('.xes'):
@@ -174,14 +211,14 @@ def read_log(config, complete=False):
     else:
         raise ValueError('Unknown file type. Supported types are .csv and .xes.')
 
-    # Selecting columns
+    # Select relevant columns and rename them
     df = df[['case:concept:name', 'concept:name', 'time:timestamp', 'org:resource']]
     df.columns = ['Case ID', 'Activity', 'Timestamp', 'Resource']
 
     # Replace whitespaces with underscores in column values
     df = df.map(lambda x: x.replace(' ', '_') if isinstance(x, str) else x)
 
-    # Use dateutil.parser for ISO8601 string parsing
+    # Parse timestamps using dateutil.parser
     df['Timestamp'] = df['Timestamp'].apply(lambda x: parser.isoparse(x) if isinstance(x, str) else x)
     df = df.sort_values(['Timestamp']).reset_index(drop=True)
     df['Timestamp'] = pd.to_datetime(df['Timestamp'], utc=True)
@@ -195,6 +232,7 @@ def read_log(config, complete=False):
     length = config['seq_len'] - 2
 
     if len(df) >= length:
+        # Chunking the data and concatenating values for input and output features
         for i in range(len(df) - length + 1):
             df_copy.at[i, config['tf_input']] = ' '.join(df[config['tf_input']].iloc[i:i + length])
             df_copy.at[i, config['tf_output']] = ' '.join(df[config['tf_output']].iloc[i:i + length])
@@ -206,7 +244,13 @@ def read_log(config, complete=False):
     return df_copy
 
 
-def get_ds(config):
+def get_ds(config: Namespace) -> Tuple[DataLoader, DataLoader, Tokenizer, Tokenizer]:
+    """
+    Gets training and validation DataLoaders along with tokenizers for the dataset.
+
+    :param config: Configuration options.
+    :return: Training DataLoader; Validation DataLoader; Source Tokenizer; Target Tokenizer.
+    """
     df = read_log(config)
     # TODO: shuffle = false ?
     train, test = train_test_split(df, test_size=0.1)
@@ -245,13 +289,26 @@ def get_ds(config):
     return train_dataloader, val_dataloader, tokenizer_src, tokenizer_tgt
 
 
-def get_model(config, vocab_src_len, vocab_tgt_len):
+def get_model(config: Namespace, vocab_src_len: int, vocab_tgt_len: int) -> nn.Module:
+    """
+    Builds and returns the Transformer model.
+
+    :param config: Configuration options.
+    :param vocab_src_len: Length of source vocabulary.
+    :param vocab_tgt_len: Length of target vocabulary.
+    :return: Transformer model.
+    """
     model = build_transformer(vocab_src_len, vocab_tgt_len, config["seq_len"], config['seq_len'],
                               d_model=config['d_model'])
     return model
 
 
-def train_model(config):
+def train_model(config: Namespace) -> None:
+    """
+    Trains the Transformer model.
+
+    :param config: Configuration options.
+    """
     # Define the device
     device = "cuda" if torch.cuda.is_available() else "mps" if torch.has_mps or torch.backends.mps.is_available()\
         else "cpu"
@@ -348,7 +405,7 @@ def train_model(config):
         }, model_filename)
 
 
-def create_log(config, chunk_size=10) -> pd.DataFrame:
+def create_log(config: Namespace, chunk_size: int = 10) -> pd.DataFrame:
     """
     Creates a log with determined case IDs based on the given configuration and chunk size.
 
