@@ -307,15 +307,14 @@ def read_log(config: Namespace, complete: bool = False) -> pd.DataFrame:
     df = df[list(selected_columns.values())]
     df.columns = list(selected_columns.keys())
 
-    # Convert DataFrame to string type and replace spaces with underscores
-    df = df.astype(str)
-    df = df.map(lambda x: x.replace(' ', '_') if isinstance(x, str) else x)
-
     # Convert Timestamp column to datetime
     df['Timestamp'] = df['Timestamp'].apply(lambda x: parser.isoparse(x) if isinstance(x, str) else x)
     df = df.sort_values(['Timestamp']).reset_index(drop=True)
     df['Timestamp'] = pd.to_datetime(df['Timestamp'], utc=True)
     df['Timestamp'] = df['Timestamp'].dt.tz_localize(None)
+
+    # Convert DataFrame to string type and replace spaces and hyphens with underscores
+    df = df.astype(str).applymap(lambda x: x.replace(' ', '_').replace('-', '_'))
 
     # Create a copy of DataFrame with required attributes
     df_copy = df[[config['tf_input'], config['tf_output']]].copy()
