@@ -74,4 +74,6 @@ This project is not licensed.
 ## References
 
 - The training algorithm used in `train.py` is based on https://youtu.be/ISNdQcPhsts.
-- The dataset used for training is sourced from https://pm4py.fit.fraunhofer.de/static/assets/examples/running-example.xes.
+- The datasets used for training are publicly available and can be found at the following links:
+  - Running Example: https://pm4py.fit.fraunhofer.de/static/assets/examples/running-example.xes
+  - Review Example Large: https://doi.org/10.4121/uuid:da6aafef-5a86-4769-acf3-04e8ae5ab4fe

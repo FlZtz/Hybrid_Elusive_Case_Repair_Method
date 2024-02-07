@@ -5,7 +5,7 @@ import pm4py  # For process mining operations
 from pm4py.objects.conversion.log import converter as log_converter  # For log conversion
 from model import build_transformer, Transformer  # Importing Transformer model builder
 from dataset import BilingualDataset, causal_mask  # Importing custom dataset and mask functions
-from config import get_config, get_weights_file_path, latest_weights_file_path  # For loading configurations
+from config import get_config, get_weights_file_path, latest_weights_file_path, get_cached_df_copy, set_cached_df_copy
 import torchtext.datasets as datasets  # For accessing torchtext datasets
 import torch  # PyTorch library
 import torch.nn as nn  # PyTorch neural network module
@@ -21,7 +21,7 @@ from datasets import load_dataset, Dataset  # For Huggingface datasets
 from tokenizers import Tokenizer, models, trainers, pre_tokenizers  # For tokenization
 import torchmetrics  # For evaluation metrics
 from torch.utils.tensorboard import SummaryWriter  # For TensorBoard visualization
-from typing import Callable, Tuple  # For type hints
+from typing import Callable, Tuple, Union  # For type hints
 from argparse import Namespace  # For argument parsing
 
 
@@ -196,51 +196,151 @@ def get_or_build_tokenizer(config: Namespace, ds: Dataset, data: str) -> Tokeniz
 
 def read_log(config: Namespace, complete: bool = False) -> pd.DataFrame:
     """
-    Reads the log file and preprocesses it.
+    Read log file and preprocess data according to configuration.
 
-    :param config: Configuration options.
-    :param complete: Whether to return the complete DataFrame or processed DataFrame. Defaults to False.
-    :return: Represents the log data.
+    :param config: Configuration object containing necessary parameters.
+    :param complete: Flag to indicate if the complete DataFrame should be returned. Defaults to False.
+    :return: Processed DataFrame according to the specified configuration.
     """
-    # Check the file type and read the log file accordingly
+    cached_df_copy = get_cached_df_copy()
+    # Check if the cached DataFrame exists and if complete is True
+    if cached_df_copy is not None and complete:
+        return cached_df_copy
+
+    # Check the file extension to determine the type of log file
     if config['log_path'].endswith('.csv'):
+        # Read CSV file into a DataFrame
         df = pd.read_csv(config['log_path'])
     elif config['log_path'].endswith('.xes'):
+        # Read XES file into a DataFrame using PM4Py library
         file = pm4py.read_xes(config['log_path'])
         df = log_converter.apply(file, variant=log_converter.Variants.TO_DATA_FRAME)
     else:
+        # Raise an error for unsupported file types
         raise ValueError('Unknown file type. Supported types are .csv and .xes.')
 
-    # Select relevant columns and rename them
-    df = df[['case:concept:name', 'concept:name', 'time:timestamp', 'org:resource']]
-    df.columns = ['Case ID', 'Activity', 'Timestamp', 'Resource']
+    # Define the required attributes including 'Timestamp' only if it's not already in config['tf_input']
+    # or config['tf_output']
+    required_attributes = list({config['tf_input'], config['tf_output'], 'Timestamp'})
 
-    # Replace whitespaces with underscores in column values
+    # Create a mapping of attribute aliases to column names
+    column_mapping = {key: value for key, value in config['attribute_dictionary'].items()
+                      if key in required_attributes}
+
+    # Initialize dictionaries and lists for selected columns
+    selected_columns = {}
+    automatically_selected_columns = {}
+    selected_col_alias = []
+
+    # Iterate through the attribute mapping
+    for col_alias, col_name in column_mapping.items():
+        # Check if the column exists in the DataFrame
+        if col_name.lower() in map(str.lower, df.columns):
+            # If found, automatically select the column
+            automatically_selected_columns[col_alias] = col_name
+            selected_col_alias.append(col_alias)
+        else:
+            # If not found, prompt the user to select the column
+            print(f"Column '{col_name}' for '{col_alias}' not found in the dataframe.")
+            # List available columns for user selection
+            available_columns = [col for col in df.columns.tolist() if col not in selected_columns.values()]
+            num_available_columns = len(available_columns)
+            if num_available_columns == 0:
+                raise ValueError("No available columns left. Cannot proceed.")
+            else:
+                print(f"{num_available_columns} available column{'s' if num_available_columns > 1 else ''}: "
+                      f"{', '.join(available_columns)}")
+            # Prompt the user to select the column
+            user_input = input(f"Please select the name of the column corresponding to '{col_alias}': ")
+            matching_column = next((col for col in df.columns if col.lower() == user_input.lower()), None)
+            if matching_column:
+                selected_columns[col_alias] = matching_column
+                print(f"Column '{matching_column}' selected for '{col_alias}'.\n")
+            else:
+                raise ValueError("No matching column found. Please try again.")
+
+    # If some columns are selected automatically
+    if len(selected_col_alias) != 0:
+        print(f"Following column{'s' if len(selected_col_alias) != 1 else ''} "
+              f"w{'ere' if len(selected_col_alias) != 1 else 'as'} automatically matched:")
+        for index, col_alias in enumerate(selected_col_alias):
+            print(f"'{automatically_selected_columns[col_alias]}' for '{col_alias}'"
+                  f"{';' if index != len(selected_col_alias) - 1 else '.'}")
+
+        # Ask for user confirmation on the automatically selected columns
+        user_confirmation = input(f"Is this {'completely ' if len(selected_col_alias) != 1 else ''}"
+                                  f"correct? (yes/no): ").lower().strip()
+        if user_confirmation == 'no':
+            if len(selected_col_alias) != 1:
+                incorrect_aliases = [alias.strip() for alias in input(f"Please enter the incorrect attribute(s) "
+                                                                      f"separated by a comma: ").split(',')]
+                if not all(alias in selected_col_alias for alias in incorrect_aliases):
+                    raise ValueError("One or more provided incorrect attributes are not valid.")
+            else:
+                incorrect_aliases = [selected_col_alias[0]]
+            for alias in incorrect_aliases:
+                del automatically_selected_columns[alias]
+                available_columns = [col for col in df.columns.tolist() if col not in selected_columns.values()]
+                num_available_columns = len(available_columns)
+                if num_available_columns == 0:
+                    raise ValueError("No available columns left. Cannot proceed.")
+                else:
+                    print(f"{num_available_columns} available column{'s' if num_available_columns > 1 else ''}: "
+                          f"{', '.join(available_columns)}")
+                user_input = input(f"Please select the name of the column corresponding to '{alias}': ")
+                matching_column = next((col for col in df.columns if col.lower() == user_input.lower()), None)
+                if matching_column:
+                    selected_columns[alias] = matching_column
+                    print(f"Column '{matching_column}' selected for '{alias}'.\n")
+                else:
+                    raise ValueError("No matching column found. Please try again.")
+
+        # Check for duplicate selections
+        for col_alias, col_name in automatically_selected_columns.items():
+            if col_name in selected_columns.values():
+                raise ValueError(f"Column '{col_name}' was inadmissibly selected twice.")
+
+        # Update the selected columns with the automatically matched columns
+        selected_columns.update(automatically_selected_columns)
+
+    # Select columns from DataFrame based on selected columns
+    df = df[list(selected_columns.values())]
+    df.columns = list(selected_columns.keys())
+
+    # Convert DataFrame to string type and replace spaces with underscores
+    df = df.astype(str)
     df = df.map(lambda x: x.replace(' ', '_') if isinstance(x, str) else x)
 
-    # Parse timestamps using dateutil.parser
+    # Convert Timestamp column to datetime
     df['Timestamp'] = df['Timestamp'].apply(lambda x: parser.isoparse(x) if isinstance(x, str) else x)
     df = df.sort_values(['Timestamp']).reset_index(drop=True)
     df['Timestamp'] = pd.to_datetime(df['Timestamp'], utc=True)
     df['Timestamp'] = df['Timestamp'].dt.tz_localize(None)
 
+    # Create a copy of DataFrame with required attributes
     df_copy = df[[config['tf_input'], config['tf_output']]].copy()
 
+    # Cache a copy of the DataFrame for potential future use
+    set_cached_df_copy(df_copy)
+
+    # If complete flag is set, return the DataFrame
     if complete:
         return df_copy
 
+    # Prepare the DataFrame for sequence processing
     length = config['seq_len'] - 2
-
     if len(df) >= length:
-        # Chunking the data and concatenating values for input and output features
         for i in range(len(df) - length + 1):
+            # Concatenate sequences of input and output attributes
             df_copy.at[i, config['tf_input']] = ' '.join(df[config['tf_input']].iloc[i:i + length])
             df_copy.at[i, config['tf_output']] = ' '.join(df[config['tf_output']].iloc[i:i + length])
 
+        # Drop rows with insufficient sequence length
         df_copy = df_copy.drop(df_copy.index[len(df) - length + 1:])
     else:
         raise ValueError(f"Length of the dataframe ({len(df)}) is less than {length}.")
 
+    # Return the prepared DataFrame
     return df_copy
 
 

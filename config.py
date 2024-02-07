@@ -1,12 +1,17 @@
 # config.py - Configuration parameters and utility functions for model training.
 import os
+import pandas as pd
 import tkinter as tk
 from tkinter import filedialog
 from pathlib import Path
+from typing import Union
 
 # Global variables to store log_path and extracted log_name
-log_path = None
-log_name = None
+log_path: Union[str, None] = None
+log_name: Union[str, None] = None
+
+# Global variable to cache DataFrame copy
+cached_df_copy: Union[pd.DataFrame, None] = None
 
 
 def get_config() -> dict:
@@ -27,6 +32,13 @@ def get_config() -> dict:
 
     num_tokens = 2
 
+    attribute_dictionary = {
+        'Case ID': 'case:concept:name',
+        'Activity': 'concept:name',
+        'Timestamp': 'time:timestamp',
+        'Resource': 'org:resource'
+    }
+
     # Return a dictionary with configuration parameters
     return {
         "batch_size": 8,
@@ -43,7 +55,8 @@ def get_config() -> dict:
         "preload": "latest",
         "tokenizer_file": "{0}_tokenizer_{1}.json",
         "experiment_name": f"runs/{log_name}_tmodel",
-        "result_file_name": f"determined_{log_name}.csv"
+        "result_file_name": f"determined_{log_name}.csv",
+        "attribute_dictionary": attribute_dictionary
     }
 
 
@@ -82,11 +95,12 @@ def latest_weights_file_path(config: dict) -> str or None:
 
 def reset_log() -> None:
     """
-    Reset log_path and log_name to None.
+    Reset the global variables log_path, log_name, and cached_df_copy to None.
     """
-    global log_path, log_name
+    global log_path, log_name, cached_df_copy
     log_path = None
     log_name = None
+    cached_df_copy = None
 
 
 def get_file_path() -> str:
@@ -130,3 +144,23 @@ def extract_log_name(log_path: str) -> str:
     base_name = os.path.basename(log_path)
     log_name, _ = os.path.splitext(base_name)
     return log_name
+
+
+def get_cached_df_copy() -> pd.DataFrame or None:
+    """
+    Get the cached DataFrame copy.
+
+    :return: Cached DataFrame copy, or None if it does not exist.
+    """
+    global cached_df_copy
+    return cached_df_copy
+
+
+def set_cached_df_copy(df: pd.DataFrame) -> None:
+    """
+    Set the cached DataFrame copy.
+
+    :param df: DataFrame to cache.
+    """
+    global cached_df_copy
+    cached_df_copy = df.copy()
