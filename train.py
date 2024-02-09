@@ -565,7 +565,7 @@ def create_log(config: Namespace, chunk_size: int = None) -> pd.DataFrame:
 
     # Load the pretrained weights for the model
     model_filename = get_weights_file_path(config, f"19")
-    state = torch.load(model_filename)
+    state = torch.load(model_filename, map_location=device)
     model.load_state_dict(state['model_state_dict'])
 
     # Initialize an empty list to store tuples representing rows
