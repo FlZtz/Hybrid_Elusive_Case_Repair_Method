@@ -1,28 +1,31 @@
 # train.py - Script for training a Transformer model and creating a log with determined case IDs
 import shutil  # For filesystem operations
+import warnings  # For managing warnings
+from pathlib import Path  # For working with file paths
+from dateutil import parser  # For parsing date strings
+from typing import Callable, Tuple  # For type hints
+
 import pandas as pd  # For working with dataframes
-import pm4py  # For process mining operations
-from pm4py.objects.conversion.log import converter as log_converter  # For log conversion
-from model import build_transformer, Transformer  # Importing Transformer model builder
-from dataset import BilingualDataset, causal_mask  # Importing custom dataset and mask functions
-from config import get_config, get_weights_file_path, latest_weights_file_path, get_cached_df_copy, set_cached_df_copy
-import torchtext.datasets as datasets  # For accessing torchtext datasets
+from sklearn.model_selection import train_test_split  # For splitting dataset into train and test
+
 import torch  # PyTorch library
 import torch.nn as nn  # PyTorch neural network module
 from torch.utils.data import Dataset, DataLoader, random_split  # For working with PyTorch datasets
-from torch.optim.lr_scheduler import LambdaLR  # For learning rate scheduling
-import warnings  # For managing warnings
-from tqdm import tqdm  # For progress bars
-import os  # For operating system related operations
-from pathlib import Path  # For working with file paths
-from dateutil import parser  # For parsing date strings
-from sklearn.model_selection import train_test_split  # For splitting dataset into train and test
-from datasets import load_dataset, Dataset  # For Huggingface datasets
-from tokenizers import Tokenizer, models, trainers, pre_tokenizers  # For tokenization
 import torchmetrics  # For evaluation metrics
 from torch.utils.tensorboard import SummaryWriter  # For TensorBoard visualization
-from typing import Callable, Tuple, Union  # For type hints
-from argparse import Namespace  # For argument parsing
+
+import pm4py  # For process mining operations
+from pm4py.objects.conversion.log import converter as log_converter  # For log conversion
+
+from datasets import Dataset  # For Huggingface datasets
+from tokenizers import Tokenizer, models, trainers, pre_tokenizers  # For tokenization
+
+from model import build_transformer, Transformer  # Importing Transformer model builder
+from dataset import BilingualDataset, causal_mask  # Importing custom dataset and mask functions
+from config import (get_config, get_weights_file_path, latest_weights_file_path, get_cached_df_copy, set_cached_df_copy,
+                    attribute_specification) # Importing configuration and utility functions
+
+from tqdm import tqdm  # For progress bars
 
 
 def greedy_decode(model: Transformer, source: torch.Tensor, source_mask: torch.Tensor, tokenizer_src: Tokenizer,
@@ -169,7 +172,7 @@ def get_all_sentences(ds: Dataset, data: str) -> str:
         yield item[data]
 
 
-def get_or_build_tokenizer(config: Namespace, ds: Dataset, data: str) -> Tokenizer:
+def get_or_build_tokenizer(config: dict, ds: Dataset, data: str) -> Tokenizer:
     """
     Get or build a tokenizer for a specific dataset and data field.
 
@@ -194,7 +197,7 @@ def get_or_build_tokenizer(config: Namespace, ds: Dataset, data: str) -> Tokeniz
     return tokenizer
 
 
-def read_log(config: Namespace, complete: bool = False) -> pd.DataFrame:
+def read_log(config: dict, complete: bool = False) -> pd.DataFrame:
     """
     Read log file and preprocess data according to configuration.
 
@@ -221,7 +224,7 @@ def read_log(config: Namespace, complete: bool = False) -> pd.DataFrame:
 
     # Define the required attributes including 'Timestamp' only if it's not already in config['tf_input']
     # or config['tf_output']
-    required_attributes = list({config['tf_input'], config['tf_output'], 'Timestamp'})
+    required_attributes = list({*config['tf_input'], config['tf_output'], 'Timestamp'})
 
     # Create a mapping of attribute aliases to column names
     column_mapping = {key: value for key, value in config['attribute_dictionary'].items()
@@ -317,7 +320,7 @@ def read_log(config: Namespace, complete: bool = False) -> pd.DataFrame:
     df = df.astype(str).applymap(lambda x: x.replace(' ', '_').replace('-', '_'))
 
     # Create a copy of DataFrame with required attributes
-    df_copy = df[[config['tf_input'], config['tf_output']]].copy()
+    df_copy = df[[*config['tf_input'], config['tf_output']]].copy()
 
     # Cache a copy of the DataFrame for potential future use
     set_cached_df_copy(df_copy)
@@ -331,7 +334,8 @@ def read_log(config: Namespace, complete: bool = False) -> pd.DataFrame:
     if len(df) >= length:
         for i in range(len(df) - length + 1):
             # Concatenate sequences of input and output attributes
-            df_copy.at[i, config['tf_input']] = ' '.join(df[config['tf_input']].iloc[i:i + length])
+            for attr in config['tf_input']:
+                df_copy.at[i, attr] = ' '.join(df[attr].iloc[i:i + length])
             df_copy.at[i, config['tf_output']] = ' '.join(df[config['tf_output']].iloc[i:i + length])
 
         # Drop rows with insufficient sequence length
@@ -339,11 +343,18 @@ def read_log(config: Namespace, complete: bool = False) -> pd.DataFrame:
     else:
         raise ValueError(f"Length of the dataframe ({len(df)}) is less than {length}.")
 
+    # Combine columns specified in the config['discrete_input_attributes'] array
+    df_copy['Discrete Attributes'] = df_copy[config['discrete_input_attributes']].apply(lambda row: ' '.join(row),
+                                                                                        axis=1)
+
+    # Drop the original columns
+    df_copy.drop(config['discrete_input_attributes'], axis=1, inplace=True)
+
     # Return the prepared DataFrame
     return df_copy
 
 
-def get_ds(config: Namespace) -> Tuple[DataLoader, DataLoader, Tokenizer, Tokenizer]:
+def get_ds(config: dict) -> Tuple[DataLoader, DataLoader, Tokenizer, Tokenizer]:
     """
     Gets training and validation DataLoaders along with tokenizers for the dataset.
 
@@ -351,12 +362,13 @@ def get_ds(config: Namespace) -> Tuple[DataLoader, DataLoader, Tokenizer, Tokeni
     :return: Training DataLoader; Validation DataLoader; Source Tokenizer; Target Tokenizer.
     """
     df = read_log(config)
-    # TODO: shuffle = false ?
-    train, test = train_test_split(df, test_size=0.1)
+    train, test = train_test_split(df, test_size=0.1, shuffle=True)
     ds_raw = Dataset.from_pandas(train)
 
+    # TODO: Discrete vs. continuous features
+    # TODO: First token then concatenate then encoder (embedding for all categorical)
     # Build tokenizers
-    tokenizer_src = get_or_build_tokenizer(config, ds_raw, config['tf_input'])
+    tokenizer_src = get_or_build_tokenizer(config, ds_raw, 'Discrete Attributes')
     tokenizer_tgt = get_or_build_tokenizer(config, ds_raw, config['tf_output'])
 
     # Keep 90% for training, 10% for validation
@@ -364,17 +376,17 @@ def get_ds(config: Namespace) -> Tuple[DataLoader, DataLoader, Tokenizer, Tokeni
     val_ds_size = len(ds_raw) - train_ds_size
     train_ds_raw, val_ds_raw = random_split(ds_raw, [train_ds_size, val_ds_size])
 
-    train_ds = BilingualDataset(train_ds_raw, tokenizer_src, tokenizer_tgt, config['tf_input'], config['tf_output'],
-                                config['seq_len'])
-    val_ds = BilingualDataset(val_ds_raw, tokenizer_src, tokenizer_tgt, config['tf_input'], config['tf_output'],
-                              config['seq_len'])
+    train_ds = BilingualDataset(train_ds_raw, tokenizer_src, tokenizer_tgt, 'Discrete Attributes',
+                                config['tf_output'], config['seq_len'], len(config['discrete_input_attributes']))
+    val_ds = BilingualDataset(val_ds_raw, tokenizer_src, tokenizer_tgt, 'Discrete Attributes',
+                              config['tf_output'], config['seq_len'], len(config['discrete_input_attributes']))
 
     # Find the maximum length of each sentence in the source and target sentence
     max_len_src = 0
     max_len_tgt = 0
 
     for item in ds_raw:
-        src_ids = tokenizer_src.encode(item[config['tf_input']]).ids
+        src_ids = tokenizer_src.encode(item['Discrete Attributes']).ids
         tgt_ids = tokenizer_tgt.encode(item[config['tf_output']]).ids
         max_len_src = max(max_len_src, len(src_ids))
         max_len_tgt = max(max_len_tgt, len(tgt_ids))
@@ -388,7 +400,7 @@ def get_ds(config: Namespace) -> Tuple[DataLoader, DataLoader, Tokenizer, Tokeni
     return train_dataloader, val_dataloader, tokenizer_src, tokenizer_tgt
 
 
-def get_model(config: Namespace, vocab_src_len: int, vocab_tgt_len: int) -> nn.Module:
+def get_model(config: dict, vocab_src_len: int, vocab_tgt_len: int) -> Transformer:
     """
     Builds and returns the Transformer model.
 
@@ -397,19 +409,21 @@ def get_model(config: Namespace, vocab_src_len: int, vocab_tgt_len: int) -> nn.M
     :param vocab_tgt_len: Length of target vocabulary.
     :return: Transformer model.
     """
-    model = build_transformer(vocab_src_len, vocab_tgt_len, config["seq_len"], config['seq_len'],
+    model = build_transformer(vocab_src_len, vocab_tgt_len,
+                              (config['seq_len'] - 2) * len(config['discrete_input_attributes']) + 2, config['seq_len'],
                               d_model=config['d_model'])
     return model
 
 
-def train_model(config: Namespace) -> None:
+def train_model(config: dict) -> None:
     """
     Trains the Transformer model.
 
     :param config: Configuration options.
     """
     # Define the device
-    device = "cuda" if torch.cuda.is_available() else "mps" if torch.has_mps or torch.backends.mps.is_available()\
+    device = "cuda" if torch.cuda.is_available() \
+        else "mps" if torch.has_mps or torch.backends.mps.is_available() \
         else "cpu"
     print("Using device:", device)
     if device == 'cuda':
@@ -504,7 +518,7 @@ def train_model(config: Namespace) -> None:
         }, model_filename)
 
 
-def create_log(config: Namespace, chunk_size: int = None) -> pd.DataFrame:
+def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
     """
     Creates a log with determined case IDs based on the given configuration and chunk size.
 
@@ -528,8 +542,9 @@ def create_log(config: Namespace, chunk_size: int = None) -> pd.DataFrame:
         start_idx = i * chunk_size
         end_idx = (i + 1) * chunk_size
 
-        # Concatenate values for input feature
-        df.at[start_idx, config['tf_input']] = ' '.join(data_complete[config['tf_input']].iloc[start_idx:end_idx])
+        # Concatenate values for input feature(s)
+        for attr in config['tf_input']:
+            df.at[start_idx, attr] = ' '.join(data_complete[attr].iloc[start_idx:end_idx])
         # Concatenate values for output feature
         df.at[start_idx, config['tf_output']] = ' '.join(data_complete[config['tf_output']].iloc[start_idx:end_idx])
 
@@ -538,21 +553,26 @@ def create_log(config: Namespace, chunk_size: int = None) -> pd.DataFrame:
     if remaining_rows > 0:
         start_idx = len(data_complete) - remaining_rows
         # Concatenate values for input and output features for remaining rows
-        df.loc[start_idx:, config['tf_input']] = ' '.join(data_complete[config['tf_input']].iloc[start_idx:])
+        for attr in config['tf_input']:
+            df.loc[start_idx:, attr] = ' '.join(data_complete[attr].iloc[start_idx:])
         df.loc[start_idx:, config['tf_output']] = ' '.join(data_complete[config['tf_output']].iloc[start_idx:])
 
     # Drop unnecessary rows to keep only one row per chunk
     df = df.iloc[::chunk_size].reset_index(drop=True)
 
+    # Combine columns specified in the config['discrete_input_attributes'] array
+    df['Discrete Attributes'] = df[config['discrete_input_attributes']].apply(lambda row: ' '.join(row), axis=1)
+
     # Create a raw dataset from the DataFrame
     ds_raw = Dataset.from_pandas(df)
 
     # Get or build tokenizers for source and target features
-    vocab_src = get_or_build_tokenizer(config, ds_raw, config['tf_input'])
+    vocab_src = get_or_build_tokenizer(config, ds_raw, 'Discrete Attributes')
     vocab_tgt = get_or_build_tokenizer(config, ds_raw, config['tf_output'])
 
     # Create a BilingualDataset using source and target tokenizers
-    ds = BilingualDataset(ds_raw, vocab_src, vocab_tgt, config['tf_input'], config['tf_output'], config['seq_len'])
+    ds = BilingualDataset(ds_raw, vocab_src, vocab_tgt, 'Discrete Attributes', config['tf_output'],
+                          config['seq_len'], len(config['discrete_input_attributes']))
 
     # Create a DataLoader for the BilingualDataset
     ds_dataloader = DataLoader(ds, batch_size=1, shuffle=False)
@@ -577,25 +597,43 @@ def create_log(config: Namespace, chunk_size: int = None) -> pd.DataFrame:
         encoder_input = batch["encoder_input"].to(device)
         encoder_mask = batch["encoder_mask"].to(device)
 
-        # Split source and target text into lists of values
-        source_text = batch["src_text"][0].split()
+        # Split target text into a list of values
         target_text = batch["tgt_text"][0].split()
         batch_size = len(target_text)
 
-        # Ensure batch size is 1 for evaluation
-        assert encoder_input.size(0) == 1, "Batch size must be 1 for evaluation"
+        try:
+            # Ensure batch size is 1 for evaluation
+            assert encoder_input.size(0) == 1, "Batch size must be 1 for evaluation"
 
-        # Perform greedy decoding using the pre-trained model
-        model_out = greedy_decode(model, encoder_input, encoder_mask, vocab_src, vocab_tgt, batch_size + 2, device)
-        model_out_values = vocab_tgt.decode(model_out.detach().cpu().numpy()).split()
+            # Perform greedy decoding using the pre-trained model
+            model_out = greedy_decode(model, encoder_input, encoder_mask, vocab_src, vocab_tgt, batch_size + 2, device)
+            model_out_values = vocab_tgt.decode(model_out.detach().cpu().numpy()).split()
 
-        # Extend the determined_log list with tuples representing rows
-        determined_log.extend((model_out_value, target_value, source_value)
-                              for source_value, target_value, model_out_value
-                              in zip(source_text, target_text, model_out_values))
+            # Extend the determined_log list with tuples representing rows
+            determined_log.extend((model_out_value, target_value)
+                                  for target_value, model_out_value
+                                  in zip(target_text, model_out_values))
+        except Exception as e:
+            # If an error occurs during decoding, log the error and skip this batch
+            print(f"Error occurred during decoding: {e}")
+            continue
 
     # Convert the list of tuples to a DataFrame
-    determined_log = pd.DataFrame(determined_log, columns=['Determined Case ID', 'Actual Case ID', 'Activity'])
+    determined_log = pd.DataFrame(determined_log, columns=['Determined Case ID', 'Actual Case ID'])
+
+    # Initialize an empty DataFrame to store the restored columns
+    restored_columns = pd.DataFrame()
+
+    # Iterate over each column specified in config['tf_input']
+    for attr in config['tf_input']:
+        # Split the concatenated values into separate values
+        values = df[attr].str.split().explode()
+
+        # Assign the values to a new column in the restored_columns DataFrame
+        restored_columns[attr] = values.values
+
+    # Concatenate determined_log with restored_columns and assign it back to determined_log
+    determined_log = pd.concat([determined_log, restored_columns], axis=1)
 
     # Save the determined log as a CSV file
     determined_log.to_csv(config['result_file_name'])
@@ -606,6 +644,7 @@ def create_log(config: Namespace, chunk_size: int = None) -> pd.DataFrame:
 
 if __name__ == '__main__':
     warnings.filterwarnings("ignore")
+    attribute_specification()
     config = get_config()
     train_model(config)
     create_log(config)

@@ -1,8 +1,9 @@
 # model.py - Definition of Transformer model and related modules.
-import torch
-import torch.nn as nn
 import math
 from typing import Tuple
+
+import torch
+import torch.nn as nn
 
 
 class LayerNormalization(nn.Module):
@@ -173,8 +174,8 @@ class MultiHeadAttentionBlock(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     @staticmethod
-    def attention(query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, mask: torch.Tensor, dropout: nn.Dropout)\
-            -> Tuple[torch.Tensor, torch.Tensor]:
+    def attention(query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, mask: torch.Tensor,
+                  dropout: nn.Dropout) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Compute the scaled dot-product attention.
 
@@ -297,8 +298,8 @@ class DecoderBlock(nn.Module):
         self.feed_forward_block = feed_forward_block
         self.residual_connections = nn.ModuleList([ResidualConnection(features, dropout) for _ in range(3)])
 
-    def forward(self, x: torch.Tensor, encoder_output: torch.Tensor, src_mask: torch.Tensor, tgt_mask: torch.Tensor) \
-            -> torch.Tensor:
+    def forward(self, x: torch.Tensor, encoder_output: torch.Tensor, src_mask: torch.Tensor,
+                tgt_mask: torch.Tensor) -> torch.Tensor:
         """
         Forward pass of the decoder block.
 
@@ -330,8 +331,8 @@ class Decoder(nn.Module):
         self.layers = layers
         self.norm = LayerNormalization(features)
 
-    def forward(self, x: torch.Tensor, encoder_output: torch.Tensor, src_mask: torch.Tensor, tgt_mask: torch.Tensor) \
-            -> torch.Tensor:
+    def forward(self, x: torch.Tensor, encoder_output: torch.Tensor, src_mask: torch.Tensor,
+                tgt_mask: torch.Tensor) -> torch.Tensor:
         """
         Forward pass of the decoder module.
 
@@ -408,8 +409,8 @@ class Transformer(nn.Module):
         src = self.src_pos(src)
         return self.encoder(src, src_mask)
 
-    def decode(self, encoder_output: torch.Tensor, src_mask: torch.Tensor, tgt: torch.Tensor, tgt_mask: torch.Tensor) \
-            -> torch.Tensor:
+    def decode(self, encoder_output: torch.Tensor, src_mask: torch.Tensor, tgt: torch.Tensor,
+               tgt_mask: torch.Tensor) -> torch.Tensor:
         """
         Decode the target sequence.
 

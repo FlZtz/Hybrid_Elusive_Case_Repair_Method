@@ -1,17 +1,28 @@
 # config.py - Configuration parameters and utility functions for model training.
 import os
+from pathlib import Path
+from typing import List, Union
+
 import pandas as pd
 import tkinter as tk
 from tkinter import filedialog
-from pathlib import Path
-from typing import Union
+
 
 # Global variables to store log_path and extracted log_name
 log_path: Union[str, None] = None
 log_name: Union[str, None] = None
+tf_input: Union[List[str], None] = None
 
 # Global variable to cache DataFrame copy
 cached_df_copy: Union[pd.DataFrame, None] = None
+
+# Global variable to store attribute configuration
+attribute_config = {
+    'Case ID': {'mapping': 'case:concept:name', 'property': 'discrete'},
+    'Activity': {'mapping': 'concept:name', 'property': 'discrete'},
+    'Timestamp': {'mapping': 'time:timestamp', 'property': 'continuous'},
+    'Resource': {'mapping': 'org:resource', 'property': 'discrete'}
+}
 
 
 def get_config() -> dict:
@@ -20,7 +31,7 @@ def get_config() -> dict:
 
     :return: Dictionary containing various configuration parameters.
     """
-    global log_path, log_name
+    global log_path, log_name, tf_input, attribute_config
 
     # If log_path is not set, get it using the get_file_path function
     if log_path is None:
@@ -32,12 +43,22 @@ def get_config() -> dict:
 
     num_tokens = 2
 
-    attribute_dictionary = {
-        'Case ID': 'case:concept:name',
-        'Activity': 'concept:name',
-        'Timestamp': 'time:timestamp',
-        'Resource': 'org:resource'
-    }
+    # Creating a dictionary to map attributes to their corresponding data mappings
+    attribute_dictionary = {key: value['mapping'] for key, value in attribute_config.items()}
+
+    if tf_input is None:
+        tf_input = ["Activity"]
+
+    # Initialize lists for discrete and continuous input attributes
+    discrete_input_attributes = []
+    continuous_input_attributes = []
+
+    # Categorize input attributes as discrete or continuous
+    for attr in tf_input:
+        if attribute_config[attr]['property'] == "discrete":
+            discrete_input_attributes.append(attr)
+        else:
+            continuous_input_attributes.append(attr)
 
     # Return a dictionary with configuration parameters
     return {
@@ -48,8 +69,10 @@ def get_config() -> dict:
         "d_model": 512,
         "log_path": log_path,
         "log_name": log_name,
-        "tf_input": "Activity",
+        "tf_input": tf_input,
         "tf_output": "Case ID",
+        "discrete_input_attributes": discrete_input_attributes,
+        "continuous_input_attributes": continuous_input_attributes,
         "model_folder": f"{log_name}_weights",
         "model_basename": "tmodel_",
         "preload": "latest",
@@ -95,11 +118,12 @@ def latest_weights_file_path(config: dict) -> str or None:
 
 def reset_log() -> None:
     """
-    Reset the global variables log_path, log_name, and cached_df_copy to None.
+    Reset the global variables log_path, log_name, tf_input, and cached_df_copy to None.
     """
-    global log_path, log_name, cached_df_copy
+    global log_path, log_name, tf_input, cached_df_copy
     log_path = None
     log_name = None
+    tf_input = None
     cached_df_copy = None
 
 
@@ -164,3 +188,50 @@ def set_cached_df_copy(df: pd.DataFrame) -> None:
     """
     global cached_df_copy
     cached_df_copy = df.copy()
+
+
+def set_tf_input(*attributes: str) -> None:
+    """
+    Sets the Transformer input attributes based on the provided arguments.
+
+    :param attributes: Variable number of string arguments representing the attributes to be set.
+    """
+    global tf_input, attribute_config
+
+    # Unpack list if there is only one argument and it's a list
+    if len(attributes) == 1 and isinstance(attributes[0], list):
+        attributes = attributes[0]
+
+    # Validate input attributes
+    validated_attributes = []
+    for attr in attributes:
+        found = False
+        for key in attribute_config:
+            if attr.lower() == key.lower():
+                validated_attributes.append(key)  # Use the spelling from attribute_config
+                found = True
+                break
+        if not found:
+            raise ValueError(f"Attribute '{attr}' is not a valid attribute.")
+
+    # If all attributes are valid, update tf_input
+    tf_input = validated_attributes
+
+
+def attribute_specification() -> None:
+    """
+    Allows the user to specify Transformer input attributes based on provided attributes.
+    """
+    # Prompt user to enter attributes separated by commas
+    attributes = input("Please enter the input attribute(s) for the transformer (separated by commas): ")
+
+    # Check if user provided any attributes
+    if not attributes:
+        raise ValueError("No attributes provided. Please try again.")
+
+    # Split input string into a list of attributes and strip extra whitespace
+    attributes_list = [activity.strip() for activity in attributes.split(',')]
+
+    # Set Transformer input attributes based on the provided attributes
+    # Note: *attributes_list is used to unpack the list into separate arguments
+    set_tf_input(*attributes_list)

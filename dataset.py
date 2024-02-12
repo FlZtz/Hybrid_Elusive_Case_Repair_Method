@@ -1,14 +1,15 @@
 # dataset.py - Definition of BilingualDataset class for handling bilingual text data and related utilities.
 import torch
-import torch.nn as nn
 from torch.utils.data import Dataset
+from tokenizers import Tokenizer
 
 
 class BilingualDataset(Dataset):
     """
     Dataset class for bilingual text data.
     """
-    def __init__(self, ds: list, tokenizer_src, tokenizer_tgt, tf_input: str, tf_output: str, seq_len: int) -> None:
+    def __init__(self, ds: Dataset, tokenizer_src: Tokenizer, tokenizer_tgt: Tokenizer, tf_input: str, tf_output: str,
+                 seq_len: int, disc_attr: int) -> None:
         """
         Initialize the dataset.
 
@@ -18,6 +19,7 @@ class BilingualDataset(Dataset):
         :param tf_input: Key indicating the source text in the dictionary.
         :param tf_output: Key indicating the target text in the dictionary.
         :param seq_len: Maximum sequence length for inputs and outputs.
+        :param disc_attr: Number of discrete input attributes.
         """
         super().__init__()
         self.seq_len = seq_len
@@ -27,6 +29,7 @@ class BilingualDataset(Dataset):
         self.tokenizer_tgt = tokenizer_tgt
         self.tf_input = tf_input
         self.tf_output = tf_output
+        self.disc_attr = disc_attr
 
         # Special tokens for start of sequence (SOS), end of sequence (EOS), and padding (PAD)
         self.sos_token = torch.tensor([tokenizer_tgt.token_to_id("[SOS]")], dtype=torch.int64)
@@ -39,7 +42,10 @@ class BilingualDataset(Dataset):
 
         :return: Number of items in the dataset.
         """
-        return len(self.ds)
+        try:
+            return len(self.ds)
+        except TypeError:
+            raise TypeError("Dataset object does not support length operation.")
 
     def __getitem__(self, idx: int) -> dict:
         """
@@ -58,7 +64,8 @@ class BilingualDataset(Dataset):
         dec_input_tokens = self.tokenizer_tgt.encode(tgt_text).ids
 
         # Calculate the number of padding tokens to add
-        enc_num_padding_tokens = self.seq_len - len(enc_input_tokens) - 2  # Accounting for SOS and EOS tokens
+        # Accounting for SOS and EOS tokens
+        enc_num_padding_tokens = (self.seq_len - 2) * self.disc_attr - len(enc_input_tokens)
         dec_num_padding_tokens = self.seq_len - len(dec_input_tokens) - 1  # Accounting for SOS token only
 
         # Ensure the length of the sequences does not exceed the specified maximum
@@ -97,7 +104,7 @@ class BilingualDataset(Dataset):
         )
 
         # Ensure all tensors have the correct sequence length
-        assert encoder_input.size(0) == self.seq_len
+        assert encoder_input.size(0) == (self.seq_len - 2) * self.disc_attr + 2
         assert decoder_input.size(0) == self.seq_len
         assert label.size(0) == self.seq_len
 
