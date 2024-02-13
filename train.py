@@ -1,10 +1,11 @@
 # train.py - Script for training a Transformer model and creating a log with determined case IDs
+import os  # For filesystem operations
 import shutil  # For filesystem operations
 import warnings  # For managing warnings
 from pathlib import Path  # For working with file paths
-from dateutil import parser  # For parsing date strings
 from typing import Callable, Tuple  # For type hints
 
+# Third-party library imports
 import pandas as pd  # For working with dataframes
 from sklearn.model_selection import train_test_split  # For splitting dataset into train and test
 
@@ -17,13 +18,16 @@ from torch.utils.tensorboard import SummaryWriter  # For TensorBoard visualizati
 import pm4py  # For process mining operations
 from pm4py.objects.conversion.log import converter as log_converter  # For log conversion
 
-from datasets import Dataset  # For Huggingface datasets
+from dateutil import parser  # For parsing date strings
+
+from datasets import Dataset as HuggingfaceDataset  # For Huggingface datasets
 from tokenizers import Tokenizer, models, trainers, pre_tokenizers  # For tokenization
 
+# Local application/library specific imports
 from model import build_transformer, Transformer  # Importing Transformer model builder
 from dataset import BilingualDataset, causal_mask  # Importing custom dataset and mask functions
 from config import (get_config, get_weights_file_path, latest_weights_file_path, get_cached_df_copy, set_cached_df_copy,
-                    attribute_specification) # Importing configuration and utility functions
+                    attribute_specification)  # Importing configuration and utility functions
 
 from tqdm import tqdm  # For progress bars
 
@@ -182,8 +186,9 @@ def get_or_build_tokenizer(config: dict, ds: Dataset, data: str) -> Tokenizer:
     :return: Tokenizer for the dataset.
     """
     # Check if tokenizer file exists
-    tokenizer_path = Path(config['tokenizer_file'].format(config['log_name'], data))
-    if not Path.exists(tokenizer_path):
+    os.makedirs(config['tokenizer_folder'], exist_ok=True)
+    tokenizer_path = Path(os.path.join(config['tokenizer_folder'], config['tokenizer_file'].format(data)))
+    if not tokenizer_path.exists():
         # Train a new tokenizer
         tokenizer = Tokenizer(models.WordLevel(unk_token="[UNK]"))
         # Customize pre-tokenization and training
@@ -363,7 +368,7 @@ def get_ds(config: dict) -> Tuple[DataLoader, DataLoader, Tokenizer, Tokenizer]:
     """
     df = read_log(config)
     train, test = train_test_split(df, test_size=0.1, shuffle=True)
-    ds_raw = Dataset.from_pandas(train)
+    ds_raw = HuggingfaceDataset.from_pandas(train)
 
     # TODO: Discrete vs. continuous features
     # TODO: First token then concatenate then encoder (embedding for all categorical)
@@ -564,7 +569,7 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
     df['Discrete Attributes'] = df[config['discrete_input_attributes']].apply(lambda row: ' '.join(row), axis=1)
 
     # Create a raw dataset from the DataFrame
-    ds_raw = Dataset.from_pandas(df)
+    ds_raw = HuggingfaceDataset.from_pandas(df)
 
     # Get or build tokenizers for source and target features
     vocab_src = get_or_build_tokenizer(config, ds_raw, 'Discrete Attributes')
@@ -635,8 +640,12 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
     # Concatenate determined_log with restored_columns and assign it back to determined_log
     determined_log = pd.concat([determined_log, restored_columns], axis=1)
 
+    # Create directories if they don't exist
+    os.makedirs(config['result_folder'], exist_ok=True)
+
     # Save the determined log as a CSV file
-    determined_log.to_csv(config['result_file_name'])
+    result_file_full_path = os.path.join(config['result_folder'], config['result_file'])
+    determined_log.to_csv(result_file_full_path, index=False)
 
     # Return the determined log DataFrame
     return determined_log

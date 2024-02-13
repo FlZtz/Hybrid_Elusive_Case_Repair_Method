@@ -21,7 +21,17 @@ attribute_config = {
     'Case ID': {'mapping': 'case:concept:name', 'property': 'discrete'},
     'Activity': {'mapping': 'concept:name', 'property': 'discrete'},
     'Timestamp': {'mapping': 'time:timestamp', 'property': 'continuous'},
-    'Resource': {'mapping': 'org:resource', 'property': 'discrete'}
+    'Concept Definition': {'mapping': 'concept:definition', 'property': 'discrete'},
+    'Instance': {'mapping': 'concept:instance', 'property': 'discrete'},
+    'Lifecycle Transition': {'mapping': 'lifecycle:transition', 'property': 'discrete'},
+    'Cost': {'mapping': 'org:cost', 'property': 'continuous'},
+    'Cost Currency': {'mapping': 'org:cost:currency', 'property': 'discrete'},
+    'Group': {'mapping': 'org:group', 'property': 'discrete'},
+    'Resource': {'mapping': 'org:resource', 'property': 'discrete'},
+    'Role': {'mapping': 'org:role', 'property': 'discrete'},
+    'Role Label': {'mapping': 'org:role:label', 'property': 'discrete'},
+    'Value': {'mapping': 'org:value', 'property': 'continuous'},
+    'Value Currency': {'mapping': 'org:value:currency', 'property': 'discrete'}
 }
 
 
@@ -60,6 +70,16 @@ def get_config() -> dict:
         else:
             continuous_input_attributes.append(attr)
 
+    # Assign model_name based on the number of discrete and continuous attributes
+    if len(discrete_input_attributes) == 1 and len(continuous_input_attributes) == 0:
+        model_name = "baseline"
+    elif len(discrete_input_attributes) > 1 and len(continuous_input_attributes) == 0:
+        model_name = "multiple_discrete"
+    elif len(discrete_input_attributes) > 0 and len(continuous_input_attributes) > 0:
+        model_name = "discrete_continuous"
+    else:
+        model_name = "unknown"
+
     # Return a dictionary with configuration parameters
     return {
         "batch_size": 8,
@@ -73,12 +93,15 @@ def get_config() -> dict:
         "tf_output": "Case ID",
         "discrete_input_attributes": discrete_input_attributes,
         "continuous_input_attributes": continuous_input_attributes,
-        "model_folder": f"{log_name}_weights",
+        "model_folder": f"weights/{model_name}/{log_name}",
+        "model_name": model_name,
         "model_basename": "tmodel_",
         "preload": "latest",
-        "tokenizer_file": "{0}_tokenizer_{1}.json",
-        "experiment_name": f"runs/{log_name}_tmodel",
-        "result_file_name": f"determined_{log_name}.csv",
+        "tokenizer_folder": f"tokenizers/{model_name}/{log_name}",
+        "tokenizer_file": "tokenizer_{0}.json",
+        "experiment_name": f"runs/{model_name}/{log_name}",
+        "result_folder": f"repaired_logs/{model_name}/{log_name}",
+        "result_file": f"determined_{log_name}.csv",
         "attribute_dictionary": attribute_dictionary
     }
 
