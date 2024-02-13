@@ -101,7 +101,8 @@ def get_config() -> dict:
         "tokenizer_file": "tokenizer_{0}.json",
         "experiment_name": f"runs/{model_name}/{log_name}",
         "result_folder": f"repaired_logs/{model_name}/{log_name}",
-        "result_file": f"determined_{log_name}.csv",
+        "result_csv_file": f"determined_{log_name}.csv",
+        "result_xes_file": f"determined_{log_name}.xes",
         "attribute_dictionary": attribute_dictionary
     }
 

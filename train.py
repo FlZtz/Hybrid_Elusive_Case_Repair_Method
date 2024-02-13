@@ -321,18 +321,18 @@ def read_log(config: dict, complete: bool = False) -> pd.DataFrame:
     df['Timestamp'] = pd.to_datetime(df['Timestamp'], utc=True)
     df['Timestamp'] = df['Timestamp'].dt.tz_localize(None)
 
-    # Convert DataFrame to string type and replace spaces and hyphens with underscores
-    df = df.astype(str).applymap(lambda x: x.replace(' ', '_').replace('-', '_'))
-
-    # Create a copy of DataFrame with required attributes
-    df_copy = df[[*config['tf_input'], config['tf_output']]].copy()
-
     # Cache a copy of the DataFrame for potential future use
-    set_cached_df_copy(df_copy)
+    set_cached_df_copy(df)
 
     # If complete flag is set, return the DataFrame
     if complete:
-        return df_copy
+        return df
+
+    # Create a DataFrame with required attributes
+    df = df[[*config['tf_input'], config['tf_output']]]
+
+    # Convert DataFrame to string type and replace spaces and hyphens with underscores
+    df = df.astype(str).applymap(lambda x: x.replace(' ', '_').replace('-', '_'))
 
     # Prepare the DataFrame for sequence processing
     length = config['seq_len'] - 2
@@ -340,23 +340,22 @@ def read_log(config: dict, complete: bool = False) -> pd.DataFrame:
         for i in range(len(df) - length + 1):
             # Concatenate sequences of input and output attributes
             for attr in config['tf_input']:
-                df_copy.at[i, attr] = ' '.join(df[attr].iloc[i:i + length])
-            df_copy.at[i, config['tf_output']] = ' '.join(df[config['tf_output']].iloc[i:i + length])
+                df.at[i, attr] = ' '.join(df[attr].iloc[i:i + length])
+            df.at[i, config['tf_output']] = ' '.join(df[config['tf_output']].iloc[i:i + length])
 
         # Drop rows with insufficient sequence length
-        df_copy = df_copy.drop(df_copy.index[len(df) - length + 1:])
+        df = df.drop(df.index[len(df) - length + 1:])
     else:
         raise ValueError(f"Length of the dataframe ({len(df)}) is less than {length}.")
 
     # Combine columns specified in the config['discrete_input_attributes'] array
-    df_copy['Discrete Attributes'] = df_copy[config['discrete_input_attributes']].apply(lambda row: ' '.join(row),
-                                                                                        axis=1)
+    df['Discrete Attributes'] = df[config['discrete_input_attributes']].apply(lambda row: ' '.join(row), axis=1)
 
     # Drop the original columns
-    df_copy.drop(config['discrete_input_attributes'], axis=1, inplace=True)
+    df.drop(config['discrete_input_attributes'], axis=1, inplace=True)
 
     # Return the prepared DataFrame
-    return df_copy
+    return df
 
 
 def get_ds(config: dict) -> Tuple[DataLoader, DataLoader, Tokenizer, Tokenizer]:
@@ -539,28 +538,31 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
     # Read the complete log data
     data_complete = read_log(config, True)
 
-    # Create a copy of the complete data
-    df = data_complete.copy()
+    # Create a copy of DataFrame with required attributes
+    df = data_complete[[*config['tf_input'], config['tf_output']]].copy()
+
+    # Convert DataFrame to string type and replace spaces and hyphens with underscores
+    df = df.astype(str).applymap(lambda x: x.replace(' ', '_').replace('-', '_'))
 
     # Loop through the data in chunks and concatenate values for input and output features
-    for i in range(len(data_complete) // chunk_size):
+    for i in range(len(df) // chunk_size):
         start_idx = i * chunk_size
         end_idx = (i + 1) * chunk_size
 
         # Concatenate values for input feature(s)
         for attr in config['tf_input']:
-            df.at[start_idx, attr] = ' '.join(data_complete[attr].iloc[start_idx:end_idx])
+            df.at[start_idx, attr] = ' '.join(df[attr].iloc[start_idx:end_idx])
         # Concatenate values for output feature
-        df.at[start_idx, config['tf_output']] = ' '.join(data_complete[config['tf_output']].iloc[start_idx:end_idx])
+        df.at[start_idx, config['tf_output']] = ' '.join(df[config['tf_output']].iloc[start_idx:end_idx])
 
     # Handle remaining rows if any
-    remaining_rows = len(data_complete) % chunk_size
+    remaining_rows = len(df) % chunk_size
     if remaining_rows > 0:
-        start_idx = len(data_complete) - remaining_rows
+        start_idx = len(df) - remaining_rows
         # Concatenate values for input and output features for remaining rows
         for attr in config['tf_input']:
-            df.loc[start_idx:, attr] = ' '.join(data_complete[attr].iloc[start_idx:])
-        df.loc[start_idx:, config['tf_output']] = ' '.join(data_complete[config['tf_output']].iloc[start_idx:])
+            df.loc[start_idx:, attr] = ' '.join(df[attr].iloc[start_idx:])
+        df.loc[start_idx:, config['tf_output']] = ' '.join(df[config['tf_output']].iloc[start_idx:])
 
     # Drop unnecessary rows to keep only one row per chunk
     df = df.iloc[::chunk_size].reset_index(drop=True)
@@ -644,8 +646,28 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
     os.makedirs(config['result_folder'], exist_ok=True)
 
     # Save the determined log as a CSV file
-    result_file_full_path = os.path.join(config['result_folder'], config['result_file'])
-    determined_log.to_csv(result_file_full_path, index=False)
+    determined_log.to_csv(os.path.join(config['result_folder'], config['result_csv_file']), index=False)
+
+    # Prepare extended log
+    extended_log = determined_log.copy()
+    if 'Timestamp' not in config['tf_input']:
+        timestamp_column = pd.DataFrame(data_complete['Timestamp'])
+        extended_log = pd.concat([determined_log, timestamp_column], axis=1)
+
+    # Drop column
+    extended_log.drop(columns=['Actual Case ID'], inplace=True)
+
+    # Rename 'Determined Case ID' to 'Case ID' first
+    extended_log.rename(columns={'Determined Case ID': 'Case ID'}, inplace=True)
+
+    # Then rename the rest of the columns specified in config['attribute_dictionary']
+    extended_log.rename(columns=config['attribute_dictionary'], inplace=True)
+
+    # Convert to event log
+    log = pm4py.convert_to_event_log(extended_log)
+
+    # Write XES file
+    pm4py.write_xes(log, os.path.join(config['result_folder'], config['result_xes_file']))
 
     # Return the determined log DataFrame
     return determined_log
