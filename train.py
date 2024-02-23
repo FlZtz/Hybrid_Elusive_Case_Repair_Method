@@ -33,6 +33,276 @@ from config import (get_config, get_weights_file_path, latest_weights_file_path,
 from tqdm import tqdm  # For progress bars
 
 
+def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
+    """
+    Creates a log with determined case IDs based on the given configuration and chunk size.
+
+    :param config: Dictionary containing configuration parameters for log creation. It includes keys like 'tf_input',
+    'tf_output', and 'seq_len'.
+    :param chunk_size: Number of rows to be processed as a single chunk. Default is set to `config['seq_len']` - 2.
+    :return: DataFrame representing the log with determined cases, including columns for 'Determined Case ID',
+    'Actual Case ID', and 'Activity'.
+    """
+    if chunk_size is None:
+        chunk_size = config['seq_len'] - 2
+
+    # Read the complete log data
+    data_complete = read_log(config, True)
+
+    expert_input_columns = get_expert_input_columns()
+
+    # Create a list with normalized column names for continuous attributes and original column names for others,
+    # then extend with expert input columns
+    all_input_columns = [
+        col + '_normalized' if col in config['continuous_input_attributes'] else col
+        for col in config['tf_input']
+    ] + expert_input_columns
+
+    # Create a copy of DataFrame with required attributes
+    df = data_complete[[*all_input_columns, config['tf_output']]].copy()
+
+    # Convert DataFrame to string type and replace spaces and hyphens with underscores
+    df = df.astype(str).applymap(lambda x: x.replace(' ', '_').replace('-', '_'))
+
+    # Loop through the data in chunks and concatenate values for input and output features
+    for i in range(len(df) // chunk_size):
+        start_idx = i * chunk_size
+        end_idx = (i + 1) * chunk_size
+
+        # Concatenate values for input feature(s)
+        for attr in all_input_columns:
+            df.at[start_idx, attr] = ' '.join(df[attr].iloc[start_idx:end_idx])
+        # Concatenate values for output feature
+        df.at[start_idx, config['tf_output']] = ' '.join(df[config['tf_output']].iloc[start_idx:end_idx])
+
+    # Handle remaining rows if any
+    remaining_rows = len(df) % chunk_size
+    if remaining_rows > 0:
+        start_idx = len(df) - remaining_rows
+        # Concatenate values for input and output features for remaining rows
+        for attr in all_input_columns:
+            df.loc[start_idx:, attr] = ' '.join(df[attr].iloc[start_idx:])
+        df.loc[start_idx:, config['tf_output']] = ' '.join(df[config['tf_output']].iloc[start_idx:])
+
+    # Drop unnecessary rows to keep only one row per chunk
+    df = df.iloc[::chunk_size].reset_index(drop=True)
+
+    # Concatenate values from discrete input attributes and expert input columns into a single column
+    df['Discrete Attributes'] = df[
+        config['discrete_input_attributes'] + expert_input_columns
+    ].apply(lambda row: ' '.join(row), axis=1)
+
+    # Create a raw dataset from the DataFrame
+    ds_raw = HuggingfaceDataset.from_pandas(df)
+
+    # Get or build tokenizers for source and target features
+    vocab_src = get_or_build_tokenizer(config, ds_raw, 'Discrete Attributes')
+    vocab_tgt = get_or_build_tokenizer(config, ds_raw, config['tf_output'])
+
+    # Create a BilingualDataset using source and target tokenizers
+    ds = BilingualDataset(ds_raw, vocab_src, vocab_tgt, 'Discrete Attributes',
+                          config['tf_output'], config['seq_len'],
+                          len(config['discrete_input_attributes']) + len(expert_input_columns))
+
+    # Create a DataLoader for the BilingualDataset
+    ds_dataloader = DataLoader(ds, batch_size=1, shuffle=False)
+
+    # Determine the device to use for training (GPU if available, else CPU)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Get the model based on the configuration and move it to the selected device
+    model = get_model(config, vocab_src.get_vocab_size(), vocab_tgt.get_vocab_size()).to(device)
+
+    # Load the pretrained weights for the model
+    model_filename = get_weights_file_path(config, f"19")
+    state = torch.load(model_filename, map_location=device)
+    model.load_state_dict(state['model_state_dict'])
+
+    # Initialize an empty list to store tuples representing rows
+    determined_log = []
+
+    # Iterate over batches in the DataLoader
+    for batch in ds_dataloader:
+        # Get input and mask tensors
+        encoder_input = batch["encoder_input"].to(device)
+        encoder_mask = batch["encoder_mask"].to(device)
+
+        # Split target text into a list of values
+        target_text = batch["tgt_text"][0].split()
+        batch_size = len(target_text)
+
+        try:
+            # Ensure batch size is 1 for evaluation
+            assert encoder_input.size(0) == 1, "Batch size must be 1 for evaluation"
+
+            # Perform greedy decoding using the pre-trained model
+            model_out = greedy_decode(model, encoder_input, encoder_mask, vocab_src, vocab_tgt, batch_size + 2, device)
+            model_out_values = vocab_tgt.decode(model_out.detach().cpu().numpy()).split()
+
+            # Extend the determined_log list with tuples representing rows
+            determined_log.extend((model_out_value, target_value)
+                                  for target_value, model_out_value
+                                  in zip(target_text, model_out_values))
+        except Exception as e:
+            # If an error occurs during decoding, log the error and skip this batch
+            print(f"Error occurred during decoding: {e}")
+            continue
+
+    # Convert the list of tuples to a DataFrame
+    determined_log = pd.DataFrame(determined_log, columns=['Determined Case ID', 'Actual Case ID'])
+
+    # Initialize an empty DataFrame to store the restored columns
+    restored_columns = pd.DataFrame()
+
+    for attr in config['tf_input']:
+        attr_column = pd.DataFrame(data_complete[attr])
+        restored_columns = pd.concat([restored_columns, attr_column], axis=1)
+
+    # Concatenate determined_log with restored_columns and assign it back to determined_log
+    determined_log = pd.concat([determined_log, restored_columns], axis=1)
+
+    # Create directories if they don't exist
+    os.makedirs(config['result_folder'], exist_ok=True)
+
+    # Save the determined log as a CSV file
+    determined_log.to_csv(os.path.join(config['result_folder'], config['result_csv_file']), index=False)
+
+    # Prepare extended log
+    extended_log = determined_log.copy()
+    if 'Timestamp' not in config['tf_input']:
+        timestamp_column = pd.DataFrame(data_complete['Timestamp'])
+        extended_log = pd.concat([determined_log, timestamp_column], axis=1)
+
+    # Drop column
+    extended_log.drop(columns=['Actual Case ID'], inplace=True)
+
+    # Rename 'Determined Case ID' to 'Case ID' first
+    extended_log.rename(columns={'Determined Case ID': 'Case ID'}, inplace=True)
+
+    # Then rename the rest of the columns specified in config['attribute_dictionary']
+    extended_log.rename(columns=config['attribute_dictionary'], inplace=True)
+
+    # Convert to event log
+    log = pm4py.convert_to_event_log(extended_log)
+
+    # Write XES file
+    pm4py.write_xes(log, os.path.join(config['result_folder'], config['result_xes_file']))
+
+    # Return the determined log DataFrame
+    return determined_log
+
+
+def get_all_sentences(ds: Dataset, data: str) -> str:
+    """
+    Generator function to yield all sentences in a dataset.
+
+    :param ds: Dataset to extract sentences from.
+    :param data: Name of the data field.
+    :return: Sentences from the dataset.
+    """
+    for item in ds:
+        yield item[data]
+
+
+def get_ds(config: dict) -> Tuple[DataLoader, DataLoader, Tokenizer, Tokenizer]:
+    """
+    Gets training and validation DataLoaders along with tokenizers for the dataset.
+
+    :param config: Configuration options.
+    :return: Training DataLoader; Validation DataLoader; Source Tokenizer; Target Tokenizer.
+    """
+    df = read_log(config)
+    train, test = train_test_split(df, test_size=0.1, shuffle=True)
+    ds_raw = HuggingfaceDataset.from_pandas(train)
+
+    # TODO: Continuous: Late fusion: concatenate the output of the Transformer encoder with the output of a simple
+    #  feed-forward net that encodes continuous data AND
+    #  encoding vector is constructed
+    # Build tokenizers
+    tokenizer_src = get_or_build_tokenizer(config, ds_raw, 'Discrete Attributes')
+    tokenizer_tgt = get_or_build_tokenizer(config, ds_raw, config['tf_output'])
+
+    # Keep 90% for training, 10% for validation
+    train_ds_size = int(0.9 * len(ds_raw))
+    val_ds_size = len(ds_raw) - train_ds_size
+    train_ds_raw, val_ds_raw = random_split(ds_raw, [train_ds_size, val_ds_size])
+
+    expert_input_columns = get_expert_input_columns()
+
+    train_ds = BilingualDataset(train_ds_raw, tokenizer_src, tokenizer_tgt, 'Discrete Attributes',
+                                config['tf_output'], config['seq_len'],
+                                len(config['discrete_input_attributes']) + len(expert_input_columns))
+    val_ds = BilingualDataset(val_ds_raw, tokenizer_src, tokenizer_tgt, 'Discrete Attributes',
+                              config['tf_output'], config['seq_len'],
+                              len(config['discrete_input_attributes']) + len(expert_input_columns))
+
+    # Find the maximum length of each sentence in the source and target sentence
+    max_len_src = 0
+    max_len_tgt = 0
+
+    for item in ds_raw:
+        src_ids = tokenizer_src.encode(item['Discrete Attributes']).ids
+        tgt_ids = tokenizer_tgt.encode(item[config['tf_output']]).ids
+        max_len_src = max(max_len_src, len(src_ids))
+        max_len_tgt = max(max_len_tgt, len(tgt_ids))
+
+    print(f'Max length of source sentence: {max_len_src}')
+    print(f'Max length of target sentence: {max_len_tgt}')
+
+    train_dataloader = DataLoader(train_ds, batch_size=config['batch_size'], shuffle=True)
+    val_dataloader = DataLoader(val_ds, batch_size=1, shuffle=True)
+
+    return train_dataloader, val_dataloader, tokenizer_src, tokenizer_tgt
+
+
+def get_model(config: dict, vocab_src_len: int, vocab_tgt_len: int) -> Transformer:
+    """
+    Builds and returns the Transformer model.
+
+    :param config: Configuration options.
+    :param vocab_src_len: Length of source vocabulary.
+    :param vocab_tgt_len: Length of target vocabulary.
+    :return: Transformer model.
+    """
+    expert_input_columns = get_expert_input_columns()
+
+    model = build_transformer(
+        vocab_src_len,
+        vocab_tgt_len,
+        (config['seq_len'] - 2) * (len(config['discrete_input_attributes']) + len(expert_input_columns)) + 2,
+        config['seq_len'],
+        d_model=config['d_model']
+    )
+
+    return model
+
+
+def get_or_build_tokenizer(config: dict, ds: Dataset, data: str) -> Tokenizer:
+    """
+    Get or build a tokenizer for a specific dataset and data field.
+
+    :param config: Configuration options.
+    :param ds: Dataset to build tokenizer for.
+    :param data: Name of the data field.
+    :return: Tokenizer for the dataset.
+    """
+    # Check if tokenizer file exists
+    os.makedirs(config['tokenizer_folder'], exist_ok=True)
+    tokenizer_path = Path(os.path.join(config['tokenizer_folder'], config['tokenizer_file'].format(data)))
+    if not tokenizer_path.exists():
+        # Train a new tokenizer
+        tokenizer = Tokenizer(models.WordLevel(unk_token="[UNK]"))
+        # Customize pre-tokenization and training
+        tokenizer.pre_tokenizer = pre_tokenizers.Whitespace()
+        trainer = trainers.WordLevelTrainer(special_tokens=["[UNK]", "[PAD]", "[SOS]", "[EOS]"])
+        tokenizer.train_from_iterator(get_all_sentences(ds, data), trainer=trainer)
+        tokenizer.save(str(tokenizer_path))
+    else:
+        # Load existing tokenizer
+        tokenizer = Tokenizer.from_file(str(tokenizer_path))
+    return tokenizer
+
+
 def greedy_decode(model: Transformer, source: torch.Tensor, source_mask: torch.Tensor, tokenizer_src: Tokenizer,
                   tokenizer_tgt: Tokenizer, max_len: int, device: torch.device) -> torch.Tensor:
     """
@@ -81,126 +351,6 @@ def greedy_decode(model: Transformer, source: torch.Tensor, source_mask: torch.T
             break
 
     return decoder_input.squeeze(0)
-
-
-def run_validation(model: Transformer, validation_ds: DataLoader, tokenizer_src: Tokenizer, tokenizer_tgt: Tokenizer,
-                   max_len: int, device: torch.device, print_msg: Callable[[str], None], global_step: int,
-                   writer: SummaryWriter, num_examples: int = 2) -> None:
-    """
-    Run validation on the trained model and log evaluation metrics.
-
-    :param model: The trained Transformer model.
-    :param validation_ds: DataLoader for the validation dataset.
-    :param tokenizer_src: Tokenizer for source language.
-    :param tokenizer_tgt: Tokenizer for target language.
-    :param max_len: Maximum length of the output sequence.
-    :param device: Device to perform computations on.
-    :param print_msg: Function to print messages.
-    :param global_step: Current global step in training.
-    :param writer: TensorBoard SummaryWriter.
-    :param num_examples: Number of examples to show during validation. Defaults to 2.
-    """
-    model.eval()
-    count = 0
-
-    source_texts = []
-    expected = []
-    predicted = []
-
-    try:
-        # get the console window width
-        console_width = shutil.get_terminal_size().columns
-    except Exception as e:
-        print(f'An unexpected error occurred: {e}')
-        # If we can't get the console width, use 80 as default
-        console_width = 80
-
-    with torch.no_grad():
-        for batch in validation_ds:
-            count += 1
-            encoder_input = batch["encoder_input"].to(device)  # (b, seq_len)
-            encoder_mask = batch["encoder_mask"].to(device)  # (b, 1, 1, seq_len)
-
-            # check that the batch size is 1
-            assert encoder_input.size(0) == 1, "Batch size must be 1 for validation"
-
-            model_out = greedy_decode(model, encoder_input, encoder_mask, tokenizer_src, tokenizer_tgt, max_len, device)
-
-            source_text = batch["src_text"][0]
-            target_text = batch["tgt_text"][0]
-            model_out_text = tokenizer_tgt.decode(model_out.detach().cpu().numpy())
-
-            source_texts.append(source_text)
-            expected.append(target_text)
-            predicted.append(model_out_text)
-
-            # Print the source, target and model output
-            print_msg('-' * console_width)
-            print_msg(f"{f'SOURCE: ':>12}{source_text}")
-            print_msg(f"{f'TARGET: ':>12}{target_text}")
-            print_msg(f"{f'PREDICTED: ':>12}{model_out_text}")
-
-            if count == num_examples:
-                print_msg('-' * console_width)
-                break
-
-    if writer:
-        # Evaluate the character error rate
-        # Compute the char error rate
-        metric = torchmetrics.CharErrorRate()
-        cer = metric(predicted, expected)
-        writer.add_scalar('validation cer', cer, global_step)
-        writer.flush()
-
-        # Compute the word error rate
-        metric = torchmetrics.WordErrorRate()
-        wer = metric(predicted, expected)
-        writer.add_scalar('validation wer', wer, global_step)
-        writer.flush()
-
-        # Compute the BLEU metric
-        metric = torchmetrics.BLEUScore()
-        bleu = metric(predicted, expected)
-        writer.add_scalar('validation BLEU', bleu, global_step)
-        writer.flush()
-
-
-def get_all_sentences(ds: Dataset, data: str) -> str:
-    """
-    Generator function to yield all sentences in a dataset.
-
-    :param ds: Dataset to extract sentences from.
-    :param data: Name of the data field.
-    :return: Sentences from the dataset.
-    """
-    for item in ds:
-        yield item[data]
-
-
-def get_or_build_tokenizer(config: dict, ds: Dataset, data: str) -> Tokenizer:
-    """
-    Get or build a tokenizer for a specific dataset and data field.
-
-    :param config: Configuration options.
-    :param ds: Dataset to build tokenizer for.
-    :param data: Name of the data field.
-    :return: Tokenizer for the dataset.
-    """
-    # Check if tokenizer file exists
-    os.makedirs(config['tokenizer_folder'], exist_ok=True)
-    tokenizer_path = Path(os.path.join(config['tokenizer_folder'], config['tokenizer_file'].format(data)))
-    if not tokenizer_path.exists():
-        # Train a new tokenizer
-        tokenizer = Tokenizer(models.WordLevel(unk_token="[UNK]"))
-        # Customize pre-tokenization and training
-        tokenizer.pre_tokenizer = pre_tokenizers.Whitespace()
-        trainer = trainers.WordLevelTrainer(special_tokens=["[UNK]", "[PAD]", "[SOS]", "[EOS]"])
-        tokenizer.train_from_iterator(get_all_sentences(ds, data), trainer=trainer)
-        tokenizer.save(str(tokenizer_path))
-    else:
-        # Load existing tokenizer
-        tokenizer = Tokenizer.from_file(str(tokenizer_path))
-    return tokenizer
 
 
 def read_log(config: dict, complete: bool = False) -> pd.DataFrame:
@@ -523,77 +673,86 @@ def read_log(config: dict, complete: bool = False) -> pd.DataFrame:
     return df
 
 
-def get_ds(config: dict) -> Tuple[DataLoader, DataLoader, Tokenizer, Tokenizer]:
+def run_validation(model: Transformer, validation_ds: DataLoader, tokenizer_src: Tokenizer, tokenizer_tgt: Tokenizer,
+                   max_len: int, device: torch.device, print_msg: Callable[[str], None], global_step: int,
+                   writer: SummaryWriter, num_examples: int = 2) -> None:
     """
-    Gets training and validation DataLoaders along with tokenizers for the dataset.
+    Run validation on the trained model and log evaluation metrics.
 
-    :param config: Configuration options.
-    :return: Training DataLoader; Validation DataLoader; Source Tokenizer; Target Tokenizer.
+    :param model: The trained Transformer model.
+    :param validation_ds: DataLoader for the validation dataset.
+    :param tokenizer_src: Tokenizer for source language.
+    :param tokenizer_tgt: Tokenizer for target language.
+    :param max_len: Maximum length of the output sequence.
+    :param device: Device to perform computations on.
+    :param print_msg: Function to print messages.
+    :param global_step: Current global step in training.
+    :param writer: TensorBoard SummaryWriter.
+    :param num_examples: Number of examples to show during validation. Defaults to 2.
     """
-    df = read_log(config)
-    train, test = train_test_split(df, test_size=0.1, shuffle=True)
-    ds_raw = HuggingfaceDataset.from_pandas(train)
+    model.eval()
+    count = 0
 
-    # TODO: Continuous: Late fusion: concatenate the output of the Transformer encoder with the output of a simple
-    #  feed-forward net that encodes continuous data AND
-    #  encoding vector is constructed
-    # Build tokenizers
-    tokenizer_src = get_or_build_tokenizer(config, ds_raw, 'Discrete Attributes')
-    tokenizer_tgt = get_or_build_tokenizer(config, ds_raw, config['tf_output'])
+    source_texts = []
+    expected = []
+    predicted = []
 
-    # Keep 90% for training, 10% for validation
-    train_ds_size = int(0.9 * len(ds_raw))
-    val_ds_size = len(ds_raw) - train_ds_size
-    train_ds_raw, val_ds_raw = random_split(ds_raw, [train_ds_size, val_ds_size])
+    try:
+        # get the console window width
+        console_width = shutil.get_terminal_size().columns
+    except Exception as e:
+        print(f'An unexpected error occurred: {e}')
+        # If we can't get the console width, use 80 as default
+        console_width = 80
 
-    expert_input_columns = get_expert_input_columns()
+    with torch.no_grad():
+        for batch in validation_ds:
+            count += 1
+            encoder_input = batch["encoder_input"].to(device)  # (b, seq_len)
+            encoder_mask = batch["encoder_mask"].to(device)  # (b, 1, 1, seq_len)
 
-    train_ds = BilingualDataset(train_ds_raw, tokenizer_src, tokenizer_tgt, 'Discrete Attributes',
-                                config['tf_output'], config['seq_len'],
-                                len(config['discrete_input_attributes']) + len(expert_input_columns))
-    val_ds = BilingualDataset(val_ds_raw, tokenizer_src, tokenizer_tgt, 'Discrete Attributes',
-                              config['tf_output'], config['seq_len'],
-                              len(config['discrete_input_attributes']) + len(expert_input_columns))
+            # check that the batch size is 1
+            assert encoder_input.size(0) == 1, "Batch size must be 1 for validation"
 
-    # Find the maximum length of each sentence in the source and target sentence
-    max_len_src = 0
-    max_len_tgt = 0
+            model_out = greedy_decode(model, encoder_input, encoder_mask, tokenizer_src, tokenizer_tgt, max_len, device)
 
-    for item in ds_raw:
-        src_ids = tokenizer_src.encode(item['Discrete Attributes']).ids
-        tgt_ids = tokenizer_tgt.encode(item[config['tf_output']]).ids
-        max_len_src = max(max_len_src, len(src_ids))
-        max_len_tgt = max(max_len_tgt, len(tgt_ids))
+            source_text = batch["src_text"][0]
+            target_text = batch["tgt_text"][0]
+            model_out_text = tokenizer_tgt.decode(model_out.detach().cpu().numpy())
 
-    print(f'Max length of source sentence: {max_len_src}')
-    print(f'Max length of target sentence: {max_len_tgt}')
+            source_texts.append(source_text)
+            expected.append(target_text)
+            predicted.append(model_out_text)
 
-    train_dataloader = DataLoader(train_ds, batch_size=config['batch_size'], shuffle=True)
-    val_dataloader = DataLoader(val_ds, batch_size=1, shuffle=True)
+            # Print the source, target and model output
+            print_msg('-' * console_width)
+            print_msg(f"{f'SOURCE: ':>12}{source_text}")
+            print_msg(f"{f'TARGET: ':>12}{target_text}")
+            print_msg(f"{f'PREDICTED: ':>12}{model_out_text}")
 
-    return train_dataloader, val_dataloader, tokenizer_src, tokenizer_tgt
+            if count == num_examples:
+                print_msg('-' * console_width)
+                break
 
+    if writer:
+        # Evaluate the character error rate
+        # Compute the char error rate
+        metric = torchmetrics.CharErrorRate()
+        cer = metric(predicted, expected)
+        writer.add_scalar('validation cer', cer, global_step)
+        writer.flush()
 
-def get_model(config: dict, vocab_src_len: int, vocab_tgt_len: int) -> Transformer:
-    """
-    Builds and returns the Transformer model.
+        # Compute the word error rate
+        metric = torchmetrics.WordErrorRate()
+        wer = metric(predicted, expected)
+        writer.add_scalar('validation wer', wer, global_step)
+        writer.flush()
 
-    :param config: Configuration options.
-    :param vocab_src_len: Length of source vocabulary.
-    :param vocab_tgt_len: Length of target vocabulary.
-    :return: Transformer model.
-    """
-    expert_input_columns = get_expert_input_columns()
-
-    model = build_transformer(
-        vocab_src_len,
-        vocab_tgt_len,
-        (config['seq_len'] - 2) * (len(config['discrete_input_attributes']) + len(expert_input_columns)) + 2,
-        config['seq_len'],
-        d_model=config['d_model']
-    )
-
-    return model
+        # Compute the BLEU metric
+        metric = torchmetrics.BLEUScore()
+        bleu = metric(predicted, expected)
+        writer.add_scalar('validation BLEU', bleu, global_step)
+        writer.flush()
 
 
 def train_model(config: dict) -> None:
@@ -697,165 +856,6 @@ def train_model(config: dict) -> None:
             'optimizer_state_dict': optimizer.state_dict(),
             'global_step': global_step
         }, model_filename)
-
-
-def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
-    """
-    Creates a log with determined case IDs based on the given configuration and chunk size.
-
-    :param config: Dictionary containing configuration parameters for log creation. It includes keys like 'tf_input',
-    'tf_output', and 'seq_len'.
-    :param chunk_size: Number of rows to be processed as a single chunk. Default is set to `config['seq_len']` - 2.
-    :return: DataFrame representing the log with determined cases, including columns for 'Determined Case ID',
-    'Actual Case ID', and 'Activity'.
-    """
-    if chunk_size is None:
-        chunk_size = config['seq_len'] - 2
-
-    # Read the complete log data
-    data_complete = read_log(config, True)
-
-    expert_input_columns = get_expert_input_columns()
-
-    # Create a list with normalized column names for continuous attributes and original column names for others,
-    # then extend with expert input columns
-    all_input_columns = [
-        col + '_normalized' if col in config['continuous_input_attributes'] else col
-        for col in config['tf_input']
-    ] + expert_input_columns
-
-    # Create a copy of DataFrame with required attributes
-    df = data_complete[[*all_input_columns, config['tf_output']]].copy()
-
-    # Convert DataFrame to string type and replace spaces and hyphens with underscores
-    df = df.astype(str).applymap(lambda x: x.replace(' ', '_').replace('-', '_'))
-
-    # Loop through the data in chunks and concatenate values for input and output features
-    for i in range(len(df) // chunk_size):
-        start_idx = i * chunk_size
-        end_idx = (i + 1) * chunk_size
-
-        # Concatenate values for input feature(s)
-        for attr in all_input_columns:
-            df.at[start_idx, attr] = ' '.join(df[attr].iloc[start_idx:end_idx])
-        # Concatenate values for output feature
-        df.at[start_idx, config['tf_output']] = ' '.join(df[config['tf_output']].iloc[start_idx:end_idx])
-
-    # Handle remaining rows if any
-    remaining_rows = len(df) % chunk_size
-    if remaining_rows > 0:
-        start_idx = len(df) - remaining_rows
-        # Concatenate values for input and output features for remaining rows
-        for attr in all_input_columns:
-            df.loc[start_idx:, attr] = ' '.join(df[attr].iloc[start_idx:])
-        df.loc[start_idx:, config['tf_output']] = ' '.join(df[config['tf_output']].iloc[start_idx:])
-
-    # Drop unnecessary rows to keep only one row per chunk
-    df = df.iloc[::chunk_size].reset_index(drop=True)
-
-    # Concatenate values from discrete input attributes and expert input columns into a single column
-    df['Discrete Attributes'] = df[
-        config['discrete_input_attributes'] + expert_input_columns
-    ].apply(lambda row: ' '.join(row), axis=1)
-
-    # Create a raw dataset from the DataFrame
-    ds_raw = HuggingfaceDataset.from_pandas(df)
-
-    # Get or build tokenizers for source and target features
-    vocab_src = get_or_build_tokenizer(config, ds_raw, 'Discrete Attributes')
-    vocab_tgt = get_or_build_tokenizer(config, ds_raw, config['tf_output'])
-
-    # Create a BilingualDataset using source and target tokenizers
-    ds = BilingualDataset(ds_raw, vocab_src, vocab_tgt, 'Discrete Attributes',
-                          config['tf_output'], config['seq_len'],
-                          len(config['discrete_input_attributes']) + len(expert_input_columns))
-
-    # Create a DataLoader for the BilingualDataset
-    ds_dataloader = DataLoader(ds, batch_size=1, shuffle=False)
-
-    # Determine the device to use for training (GPU if available, else CPU)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    # Get the model based on the configuration and move it to the selected device
-    model = get_model(config, vocab_src.get_vocab_size(), vocab_tgt.get_vocab_size()).to(device)
-
-    # Load the pretrained weights for the model
-    model_filename = get_weights_file_path(config, f"19")
-    state = torch.load(model_filename, map_location=device)
-    model.load_state_dict(state['model_state_dict'])
-
-    # Initialize an empty list to store tuples representing rows
-    determined_log = []
-
-    # Iterate over batches in the DataLoader
-    for batch in ds_dataloader:
-        # Get input and mask tensors
-        encoder_input = batch["encoder_input"].to(device)
-        encoder_mask = batch["encoder_mask"].to(device)
-
-        # Split target text into a list of values
-        target_text = batch["tgt_text"][0].split()
-        batch_size = len(target_text)
-
-        try:
-            # Ensure batch size is 1 for evaluation
-            assert encoder_input.size(0) == 1, "Batch size must be 1 for evaluation"
-
-            # Perform greedy decoding using the pre-trained model
-            model_out = greedy_decode(model, encoder_input, encoder_mask, vocab_src, vocab_tgt, batch_size + 2, device)
-            model_out_values = vocab_tgt.decode(model_out.detach().cpu().numpy()).split()
-
-            # Extend the determined_log list with tuples representing rows
-            determined_log.extend((model_out_value, target_value)
-                                  for target_value, model_out_value
-                                  in zip(target_text, model_out_values))
-        except Exception as e:
-            # If an error occurs during decoding, log the error and skip this batch
-            print(f"Error occurred during decoding: {e}")
-            continue
-
-    # Convert the list of tuples to a DataFrame
-    determined_log = pd.DataFrame(determined_log, columns=['Determined Case ID', 'Actual Case ID'])
-
-    # Initialize an empty DataFrame to store the restored columns
-    restored_columns = pd.DataFrame()
-
-    for attr in config['tf_input']:
-        attr_column = pd.DataFrame(data_complete[attr])
-        restored_columns = pd.concat([restored_columns, attr_column], axis=1)
-
-    # Concatenate determined_log with restored_columns and assign it back to determined_log
-    determined_log = pd.concat([determined_log, restored_columns], axis=1)
-
-    # Create directories if they don't exist
-    os.makedirs(config['result_folder'], exist_ok=True)
-
-    # Save the determined log as a CSV file
-    determined_log.to_csv(os.path.join(config['result_folder'], config['result_csv_file']), index=False)
-
-    # Prepare extended log
-    extended_log = determined_log.copy()
-    if 'Timestamp' not in config['tf_input']:
-        timestamp_column = pd.DataFrame(data_complete['Timestamp'])
-        extended_log = pd.concat([determined_log, timestamp_column], axis=1)
-
-    # Drop column
-    extended_log.drop(columns=['Actual Case ID'], inplace=True)
-
-    # Rename 'Determined Case ID' to 'Case ID' first
-    extended_log.rename(columns={'Determined Case ID': 'Case ID'}, inplace=True)
-
-    # Then rename the rest of the columns specified in config['attribute_dictionary']
-    extended_log.rename(columns=config['attribute_dictionary'], inplace=True)
-
-    # Convert to event log
-    log = pm4py.convert_to_event_log(extended_log)
-
-    # Write XES file
-    pm4py.write_xes(log, os.path.join(config['result_folder'], config['result_xes_file']))
-
-    # Return the determined log DataFrame
-    return determined_log
 
 
 if __name__ == '__main__':
