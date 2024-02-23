@@ -1,26 +1,22 @@
 # config.py - Configuration parameters and utility functions for model training.
 import os
 from pathlib import Path
-from typing import List, Union, Tuple
+from typing import List, Optional, Union, Tuple
 
 import pandas as pd
 import tkinter as tk
 from tkinter import filedialog
 
-
-# Global variables to store log_path and extracted log_name
-log_path: Union[str, None] = None
-log_name: Union[str, None] = None
-tf_input: Union[List[str], None] = None
-
-# Global variable to store expert input columns
+log_path: Optional[str] = None
+log_name: Optional[str] = None
 expert_input_columns: List[str] = []
+tf_input: List[str] = []
 
 # Global variable to cache DataFrame copy
-cached_df_copy: Union[pd.DataFrame, None] = None
+cached_df_copy: Optional[pd.DataFrame] = None
 
 # Global variable to store attribute configuration
-attribute_config = {
+attribute_config: dict = {
     'Case ID': {'mapping': 'case:concept:name', 'property': 'discrete'},
     'Activity': {'mapping': 'concept:name', 'property': 'discrete'},
     'Timestamp': {'mapping': 'time:timestamp', 'property': 'continuous'},
@@ -38,7 +34,7 @@ attribute_config = {
 }
 
 # Global variable to store expert attributes
-expert_attributes = {
+expert_attributes: dict = {
     'Start Activity': {'type': 'unary', 'attribute': 'Activity'},
     'End Activity': {'type': 'unary', 'attribute': 'Activity'},
     'Directly Following': {'type': 'binary', 'attribute': 'Activity'}
@@ -66,7 +62,7 @@ def get_config() -> dict:
     # Creating a dictionary to map attributes to their corresponding data mappings
     attribute_dictionary = {key: value['mapping'] for key, value in attribute_config.items()}
 
-    if tf_input is None:
+    if not tf_input:
         tf_input = ["Activity"]
 
     # Initialize lists for discrete and continuous input attributes
@@ -157,13 +153,13 @@ def latest_weights_file_path(config: dict) -> str or None:
 
 def reset_log() -> None:
     """
-    Reset the global variables log_path, log_name, tf_input, expert_input_columns, and cached_df_copy to None.
+    Reset the global variables log_path, log_name, expert_input_columns, tf_input, and cached_df_copy to None.
     """
-    global log_path, log_name, tf_input, expert_input_columns, cached_df_copy
+    global log_path, log_name, expert_input_columns, tf_input, cached_df_copy
     log_path = None
     log_name = None
-    tf_input = None
     expert_input_columns = []
+    tf_input = []
     cached_df_copy = None
 
 
