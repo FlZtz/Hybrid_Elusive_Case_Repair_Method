@@ -1,7 +1,7 @@
 # config.py - Configuration parameters and utility functions for model training.
 import os
 from pathlib import Path
-from typing import List, Union
+from typing import List, Union, Tuple
 
 import pandas as pd
 import tkinter as tk
@@ -12,6 +12,9 @@ from tkinter import filedialog
 log_path: Union[str, None] = None
 log_name: Union[str, None] = None
 tf_input: Union[List[str], None] = None
+
+# Global variable to store expert input columns
+expert_input_columns: List[str] = []
 
 # Global variable to cache DataFrame copy
 cached_df_copy: Union[pd.DataFrame, None] = None
@@ -32,6 +35,13 @@ attribute_config = {
     'Role Label': {'mapping': 'org:role:label', 'property': 'discrete'},
     'Value': {'mapping': 'org:value', 'property': 'continuous'},
     'Value Currency': {'mapping': 'org:value:currency', 'property': 'discrete'}
+}
+
+# Global variable to store expert attributes
+expert_attributes = {
+    'Start Activity': {'type': 'unary', 'attribute': 'Activity'},
+    'End Activity': {'type': 'unary', 'attribute': 'Activity'},
+    'Directly Following': {'type': 'binary', 'attribute': 'Activity'}
 }
 
 
@@ -70,15 +80,18 @@ def get_config() -> dict:
         else:
             continuous_input_attributes.append(attr)
 
-    # Assign model_name based on the number of discrete and continuous attributes
-    if len(discrete_input_attributes) == 1 and len(continuous_input_attributes) == 0:
-        model_name = "baseline"
-    elif len(discrete_input_attributes) > 1 and len(continuous_input_attributes) == 0:
-        model_name = "multiple_discrete"
-    elif len(discrete_input_attributes) > 0 and len(continuous_input_attributes) > 0:
-        model_name = "discrete_continuous"
-    else:
-        model_name = "unknown"
+    expert_input_attributes = get_expert_attributes()
+
+    # Determine the model name based on attribute lengths
+    model_name = get_model_name(len(discrete_input_attributes), len(continuous_input_attributes),
+                                len(expert_input_attributes))
+
+    expert_input_values = {}
+
+    # Check if there are any expert input attributes
+    if expert_input_attributes:
+        # Query expert values for the expert input attributes
+        expert_input_values = expert_value_query(expert_input_attributes)
 
     # Return a dictionary with configuration parameters
     return {
@@ -93,6 +106,8 @@ def get_config() -> dict:
         "tf_output": "Case ID",
         "discrete_input_attributes": discrete_input_attributes,
         "continuous_input_attributes": continuous_input_attributes,
+        "expert_input_attributes": expert_input_attributes,
+        "expert_input_values": expert_input_values,
         "model_folder": f"weights/{model_name}/{log_name}",
         "model_name": model_name,
         "model_basename": "tmodel_",
@@ -142,12 +157,13 @@ def latest_weights_file_path(config: dict) -> str or None:
 
 def reset_log() -> None:
     """
-    Reset the global variables log_path, log_name, tf_input, and cached_df_copy to None.
+    Reset the global variables log_path, log_name, tf_input, expert_input_columns, and cached_df_copy to None.
     """
-    global log_path, log_name, tf_input, cached_df_copy
+    global log_path, log_name, tf_input, expert_input_columns, cached_df_copy
     log_path = None
     log_name = None
     tf_input = None
+    expert_input_columns = []
     cached_df_copy = None
 
 
@@ -204,6 +220,16 @@ def get_cached_df_copy() -> pd.DataFrame or None:
     return cached_df_copy
 
 
+def get_expert_input_columns() -> List[str]:
+    """
+    Get the expert input columns.
+
+    :return: Expert input columns.
+    """
+    global expert_input_columns
+    return expert_input_columns
+
+
 def set_cached_df_copy(df: pd.DataFrame) -> None:
     """
     Set the cached DataFrame copy.
@@ -212,6 +238,16 @@ def set_cached_df_copy(df: pd.DataFrame) -> None:
     """
     global cached_df_copy
     cached_df_copy = df.copy()
+
+
+def set_expert_input_columns(columns: List[str]) -> None:
+    """
+    Set the expert input columns.
+
+    :param columns: List of expert input columns.
+    """
+    global expert_input_columns
+    expert_input_columns = columns
 
 
 def set_tf_input(*attributes: str) -> None:
@@ -226,20 +262,8 @@ def set_tf_input(*attributes: str) -> None:
     if len(attributes) == 1 and isinstance(attributes[0], list):
         attributes = attributes[0]
 
-    # Validate input attributes
-    validated_attributes = []
-    for attr in attributes:
-        found = False
-        for key in attribute_config:
-            if attr.lower() == key.lower():
-                validated_attributes.append(key)  # Use the spelling from attribute_config
-                found = True
-                break
-        if not found:
-            raise ValueError(f"Attribute '{attr}' is not a valid attribute.")
-
     # If all attributes are valid, update tf_input
-    tf_input = validated_attributes
+    tf_input = input_validation(attributes, attribute_config)
 
 
 def attribute_specification() -> None:
@@ -259,3 +283,187 @@ def attribute_specification() -> None:
     # Set Transformer input attributes based on the provided attributes
     # Note: *attributes_list is used to unpack the list into separate arguments
     set_tf_input(*attributes_list)
+
+
+def get_expert_attributes() -> List[str]:
+    """
+    Asks the user whether to add expert attributes and retrieves them if desired.
+
+    :return: A list of expert attributes entered by the user.
+    """
+    global expert_attributes
+
+    expert = input("Do you want to add one or more expert attributes? (yes/no): ").strip().lower()
+
+    if expert == "yes":
+        attribute_input = input(f"Following expert attribute is available: {list(expert_attributes.keys())[0]}.\n"
+                                if len(expert_attributes) == 1 else
+                                f"Following expert attributes are available: "
+                                f"{', '.join(list(expert_attributes.keys())[:-1])} and "
+                                f"{list(expert_attributes.keys())[-1]}.\n"
+                                f"Please enter the attribute(s) for which you have expert knowledge "
+                                f"(separated by commas): ")
+        if not attribute_input:
+            raise ValueError("No attributes provided. Please try again.")
+        attribute_list = [attribute.strip() for attribute in attribute_input.split(',')]
+        attributes = input_validation(attribute_list, expert_attributes)
+        return attributes
+
+    elif not expert or expert == "no":
+        return []
+
+    else:
+        raise ValueError("Invalid input. Please enter 'yes' or 'no'.")
+
+
+def input_validation(attributes: Union[List[str], Tuple[str, ...]], dictionary: dict) -> List[str]:
+    """
+    Validates a list of attributes against a dictionary.
+
+    :param attributes: List or tuple of attribute names to validate.
+    :param dictionary: Dictionary to validate against.
+    :return: List of validated attribute names.
+    """
+    # Initialize an empty list to store validated attributes
+    validated_attributes = []
+
+    # Iterate through each attribute in the provided list
+    for attr in attributes:
+        # Flag to track if the attribute is found in the dictionary
+        found = False
+
+        # Iterate through each key in the dictionary
+        for key in dictionary:
+            # Check if the attribute matches the key (case-insensitive comparison)
+            if attr.lower() == key.lower():
+                # If a match is found, add the key to the validated attributes list
+                validated_attributes.append(key)
+                found = True
+                break
+
+        # If the attribute is not found in the dictionary, raise a ValueError
+        if not found:
+            raise ValueError(f"Attribute '{attr}' is not a valid attribute.")
+
+    # Return the list of validated attributes
+    return validated_attributes
+
+
+def get_model_name(discrete_len: int, continuous_len: int, expert_len: int) -> str:
+    """
+    Determine the model name based on the lengths of discrete, continuous, and expert attributes.
+
+    :param discrete_len: The length of the list of discrete input attributes.
+    :param continuous_len: The length of the list of continuous input attributes.
+    :param expert_len: The length of the list of expert input attributes.
+    :return: The model name corresponding to the given attribute lengths.
+    """
+    if discrete_len == 1 and continuous_len == 0 and expert_len == 0:
+        return "baseline"
+    elif discrete_len > 1 and continuous_len == 0 and expert_len == 0:
+        return "multiple_discrete"
+    elif discrete_len == 1 and continuous_len == 1 and expert_len == 0:
+        return "continuous"
+    elif discrete_len > 1 and continuous_len == 1 and expert_len == 0:
+        return "multiple_discrete_single_continuous"
+    elif discrete_len == 1 and continuous_len > 1 and expert_len == 0:
+        return "multiple_continuous"
+    elif discrete_len > 1 and continuous_len > 1 and expert_len == 0:
+        return "multiple_discrete_continuous"
+    elif discrete_len == 1 and continuous_len == 0 and expert_len == 1:
+        return "expert"
+    elif discrete_len > 1 and continuous_len == 0 and expert_len == 1:
+        return "multiple_discrete_single_expert"
+    elif discrete_len == 1 and continuous_len == 1 and expert_len == 1:
+        return "continuous_expert"
+    elif discrete_len > 1 and continuous_len == 1 and expert_len == 1:
+        return "multiple_discrete_single_continuous_expert"
+    elif discrete_len == 1 and continuous_len > 1 and expert_len == 1:
+        return "multiple_continuous_single_expert"
+    elif discrete_len > 1 and continuous_len > 1 and expert_len == 1:
+        return "multiple_discrete_continuous_single_expert"
+    elif discrete_len == 1 and continuous_len == 0 and expert_len > 1:
+        return "multiple_expert"
+    elif discrete_len > 1 and continuous_len == 0 and expert_len > 1:
+        return "multiple_discrete_expert"
+    elif discrete_len == 1 and continuous_len == 1 and expert_len > 1:
+        return "continuous_multiple_expert"
+    elif discrete_len > 1 and continuous_len == 1 and expert_len > 1:
+        return "multiple_discrete_expert_single_continuous"
+    elif discrete_len == 1 and continuous_len > 1 and expert_len > 1:
+        return "multiple_continuous_expert"
+    else:
+        return "complete"
+
+
+def expert_value_query(attributes: list) -> dict:
+    """
+    Queries expert values for given attributes.
+
+    :param attributes: A list of attribute names to query.
+    :return: A dictionary containing attribute names as keys and dictionaries as values. Each value dictionary contains
+    the expert values, the corresponding attribute name, and the occurrences of each value or combination.
+    """
+    global expert_attributes
+    expert_values = {}
+
+    for attribute in attributes:
+        # Check if the attribute is in the expert_attributes dictionary
+        if attribute in expert_attributes:
+            attribute_type = expert_attributes[attribute]['type']
+            attribute_name = expert_attributes[attribute]['attribute']
+
+            # Initialize a dictionary to store expert values, attribute name, and occurrences
+            value_dict = {'values': None, 'attribute': attribute_name, 'occurrences': []}
+
+            if attribute_type == 'unary':
+                # Prompt the user for unary attribute values
+                expert_value = input(f"Please enter the value(s) that represent(s) the attribute '{attribute}' "
+                                     f"(separated by commas): ")
+                if not expert_value:
+                    # Raise an error if no value is provided
+                    raise ValueError("No value provided. Please try again.")
+                # Split the input values and strip any leading/trailing whitespace
+                value_list = [value.strip() for value in expert_value.split(',')]
+
+                # Prompt the user for occurrences for each value in value_list
+                for value in value_list:
+                    occurrence = input(f"Does '{value}' always or sometimes represent the attribute '{attribute}'? "
+                                       f"Enter 'always' or 'sometimes': ").strip().lower()
+                    if occurrence not in ['always', 'sometimes']:
+                        raise ValueError("Invalid occurrence value. Please enter 'always' or 'sometimes'.")
+                    value_dict['occurrences'].append(occurrence)
+
+                value_dict['values'] = value_list
+            elif attribute_type == 'binary':
+                # Prompt the user for binary attribute values
+                expert_value = input(f"Please enter the combination(s) for the attribute '{attribute}' \n"
+                                     f"(values of a combination in the correct order connected with a plus sign and "
+                                     f"combinations separated by commas): ")
+                if not expert_value:
+                    # Raise an error if no value is provided
+                    raise ValueError("No value provided. Please try again.")
+                # Split the input values, map each combination, and strip any leading/trailing whitespace
+                value_list = [list(map(str.strip, value.split('+'))) for value in expert_value.split(',')]
+
+                # Prompt the user for occurrences for each combination in value_list
+                for combination in value_list:
+                    occurrence = input(f"Does the combination '{' + '.join(combination)}' always or sometimes represent"
+                                       f" the attribute '{attribute}'? Enter 'always' or 'sometimes': ").strip().lower()
+                    if occurrence not in ['always', 'sometimes']:
+                        raise ValueError("Invalid occurrence value. Please enter 'always' or 'sometimes'.")
+                    value_dict['occurrences'].append(occurrence)
+
+                value_dict['values'] = value_list
+            else:
+                # Raise an error if the attribute type is neither unary nor binary
+                raise ValueError(f"Invalid attribute type '{attribute_type}' for attribute '{attribute}'.")
+
+            # Store the value dictionary in the expert_values dictionary
+            expert_values[attribute] = value_dict
+
+        else:
+            # Raise an error if the attribute is not found in expert_attributes
+            raise ValueError(f"Attribute '{attribute}' not found in expert attributes.")
+
+    return expert_values

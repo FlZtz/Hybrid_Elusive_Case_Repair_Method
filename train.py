@@ -7,7 +7,8 @@ from typing import Callable, Tuple  # For type hints
 
 # Third-party library imports
 import pandas as pd  # For working with dataframes
-from sklearn.model_selection import train_test_split  # For splitting dataset into train and test
+from sklearn.model_selection import train_test_split  # For splitting dataset into train and
+from sklearn.preprocessing import MinMaxScaler  # For normalizing continuous data
 
 import torch  # PyTorch library
 import torch.nn as nn  # PyTorch neural network module
@@ -27,7 +28,7 @@ from tokenizers import Tokenizer, models, trainers, pre_tokenizers  # For tokeni
 from model import build_transformer, Transformer  # Importing Transformer model builder
 from dataset import BilingualDataset, causal_mask  # Importing custom dataset and mask functions
 from config import (get_config, get_weights_file_path, latest_weights_file_path, get_cached_df_copy, set_cached_df_copy,
-                    attribute_specification)  # Importing configuration and utility functions
+                    get_expert_input_columns, set_expert_input_columns, attribute_specification)
 
 from tqdm import tqdm  # For progress bars
 
@@ -278,6 +279,10 @@ def read_log(config: dict, complete: bool = False) -> pd.DataFrame:
         # Ask for user confirmation on the automatically selected columns
         user_confirmation = input(f"Is this {'completely ' if len(selected_col_alias) != 1 else ''}"
                                   f"correct? (yes/no): ").lower().strip()
+
+        if user_confirmation not in ('yes', 'no'):
+            raise ValueError("Please enter either 'yes' or 'no'.")
+
         if user_confirmation == 'no':
             if len(selected_col_alias) != 1:
                 incorrect_aliases = [alias.strip() for alias in input(f"Please enter the incorrect attribute(s) "
@@ -321,6 +326,157 @@ def read_log(config: dict, complete: bool = False) -> pd.DataFrame:
     df['Timestamp'] = pd.to_datetime(df['Timestamp'], utc=True)
     df['Timestamp'] = df['Timestamp'].dt.tz_localize(None)
 
+    if config['continuous_input_attributes']:
+        continuous_columns = config['continuous_input_attributes'][:]
+
+        # Check if 'Timestamp' is in continuous columns
+        if 'Timestamp' in continuous_columns:
+            # Calculate the time differences in seconds relative to the first timestamp
+            df['Timestamp_normalized'] = (df['Timestamp'] - df['Timestamp'].iloc[0]).dt.total_seconds()
+
+            continuous_columns.append('Timestamp_normalized')
+            continuous_columns.remove('Timestamp')
+
+        # Extract continuous columns from the dataframe
+        continuous_df = df[continuous_columns]
+
+        # Iterate over each column to handle potential string representations of numeric values
+        for column in continuous_df.columns:
+            # Convert string representations of numeric values to float
+            continuous_df[column] = pd.to_numeric(continuous_df[column], errors='coerce')
+
+        # Normalize numeric columns using MinMaxScaler
+        scaler = MinMaxScaler()
+        normalized_data = scaler.fit_transform(continuous_df)
+
+        # Create new column names for the normalized columns
+        normalized_column_names = [col + '_normalized' if '_normalized' not in col
+                                   else col for col in continuous_columns]
+
+        # Update the original dataframe with normalized columns
+        df[normalized_column_names] = normalized_data
+
+    # Initialize a list to store column headers describing expert input
+    expert_input_columns = []
+
+    # Check if there are values in config['expert_input_attributes']
+    if config['expert_input_attributes']:
+        # Create columns based on expert input attributes and values and append them to the DataFrame
+        for attribute in config['expert_input_attributes']:
+            if any(attribute.lower() == key.lower() for key in config['expert_input_values']):
+                values = config['expert_input_values'][attribute]['values']
+                attribute_column = config['expert_input_values'][attribute]['attribute']
+                occurrences = config['expert_input_values'][attribute]['occurrences']
+
+                # Check if attribute_column exists in df.columns without case sensitivity
+                if any(col.lower() == attribute_column.lower() for col in df.columns):
+                    transformed_attribute_column = df.columns[df.columns.str.lower() == attribute_column.lower()][0]
+
+                    # One-dimensional list case
+                    if isinstance(values, list) and all(isinstance(val, str) for val in values):
+                        # Check if each value in values occurs in df[transformed_attribute_column]
+                        # without case sensitivity
+                        for val in values:
+                            if not df[transformed_attribute_column].str.lower().str.contains(val.lower()).any():
+                                raise ValueError(f"The value '{val}' specified for attribute '{attribute}' does not "
+                                                 f"exist in the DataFrame column '{transformed_attribute_column}'.")
+
+                        attribute_name = attribute.lower().replace(' ', '_')
+                        # Create column for attribute
+                        df[attribute] = f'expert_non_{attribute_name}'
+
+                        # Append the column header for the attribute to the list
+                        expert_input_columns.append(attribute)
+
+                        # Iterate over values and occurrences after creating the column
+                        for val, occurrence in zip(values, occurrences):
+                            # Set values based on config['expert_input_values'] and occurrences
+                            if occurrence.lower() == 'always':
+                                df.loc[
+                                    df[transformed_attribute_column]
+                                    .str.lower()
+                                    .isin([val.lower()]),
+                                    attribute
+                                ] = f'expert_always_{attribute_name}'
+                            elif occurrence.lower() == 'sometimes':
+                                df.loc[
+                                    df[transformed_attribute_column]
+                                    .str.lower()
+                                    .isin([val.lower()]),
+                                    attribute
+                                ] = f'expert_sometimes_{attribute_name}'
+                            else:
+                                raise ValueError("Invalid occurrence value. Please enter 'always' or 'sometimes'.")
+
+                    # Two-dimensional list case
+                    elif isinstance(values, list) and all(
+                            isinstance(val, str) for sublist in values for val in sublist):
+                        for sublist in values:
+                            for val in sublist:
+                                # Check if each value in the sublist exists in the DataFrame column
+                                if not df[transformed_attribute_column].str.lower().str.contains(val.lower()).any():
+                                    raise ValueError(f"The value '{val}' specified for attribute '{attribute}' "
+                                                     f"does not exist in the DataFrame column "
+                                                     f"'{transformed_attribute_column}'.")
+
+                        attribute_name = attribute.lower().replace(' ', '_')
+
+                        # Extract unique first values from the lists within the list of values
+                        first_values_list = list(set(sublist[0].lower() for sublist in values))
+
+                        for value in first_values_list:
+                            # Filter values and occurrences based on the condition
+                            filtered_values = [val for val in values if val[0].lower() == value]
+                            filtered_occurrences = [occurrence for val, occurrence in zip(values, occurrences) if
+                                                    val[0].lower() == value]
+
+                            # Transform value to match the case of the values in the DataFrame column
+                            transformed_value = (
+                                df[df[transformed_attribute_column].str.lower() == value.lower()]
+                                [transformed_attribute_column]
+                                .iloc[0]
+                                .replace(' ', '_')
+                            )
+
+                            # Create new column in DataFrame
+                            df[f'{attribute}_{transformed_value}'] = f'expert_non_{attribute_name}_{transformed_value}'
+
+                            # Append the column headers containing the attribute to the list
+                            expert_input_columns.extend([f'{attribute}_{transformed_value}'])
+
+                            # Assign values based on occurrences
+                            for val, occurrence in zip(filtered_values, filtered_occurrences):
+                                if occurrence.lower() == 'always':
+                                    df.loc[
+                                        df[transformed_attribute_column]
+                                        .str.lower()
+                                        .isin([val[1].lower()]),
+                                        f'{attribute}_{transformed_value}'
+                                    ] = f'expert_always_{attribute_name}_{transformed_value}'
+                                elif occurrence.lower() == 'sometimes':
+                                    df.loc[
+                                        df[transformed_attribute_column]
+                                        .str.lower()
+                                        .isin([val[1].lower()]),
+                                        f'{attribute}_{transformed_value}'
+                                    ] = f'expert_sometimes_{attribute_name}_{transformed_value}'
+                                else:
+                                    raise ValueError("Invalid occurrence value. Please enter 'always' or 'sometimes'.")
+
+                    else:
+                        # Raise a ValueError for unsupported value format
+                        raise ValueError("Unsupported format for values. "
+                                         "Please provide either a one-dimensional or two-dimensional list.")
+                else:
+                    raise ValueError(f"The column '{attribute_column}' specified for attribute "
+                                     f"'{attribute}' does not exist in the DataFrame.")
+
+            else:
+                raise ValueError(f"The attribute '{attribute}' is not found in config['expert_input_values'].")
+
+    # Set the expert input columns
+    set_expert_input_columns(expert_input_columns)
+
     # Cache a copy of the DataFrame for potential future use
     set_cached_df_copy(df)
 
@@ -328,8 +484,15 @@ def read_log(config: dict, complete: bool = False) -> pd.DataFrame:
     if complete:
         return df
 
+    # Create a list with normalized column names for continuous attributes and original column names for others,
+    # then extend with expert input columns
+    all_input_columns = [
+        col + '_normalized' if col in config['continuous_input_attributes'] else col
+        for col in config['tf_input']
+    ] + expert_input_columns
+
     # Create a DataFrame with required attributes
-    df = df[[*config['tf_input'], config['tf_output']]]
+    df = df[[*all_input_columns, config['tf_output']]]
 
     # Convert DataFrame to string type and replace spaces and hyphens with underscores
     df = df.astype(str).applymap(lambda x: x.replace(' ', '_').replace('-', '_'))
@@ -339,7 +502,7 @@ def read_log(config: dict, complete: bool = False) -> pd.DataFrame:
     if len(df) >= length:
         for i in range(len(df) - length + 1):
             # Concatenate sequences of input and output attributes
-            for attr in config['tf_input']:
+            for attr in all_input_columns:
                 df.at[i, attr] = ' '.join(df[attr].iloc[i:i + length])
             df.at[i, config['tf_output']] = ' '.join(df[config['tf_output']].iloc[i:i + length])
 
@@ -348,11 +511,13 @@ def read_log(config: dict, complete: bool = False) -> pd.DataFrame:
     else:
         raise ValueError(f"Length of the dataframe ({len(df)}) is less than {length}.")
 
-    # Combine columns specified in the config['discrete_input_attributes'] array
-    df['Discrete Attributes'] = df[config['discrete_input_attributes']].apply(lambda row: ' '.join(row), axis=1)
+    # Concatenate values from discrete input attributes and expert input columns into a single column
+    df['Discrete Attributes'] = df[
+        config['discrete_input_attributes'] + expert_input_columns
+    ].apply(lambda row: ' '.join(row), axis=1)
 
     # Drop the original columns
-    df.drop(config['discrete_input_attributes'], axis=1, inplace=True)
+    df.drop(config['discrete_input_attributes'] + expert_input_columns, axis=1, inplace=True)
 
     # Return the prepared DataFrame
     return df
@@ -369,8 +534,9 @@ def get_ds(config: dict) -> Tuple[DataLoader, DataLoader, Tokenizer, Tokenizer]:
     train, test = train_test_split(df, test_size=0.1, shuffle=True)
     ds_raw = HuggingfaceDataset.from_pandas(train)
 
-    # TODO: Discrete vs. continuous features
-    # TODO: First token then concatenate then encoder (embedding for all categorical)
+    # TODO: Continuous: Late fusion: concatenate the output of the Transformer encoder with the output of a simple
+    #  feed-forward net that encodes continuous data AND
+    #  encoding vector is constructed
     # Build tokenizers
     tokenizer_src = get_or_build_tokenizer(config, ds_raw, 'Discrete Attributes')
     tokenizer_tgt = get_or_build_tokenizer(config, ds_raw, config['tf_output'])
@@ -380,10 +546,14 @@ def get_ds(config: dict) -> Tuple[DataLoader, DataLoader, Tokenizer, Tokenizer]:
     val_ds_size = len(ds_raw) - train_ds_size
     train_ds_raw, val_ds_raw = random_split(ds_raw, [train_ds_size, val_ds_size])
 
+    expert_input_columns = get_expert_input_columns()
+
     train_ds = BilingualDataset(train_ds_raw, tokenizer_src, tokenizer_tgt, 'Discrete Attributes',
-                                config['tf_output'], config['seq_len'], len(config['discrete_input_attributes']))
+                                config['tf_output'], config['seq_len'],
+                                len(config['discrete_input_attributes']) + len(expert_input_columns))
     val_ds = BilingualDataset(val_ds_raw, tokenizer_src, tokenizer_tgt, 'Discrete Attributes',
-                              config['tf_output'], config['seq_len'], len(config['discrete_input_attributes']))
+                              config['tf_output'], config['seq_len'],
+                              len(config['discrete_input_attributes']) + len(expert_input_columns))
 
     # Find the maximum length of each sentence in the source and target sentence
     max_len_src = 0
@@ -413,9 +583,16 @@ def get_model(config: dict, vocab_src_len: int, vocab_tgt_len: int) -> Transform
     :param vocab_tgt_len: Length of target vocabulary.
     :return: Transformer model.
     """
-    model = build_transformer(vocab_src_len, vocab_tgt_len,
-                              (config['seq_len'] - 2) * len(config['discrete_input_attributes']) + 2, config['seq_len'],
-                              d_model=config['d_model'])
+    expert_input_columns = get_expert_input_columns()
+
+    model = build_transformer(
+        vocab_src_len,
+        vocab_tgt_len,
+        (config['seq_len'] - 2) * (len(config['discrete_input_attributes']) + len(expert_input_columns)) + 2,
+        config['seq_len'],
+        d_model=config['d_model']
+    )
+
     return model
 
 
@@ -462,7 +639,7 @@ def train_model(config: dict) -> None:
         if preload == 'latest' else get_weights_file_path(config, preload) if preload else None
     if model_filename:
         print(f'Preloading model {model_filename}')
-        state = torch.load(model_filename)
+        state = torch.load(model_filename, map_location=device)
         model.load_state_dict(state['model_state_dict'])
         initial_epoch = state['epoch'] + 1
         optimizer.load_state_dict(state['optimizer_state_dict'])
@@ -538,8 +715,17 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
     # Read the complete log data
     data_complete = read_log(config, True)
 
+    expert_input_columns = get_expert_input_columns()
+
+    # Create a list with normalized column names for continuous attributes and original column names for others,
+    # then extend with expert input columns
+    all_input_columns = [
+        col + '_normalized' if col in config['continuous_input_attributes'] else col
+        for col in config['tf_input']
+    ] + expert_input_columns
+
     # Create a copy of DataFrame with required attributes
-    df = data_complete[[*config['tf_input'], config['tf_output']]].copy()
+    df = data_complete[[*all_input_columns, config['tf_output']]].copy()
 
     # Convert DataFrame to string type and replace spaces and hyphens with underscores
     df = df.astype(str).applymap(lambda x: x.replace(' ', '_').replace('-', '_'))
@@ -550,7 +736,7 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
         end_idx = (i + 1) * chunk_size
 
         # Concatenate values for input feature(s)
-        for attr in config['tf_input']:
+        for attr in all_input_columns:
             df.at[start_idx, attr] = ' '.join(df[attr].iloc[start_idx:end_idx])
         # Concatenate values for output feature
         df.at[start_idx, config['tf_output']] = ' '.join(df[config['tf_output']].iloc[start_idx:end_idx])
@@ -560,15 +746,17 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
     if remaining_rows > 0:
         start_idx = len(df) - remaining_rows
         # Concatenate values for input and output features for remaining rows
-        for attr in config['tf_input']:
+        for attr in all_input_columns:
             df.loc[start_idx:, attr] = ' '.join(df[attr].iloc[start_idx:])
         df.loc[start_idx:, config['tf_output']] = ' '.join(df[config['tf_output']].iloc[start_idx:])
 
     # Drop unnecessary rows to keep only one row per chunk
     df = df.iloc[::chunk_size].reset_index(drop=True)
 
-    # Combine columns specified in the config['discrete_input_attributes'] array
-    df['Discrete Attributes'] = df[config['discrete_input_attributes']].apply(lambda row: ' '.join(row), axis=1)
+    # Concatenate values from discrete input attributes and expert input columns into a single column
+    df['Discrete Attributes'] = df[
+        config['discrete_input_attributes'] + expert_input_columns
+    ].apply(lambda row: ' '.join(row), axis=1)
 
     # Create a raw dataset from the DataFrame
     ds_raw = HuggingfaceDataset.from_pandas(df)
@@ -578,8 +766,9 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
     vocab_tgt = get_or_build_tokenizer(config, ds_raw, config['tf_output'])
 
     # Create a BilingualDataset using source and target tokenizers
-    ds = BilingualDataset(ds_raw, vocab_src, vocab_tgt, 'Discrete Attributes', config['tf_output'],
-                          config['seq_len'], len(config['discrete_input_attributes']))
+    ds = BilingualDataset(ds_raw, vocab_src, vocab_tgt, 'Discrete Attributes',
+                          config['tf_output'], config['seq_len'],
+                          len(config['discrete_input_attributes']) + len(expert_input_columns))
 
     # Create a DataLoader for the BilingualDataset
     ds_dataloader = DataLoader(ds, batch_size=1, shuffle=False)
@@ -631,13 +820,9 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
     # Initialize an empty DataFrame to store the restored columns
     restored_columns = pd.DataFrame()
 
-    # Iterate over each column specified in config['tf_input']
     for attr in config['tf_input']:
-        # Split the concatenated values into separate values
-        values = df[attr].str.split().explode()
-
-        # Assign the values to a new column in the restored_columns DataFrame
-        restored_columns[attr] = values.values
+        attr_column = pd.DataFrame(data_complete[attr])
+        restored_columns = pd.concat([restored_columns, attr_column], axis=1)
 
     # Concatenate determined_log with restored_columns and assign it back to determined_log
     determined_log = pd.concat([determined_log, restored_columns], axis=1)

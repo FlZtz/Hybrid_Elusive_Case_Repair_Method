@@ -42,9 +42,9 @@ class BilingualDataset(Dataset):
 
         :return: Number of items in the dataset.
         """
-        try:
+        if hasattr(self.ds, '__len__'):
             return len(self.ds)
-        except TypeError:
+        else:
             raise TypeError("Dataset object does not support length operation.")
 
     def __getitem__(self, idx: int) -> dict:
