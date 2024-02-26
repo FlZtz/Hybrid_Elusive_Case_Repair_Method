@@ -49,51 +49,7 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
     # Read the complete log data
     data_complete = read_log(config, True)
 
-    expert_input_columns = get_expert_input_columns()
-
-    # Create a list with normalized column names for continuous attributes and original column names for others,
-    # then extend with expert input columns
-    all_input_columns = [
-        col + '_normalized' if col in config['continuous_input_attributes'] else col
-        for col in config['tf_input']
-    ] + expert_input_columns
-
-    # Create a copy of DataFrame with required attributes
-    df = data_complete[[*all_input_columns, config['tf_output']]].copy()
-
-    # Convert DataFrame to string type and replace spaces and hyphens with underscores
-    df = df.astype(str).applymap(lambda x: x.replace(' ', '_').replace('-', '_'))
-
-    # Loop through the data in chunks and concatenate values for input and output features
-    for i in range(len(df) // chunk_size):
-        start_idx = i * chunk_size
-        end_idx = (i + 1) * chunk_size
-
-        # Concatenate values for input feature(s)
-        for attr in all_input_columns:
-            df.at[start_idx, attr] = ' '.join(df[attr].iloc[start_idx:end_idx])
-        # Concatenate values for output feature
-        df.at[start_idx, config['tf_output']] = ' '.join(df[config['tf_output']].iloc[start_idx:end_idx])
-
-    # Handle remaining rows if any
-    remaining_rows = len(df) % chunk_size
-    if remaining_rows > 0:
-        start_idx = len(df) - remaining_rows
-        # Concatenate values for input and output features for remaining rows
-        for attr in all_input_columns:
-            df.loc[start_idx:, attr] = ' '.join(df[attr].iloc[start_idx:])
-        df.loc[start_idx:, config['tf_output']] = ' '.join(df[config['tf_output']].iloc[start_idx:])
-
-    # Drop unnecessary rows to keep only one row per chunk
-    df = df.iloc[::chunk_size].reset_index(drop=True)
-
-    # Concatenate values from discrete input attributes and expert input columns into a single column
-    df['Discrete Attributes'] = df[
-        config['discrete_input_attributes'] + expert_input_columns
-    ].apply(lambda row: ' '.join(row), axis=1)
-
-    # Drop the original columns
-    df.drop(config['discrete_input_attributes'] + expert_input_columns, axis=1, inplace=True)
+    df = prepare_dataframe_for_sequence_processing(data_complete, config, chunk_size)
 
     # Create a raw dataset from the DataFrame
     ds_raw = HuggingfaceDataset.from_pandas(df)
@@ -101,6 +57,8 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
     # Get or build tokenizers for source and target features
     vocab_src = get_or_build_tokenizer(config, ds_raw, 'Discrete Attributes')
     vocab_tgt = get_or_build_tokenizer(config, ds_raw, config['tf_output'])
+
+    expert_input_columns = get_expert_input_columns()
 
     # Create a BilingualDataset using source and target tokenizers
     ds = BilingualDataset(ds_raw, vocab_src, vocab_tgt, 'Discrete Attributes',
@@ -385,12 +343,13 @@ def normalize_continuous_attributes(df: pd.DataFrame, continuous_columns: List[s
     return df
 
 
-def prepare_dataframe_for_sequence_processing(df: pd.DataFrame, config: dict) -> pd.DataFrame:
+def prepare_dataframe_for_sequence_processing(df: pd.DataFrame, config: dict, chunk_size: int = None) -> pd.DataFrame:
     """
     Prepare the DataFrame for sequence processing.
 
     :param df: DataFrame containing the log data.
     :param config: Configuration object containing necessary parameters.
+    :param chunk_size: Number of rows to be processed as a single chunk. Defaults to None.
     :return: Prepared DataFrame for sequence processing.
     """
     expert_input_columns = get_expert_input_columns()
@@ -402,25 +361,49 @@ def prepare_dataframe_for_sequence_processing(df: pd.DataFrame, config: dict) ->
         for col in config['tf_input']
     ] + expert_input_columns
 
-    # Create a DataFrame with required attributes
-    df = df[[*all_input_columns, config['tf_output']]]
+    # Create a copy of DataFrame with required attributes
+    df = df[[*all_input_columns, config['tf_output']]].copy()
 
     # Convert DataFrame to string type and replace spaces and hyphens with underscores
     df = df.astype(str).applymap(lambda x: x.replace(' ', '_').replace('-', '_'))
 
     # Prepare the DataFrame for sequence processing
-    length = config['seq_len'] - 2
-    if len(df) >= length:
-        for i in range(len(df) - length + 1):
-            # Concatenate sequences of input and output attributes
-            for attr in all_input_columns:
-                df.at[i, attr] = ' '.join(df[attr].iloc[i:i + length])
-            df.at[i, config['tf_output']] = ' '.join(df[config['tf_output']].iloc[i:i + length])
+    if chunk_size is None:
+        length = config['seq_len'] - 2
+        if len(df) >= length:
+            for i in range(len(df) - length + 1):
+                # Concatenate sequences of input and output attributes
+                for attr in all_input_columns:
+                    df.at[i, attr] = ' '.join(df[attr].iloc[i:i + length])
+                df.at[i, config['tf_output']] = ' '.join(df[config['tf_output']].iloc[i:i + length])
 
-        # Drop rows with insufficient sequence length
-        df = df.drop(df.index[len(df) - length + 1:])
+            # Drop rows with insufficient sequence length
+            df = df.drop(df.index[len(df) - length + 1:])
+        else:
+            raise ValueError(f"Length of the dataframe ({len(df)}) is less than {length}.")
     else:
-        raise ValueError(f"Length of the dataframe ({len(df)}) is less than {length}.")
+        # Loop through the data in chunks and concatenate values for input and output features
+        for i in range(len(df) // chunk_size):
+            start_idx = i * chunk_size
+            end_idx = (i + 1) * chunk_size
+
+            # Concatenate values for input feature(s)
+            for attr in all_input_columns:
+                df.at[start_idx, attr] = ' '.join(df[attr].iloc[start_idx:end_idx])
+            # Concatenate values for output feature
+            df.at[start_idx, config['tf_output']] = ' '.join(df[config['tf_output']].iloc[start_idx:end_idx])
+
+        # Handle remaining rows if any
+        remaining_rows = len(df) % chunk_size
+        if remaining_rows > 0:
+            start_idx = len(df) - remaining_rows
+            # Concatenate values for input and output features for remaining rows
+            for attr in all_input_columns:
+                df.loc[start_idx:, attr] = ' '.join(df[attr].iloc[start_idx:])
+            df.loc[start_idx:, config['tf_output']] = ' '.join(df[config['tf_output']].iloc[start_idx:])
+
+        # Drop unnecessary rows to keep only one row per chunk
+        df = df.iloc[::chunk_size].reset_index(drop=True)
 
     # Concatenate values from discrete input attributes and expert input columns into a single column
     df['Discrete Attributes'] = df[
