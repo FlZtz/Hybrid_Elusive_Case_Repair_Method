@@ -127,17 +127,17 @@ def expert_value_query(attributes: list) -> dict:
     return expert_values
 
 
-def extract_log_name(log_path: str) -> str:
+def extract_log_name(path: str) -> str:
     """
-    Extract the log_name from the given log_path.
+    Extract the log name from the given log path.
 
-    :param log_path: File path to the event log.
-    :return: Extracted log_name.
+    :param path: File path to the event log.
+    :return: Extracted log name.
     """
     # Extract log_name from log_path
-    base_name = os.path.basename(log_path)
-    log_name, _ = os.path.splitext(base_name)
-    return log_name
+    base_name = os.path.basename(path)
+    name, _ = os.path.splitext(base_name)
+    return name
 
 
 def get_cached_df_copy() -> pd.DataFrame or None:

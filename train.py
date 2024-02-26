@@ -97,7 +97,14 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
             assert encoder_input.size(0) == 1, "Batch size must be 1 for evaluation"
 
             # Perform greedy decoding using the pre-trained model
-            model_out = greedy_decode(model, encoder_input, encoder_mask, vocab_src, vocab_tgt, batch_size + 2, device)
+            model_out, probabilities = greedy_decode(
+                model,
+                encoder_input,
+                encoder_mask,
+                vocab_tgt,
+                batch_size + 2,
+                device
+            )
             model_out_values = vocab_tgt.decode(model_out.detach().cpu().numpy()).split()
 
             # Extend the determined_log list with tuples representing rows
@@ -264,19 +271,18 @@ def get_or_build_tokenizer(config: dict, ds: Dataset, data: str) -> Tokenizer:
     return tokenizer
 
 
-def greedy_decode(model: Transformer, source: torch.Tensor, source_mask: torch.Tensor, tokenizer_src: Tokenizer,
-                  tokenizer_tgt: Tokenizer, max_len: int, device: torch.device) -> torch.Tensor:
+def greedy_decode(model: Transformer, source: torch.Tensor, source_mask: torch.Tensor, tokenizer_tgt: Tokenizer,
+                  max_len: int, device: torch.device) -> Tuple[torch.Tensor, List[float]]:
     """
     Greedy decoding algorithm for generating target sequences based on a trained Transformer model.
 
     :param model: The trained Transformer model.
     :param source: The source input tensor.
     :param source_mask: The mask for source sequence.
-    :param tokenizer_src: Tokenizer for source language.
     :param tokenizer_tgt: Tokenizer for target language.
     :param max_len: Maximum length of the output sequence.
     :param device: Device to perform computations on.
-    :return: The decoded target sequence tensor.
+    :return: The decoded target sequence tensor and the corresponding probabilities.
     """
     sos_idx = tokenizer_tgt.token_to_id('[SOS]')
     eos_idx = tokenizer_tgt.token_to_id('[EOS]')
@@ -286,24 +292,28 @@ def greedy_decode(model: Transformer, source: torch.Tensor, source_mask: torch.T
     # Initialize the decoder input with the sos token
     decoder_input = torch.empty(1, 1).fill_(sos_idx).type_as(source).to(device)
 
+    probabilities = []
+
     while True:
         if decoder_input.size(1) == max_len - 1:
             break
 
-        # build mask for target
+        # Build mask for target
         decoder_mask = causal_mask(decoder_input.size(1)).type_as(source_mask).to(device)
 
-        # calculate output
+        # Calculate output
         out = model.decode(encoder_output, source_mask, decoder_input, decoder_mask)
 
         # get next token
         prob = model.project(out[:, -1])
-        _, indices = torch.topk(prob, k=2, dim=1)
+        probs, indices = torch.topk(prob, k=2, dim=1)
         next_index = indices[:, 0]
         if next_index == eos_idx:
             next_output = indices[:, 1]
+            probabilities.append(probs[:, 1].item())
         else:
             next_output = next_index
+            probabilities.append(probs[:, 0].item())
         decoder_input = torch.cat(
             [decoder_input, torch.empty(1, 1).type_as(source).fill_(next_output.item()).to(device)], dim=1
         )
@@ -311,7 +321,7 @@ def greedy_decode(model: Transformer, source: torch.Tensor, source_mask: torch.T
         if next_output == eos_idx:
             break
 
-    return decoder_input.squeeze(0)
+    return decoder_input.squeeze(0), probabilities
 
 
 def normalize_continuous_attributes(df: pd.DataFrame, continuous_columns: List[str]) -> pd.DataFrame:
@@ -620,15 +630,14 @@ def read_log(config: dict, complete: bool = False) -> pd.DataFrame:
     return df
 
 
-def run_validation(model: Transformer, validation_ds: DataLoader, tokenizer_src: Tokenizer, tokenizer_tgt: Tokenizer,
-                   max_len: int, device: torch.device, print_msg: Callable[[str], None], global_step: int,
-                   writer: SummaryWriter, num_examples: int = 2) -> None:
+def run_validation(model: Transformer, validation_ds: DataLoader, tokenizer_tgt: Tokenizer, max_len: int,
+                   device: torch.device, print_msg: Callable[[str], None], global_step: int, writer: SummaryWriter,
+                   num_examples: int = 2) -> None:
     """
     Run validation on the trained model and log evaluation metrics.
 
     :param model: The trained Transformer model.
     :param validation_ds: DataLoader for the validation dataset.
-    :param tokenizer_src: Tokenizer for source language.
     :param tokenizer_tgt: Tokenizer for target language.
     :param max_len: Maximum length of the output sequence.
     :param device: Device to perform computations on.
@@ -661,7 +670,14 @@ def run_validation(model: Transformer, validation_ds: DataLoader, tokenizer_src:
             # check that the batch size is 1
             assert encoder_input.size(0) == 1, "Batch size must be 1 for validation"
 
-            model_out = greedy_decode(model, encoder_input, encoder_mask, tokenizer_src, tokenizer_tgt, max_len, device)
+            model_out, _ = greedy_decode(
+                model,
+                encoder_input,
+                encoder_mask,
+                tokenizer_tgt,
+                max_len,
+                device
+            )
 
             source_text = batch["src_text"][0]
             target_text = batch["tgt_text"][0]
@@ -885,7 +901,7 @@ def train_model(config: dict) -> None:
             global_step += 1
 
         # Run validation at the end of every epoch
-        run_validation(model, val_dataloader, tokenizer_src, tokenizer_tgt, config['seq_len'], device,
+        run_validation(model, val_dataloader, tokenizer_tgt, config['seq_len'], device,
                        lambda msg: batch_iterator.write(msg), global_step, writer)
 
         # Save the model at the end of every epoch

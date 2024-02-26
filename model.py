@@ -435,7 +435,7 @@ class Transformer(nn.Module):
 
 
 def build_transformer(src_vocab_size: int, tgt_vocab_size: int, src_seq_len: int, tgt_seq_len: int, d_model: int = 512,
-                      N: int = 6, h: int = 8, dropout: float = 0.1, d_ff: int = 2048) -> Transformer:
+                      num_layers: int = 6, h: int = 8, dropout: float = 0.1, d_ff: int = 2048) -> Transformer:
     """
     Build the transformer model.
 
@@ -444,7 +444,7 @@ def build_transformer(src_vocab_size: int, tgt_vocab_size: int, src_seq_len: int
     :param src_seq_len: Maximum sequence length for source.
     :param tgt_seq_len: Maximum sequence length for target.
     :param d_model: Dimensionality of the model. Defaults to 512.
-    :param N: Number of encoder and decoder layers. Defaults to 6.
+    :param num_layers: Number of encoder and decoder layers. Defaults to 6.
     :param h: Number of attention heads. Defaults to 8.
     :param dropout: Dropout probability. Defaults to 0.1.
     :param d_ff: Dimensionality of the feedforward layer. Defaults to 2048.
@@ -457,14 +457,14 @@ def build_transformer(src_vocab_size: int, tgt_vocab_size: int, src_seq_len: int
     tgt_pos = PositionalEncoding(d_model, tgt_seq_len, dropout)
 
     encoder_blocks = []
-    for _ in range(N):
+    for _ in range(num_layers):
         encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout)
         feed_forward_block = FeedForwardBlock(d_model, d_ff, dropout)
         encoder_block = EncoderBlock(d_model, encoder_self_attention_block, feed_forward_block, dropout)
         encoder_blocks.append(encoder_block)
 
     decoder_blocks = []
-    for _ in range(N):
+    for _ in range(num_layers):
         decoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout)
         decoder_cross_attention_block = MultiHeadAttentionBlock(d_model, h, dropout)
         feed_forward_block = FeedForwardBlock(d_model, d_ff, dropout)
