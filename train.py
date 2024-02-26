@@ -3,7 +3,7 @@ import os  # For filesystem operations
 import shutil  # For filesystem operations
 import warnings  # For managing warnings
 from pathlib import Path  # For working with file paths
-from typing import Callable, Tuple  # For type hints
+from typing import Callable, List, Tuple  # For type hints
 
 # Third-party library imports
 import pandas as pd  # For working with dataframes
@@ -91,6 +91,9 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
     df['Discrete Attributes'] = df[
         config['discrete_input_attributes'] + expert_input_columns
     ].apply(lambda row: ' '.join(row), axis=1)
+
+    # Drop the original columns
+    df.drop(config['discrete_input_attributes'] + expert_input_columns, axis=1, inplace=True)
 
     # Create a raw dataset from the DataFrame
     ds_raw = HuggingfaceDataset.from_pandas(df)
@@ -353,159 +356,91 @@ def greedy_decode(model: Transformer, source: torch.Tensor, source_mask: torch.T
     return decoder_input.squeeze(0)
 
 
-def read_log(config: dict, complete: bool = False) -> pd.DataFrame:
+def normalize_continuous_attributes(df: pd.DataFrame, continuous_columns: List[str]) -> pd.DataFrame:
     """
-    Read log file and preprocess data according to configuration.
+    Normalize continuous attributes in the DataFrame using MinMaxScaler.
 
+    :param df: DataFrame containing the log data.
+    :param continuous_columns: List of column names containing continuous attributes.
+    :return: DataFrame with normalized continuous attributes.
+    """
+    # Extract continuous columns from the dataframe
+    continuous_df = df[continuous_columns]
+
+    # Iterate over each column to handle potential string representations of numeric values
+    for column in continuous_df.columns:
+        # Convert string representations of numeric values to float
+        continuous_df[column] = pd.to_numeric(continuous_df[column], errors='coerce')
+
+    # Normalize numeric columns using MinMaxScaler
+    scaler = MinMaxScaler()
+    normalized_data = scaler.fit_transform(continuous_df)
+
+    # Create new column names for the normalized columns
+    normalized_column_names = [col + '_normalized' if '_normalized' not in col else col for col in continuous_columns]
+
+    # Update the original dataframe with normalized columns
+    df[normalized_column_names] = normalized_data
+
+    return df
+
+
+def prepare_dataframe_for_sequence_processing(df: pd.DataFrame, config: dict) -> pd.DataFrame:
+    """
+    Prepare the DataFrame for sequence processing.
+
+    :param df: DataFrame containing the log data.
     :param config: Configuration object containing necessary parameters.
-    :param complete: Flag to indicate if the complete DataFrame should be returned. Defaults to False.
-    :return: Processed DataFrame according to the specified configuration.
+    :return: Prepared DataFrame for sequence processing.
     """
-    cached_df_copy = get_cached_df_copy()
-    # Check if the cached DataFrame exists and if complete is True
-    if cached_df_copy is not None and complete:
-        return cached_df_copy
+    expert_input_columns = get_expert_input_columns()
 
-    # Check the file extension to determine the type of log file
-    if config['log_path'].endswith('.csv'):
-        # Read CSV file into a DataFrame
-        df = pd.read_csv(config['log_path'])
-    elif config['log_path'].endswith('.xes'):
-        # Read XES file into a DataFrame using PM4Py library
-        file = pm4py.read_xes(config['log_path'])
-        df = log_converter.apply(file, variant=log_converter.Variants.TO_DATA_FRAME)
+    # Create a list with normalized column names for continuous attributes and original column names for others,
+    # then extend with expert input columns
+    all_input_columns = [
+        col + '_normalized' if col in config['continuous_input_attributes'] else col
+        for col in config['tf_input']
+    ] + expert_input_columns
+
+    # Create a DataFrame with required attributes
+    df = df[[*all_input_columns, config['tf_output']]]
+
+    # Convert DataFrame to string type and replace spaces and hyphens with underscores
+    df = df.astype(str).applymap(lambda x: x.replace(' ', '_').replace('-', '_'))
+
+    # Prepare the DataFrame for sequence processing
+    length = config['seq_len'] - 2
+    if len(df) >= length:
+        for i in range(len(df) - length + 1):
+            # Concatenate sequences of input and output attributes
+            for attr in all_input_columns:
+                df.at[i, attr] = ' '.join(df[attr].iloc[i:i + length])
+            df.at[i, config['tf_output']] = ' '.join(df[config['tf_output']].iloc[i:i + length])
+
+        # Drop rows with insufficient sequence length
+        df = df.drop(df.index[len(df) - length + 1:])
     else:
-        # Raise an error for unsupported file types
-        raise ValueError('Unknown file type. Supported types are .csv and .xes.')
+        raise ValueError(f"Length of the dataframe ({len(df)}) is less than {length}.")
 
-    # Define the required attributes including 'Timestamp' only if it's not already in config['tf_input']
-    # or config['tf_output']
-    required_attributes = list({*config['tf_input'], config['tf_output'], 'Timestamp'})
+    # Concatenate values from discrete input attributes and expert input columns into a single column
+    df['Discrete Attributes'] = df[
+        config['discrete_input_attributes'] + expert_input_columns
+    ].apply(lambda row: ' '.join(row), axis=1)
 
-    # Create a mapping of attribute aliases to column names
-    column_mapping = {key: value for key, value in config['attribute_dictionary'].items()
-                      if key in required_attributes}
+    # Drop the original columns
+    df.drop(config['discrete_input_attributes'] + expert_input_columns, axis=1, inplace=True)
 
-    # Initialize dictionaries and lists for selected columns
-    selected_columns = {}
-    automatically_selected_columns = {}
-    selected_col_alias = []
+    return df
 
-    # Iterate through the attribute mapping
-    for col_alias, col_name in column_mapping.items():
-        # Check if the column exists in the DataFrame
-        if col_name.lower() in map(str.lower, df.columns):
-            # If found, automatically select the column
-            automatically_selected_columns[col_alias] = col_name
-            selected_col_alias.append(col_alias)
-        else:
-            # If not found, prompt the user to select the column
-            print(f"Column '{col_name}' for '{col_alias}' not found in the dataframe.")
-            # List available columns for user selection
-            available_columns = [col for col in df.columns.tolist() if col not in selected_columns.values()]
-            num_available_columns = len(available_columns)
-            if num_available_columns == 0:
-                raise ValueError("No available columns left. Cannot proceed.")
-            else:
-                print(f"{num_available_columns} available column{'s' if num_available_columns > 1 else ''}: "
-                      f"{', '.join(available_columns)}")
-            # Prompt the user to select the column
-            user_input = input(f"Please select the name of the column corresponding to '{col_alias}': ")
-            matching_column = next((col for col in df.columns if col.lower() == user_input.lower()), None)
-            if matching_column:
-                selected_columns[col_alias] = matching_column
-                print(f"Column '{matching_column}' selected for '{col_alias}'.\n")
-            else:
-                raise ValueError("No matching column found. Please try again.")
 
-    # If some columns are selected automatically
-    if len(selected_col_alias) != 0:
-        print(f"Following column{'s' if len(selected_col_alias) != 1 else ''} "
-              f"w{'ere' if len(selected_col_alias) != 1 else 'as'} automatically matched:")
-        for index, col_alias in enumerate(selected_col_alias):
-            print(f"'{automatically_selected_columns[col_alias]}' for '{col_alias}'"
-                  f"{';' if index != len(selected_col_alias) - 1 else '.'}")
+def process_expert_input_attributes(df: pd.DataFrame, config: dict) -> pd.DataFrame:
+    """
+    Process expert input attributes and append them to the DataFrame.
 
-        # Ask for user confirmation on the automatically selected columns
-        user_confirmation = input(f"Is this {'completely ' if len(selected_col_alias) != 1 else ''}"
-                                  f"correct? (yes/no): ").lower().strip()
-
-        if user_confirmation not in ('yes', 'no'):
-            raise ValueError("Please enter either 'yes' or 'no'.")
-
-        if user_confirmation == 'no':
-            if len(selected_col_alias) != 1:
-                incorrect_aliases = [alias.strip() for alias in input(f"Please enter the incorrect attribute(s) "
-                                                                      f"separated by a comma: ").split(',')]
-                if not all(alias in selected_col_alias for alias in incorrect_aliases):
-                    raise ValueError("One or more provided incorrect attributes are not valid.")
-            else:
-                incorrect_aliases = [selected_col_alias[0]]
-            for alias in incorrect_aliases:
-                del automatically_selected_columns[alias]
-                available_columns = [col for col in df.columns.tolist() if col not in selected_columns.values()]
-                num_available_columns = len(available_columns)
-                if num_available_columns == 0:
-                    raise ValueError("No available columns left. Cannot proceed.")
-                else:
-                    print(f"{num_available_columns} available column{'s' if num_available_columns > 1 else ''}: "
-                          f"{', '.join(available_columns)}")
-                user_input = input(f"Please select the name of the column corresponding to '{alias}': ")
-                matching_column = next((col for col in df.columns if col.lower() == user_input.lower()), None)
-                if matching_column:
-                    selected_columns[alias] = matching_column
-                    print(f"Column '{matching_column}' selected for '{alias}'.\n")
-                else:
-                    raise ValueError("No matching column found. Please try again.")
-
-        # Check for duplicate selections
-        for col_alias, col_name in automatically_selected_columns.items():
-            if col_name in selected_columns.values():
-                raise ValueError(f"Column '{col_name}' was inadmissibly selected twice.")
-
-        # Update the selected columns with the automatically matched columns
-        selected_columns.update(automatically_selected_columns)
-
-    # Select columns from DataFrame based on selected columns
-    df = df[list(selected_columns.values())]
-    df.columns = list(selected_columns.keys())
-
-    # Convert Timestamp column to datetime
-    df['Timestamp'] = df['Timestamp'].apply(lambda x: parser.isoparse(x) if isinstance(x, str) else x)
-    df = df.sort_values(['Timestamp']).reset_index(drop=True)
-    df['Timestamp'] = pd.to_datetime(df['Timestamp'], utc=True)
-    df['Timestamp'] = df['Timestamp'].dt.tz_localize(None)
-
-    if config['continuous_input_attributes']:
-        continuous_columns = config['continuous_input_attributes'][:]
-
-        # Check if 'Timestamp' is in continuous columns
-        if 'Timestamp' in continuous_columns:
-            # Calculate the time differences in seconds relative to the first timestamp
-            df['Timestamp_normalized'] = (df['Timestamp'] - df['Timestamp'].iloc[0]).dt.total_seconds()
-
-            continuous_columns.append('Timestamp_normalized')
-            continuous_columns.remove('Timestamp')
-
-        # Extract continuous columns from the dataframe
-        continuous_df = df[continuous_columns]
-
-        # Iterate over each column to handle potential string representations of numeric values
-        for column in continuous_df.columns:
-            # Convert string representations of numeric values to float
-            continuous_df[column] = pd.to_numeric(continuous_df[column], errors='coerce')
-
-        # Normalize numeric columns using MinMaxScaler
-        scaler = MinMaxScaler()
-        normalized_data = scaler.fit_transform(continuous_df)
-
-        # Create new column names for the normalized columns
-        normalized_column_names = [col + '_normalized' if '_normalized' not in col
-                                   else col for col in continuous_columns]
-
-        # Update the original dataframe with normalized columns
-        df[normalized_column_names] = normalized_data
-
+    :param df: DataFrame containing the log data.
+    :param config: Configuration object containing necessary parameters.
+    :return: DataFrame with expert input attributes appended.
+    """
     # Initialize a list to store column headers describing expert input
     expert_input_columns = []
 
@@ -524,8 +459,6 @@ def read_log(config: dict, complete: bool = False) -> pd.DataFrame:
 
                     # One-dimensional list case
                     if isinstance(values, list) and all(isinstance(val, str) for val in values):
-                        # Check if each value in values occurs in df[transformed_attribute_column]
-                        # without case sensitivity
                         for val in values:
                             if not df[transformed_attribute_column].str.lower().str.contains(val.lower()).any():
                                 raise ValueError(f"The value '{val}' specified for attribute '{attribute}' does not "
@@ -627,6 +560,70 @@ def read_log(config: dict, complete: bool = False) -> pd.DataFrame:
     # Set the expert input columns
     set_expert_input_columns(expert_input_columns)
 
+    return df
+
+
+def read_file(config: dict) -> pd.DataFrame:
+    """
+    Read log file into a DataFrame based on the file extension.
+
+    :param config: Configuration object containing necessary parameters.
+    :return: DataFrame containing the read data.
+    """
+    if config['log_path'].endswith('.csv'):
+        return pd.read_csv(config['log_path'])
+    elif config['log_path'].endswith('.xes'):
+        file = pm4py.read_xes(config['log_path'])
+        return log_converter.apply(file, variant=log_converter.Variants.TO_DATA_FRAME)
+    else:
+        raise ValueError('Unknown file type. Supported types are .csv and .xes.')
+
+
+def read_log(config: dict, complete: bool = False) -> pd.DataFrame:
+    """
+    Read log file and preprocess data according to configuration.
+
+    :param config: Configuration object containing necessary parameters.
+    :param complete: Flag to indicate if the complete DataFrame should be returned. Defaults to False.
+    :return: Processed DataFrame according to the specified configuration.
+    """
+    cached_df_copy = get_cached_df_copy()
+    if cached_df_copy is not None and complete:
+        return cached_df_copy
+
+    df = read_file(config)
+
+    # Define the required attributes including 'Timestamp' only if it's not already in config['tf_input']
+    # or config['tf_output']
+    required_attributes = list({*config['tf_input'], config['tf_output'], 'Timestamp'})
+
+    # Create a mapping of attribute aliases to column names
+    column_mapping = {key: value for key, value in config['attribute_dictionary'].items()
+                      if key in required_attributes}
+
+    df = select_columns(df, column_mapping)
+
+    # Convert Timestamp column to datetime
+    df['Timestamp'] = df['Timestamp'].apply(lambda x: parser.isoparse(x) if isinstance(x, str) else x)
+    df = df.sort_values(['Timestamp']).reset_index(drop=True)
+    df['Timestamp'] = pd.to_datetime(df['Timestamp'], utc=True)
+    df['Timestamp'] = df['Timestamp'].dt.tz_localize(None)
+
+    if config['continuous_input_attributes']:
+        continuous_columns = config['continuous_input_attributes'][:]
+
+        # Check if 'Timestamp' is in continuous columns
+        if 'Timestamp' in continuous_columns:
+            # Calculate the time differences in seconds relative to the first timestamp
+            df['Timestamp_normalized'] = (df['Timestamp'] - df['Timestamp'].iloc[0]).dt.total_seconds()
+
+            continuous_columns.append('Timestamp_normalized')
+            continuous_columns.remove('Timestamp')
+
+        df = normalize_continuous_attributes(df, continuous_columns)
+
+    df = process_expert_input_attributes(df, config)
+
     # Cache a copy of the DataFrame for potential future use
     set_cached_df_copy(df)
 
@@ -634,40 +631,7 @@ def read_log(config: dict, complete: bool = False) -> pd.DataFrame:
     if complete:
         return df
 
-    # Create a list with normalized column names for continuous attributes and original column names for others,
-    # then extend with expert input columns
-    all_input_columns = [
-        col + '_normalized' if col in config['continuous_input_attributes'] else col
-        for col in config['tf_input']
-    ] + expert_input_columns
-
-    # Create a DataFrame with required attributes
-    df = df[[*all_input_columns, config['tf_output']]]
-
-    # Convert DataFrame to string type and replace spaces and hyphens with underscores
-    df = df.astype(str).applymap(lambda x: x.replace(' ', '_').replace('-', '_'))
-
-    # Prepare the DataFrame for sequence processing
-    length = config['seq_len'] - 2
-    if len(df) >= length:
-        for i in range(len(df) - length + 1):
-            # Concatenate sequences of input and output attributes
-            for attr in all_input_columns:
-                df.at[i, attr] = ' '.join(df[attr].iloc[i:i + length])
-            df.at[i, config['tf_output']] = ' '.join(df[config['tf_output']].iloc[i:i + length])
-
-        # Drop rows with insufficient sequence length
-        df = df.drop(df.index[len(df) - length + 1:])
-    else:
-        raise ValueError(f"Length of the dataframe ({len(df)}) is less than {length}.")
-
-    # Concatenate values from discrete input attributes and expert input columns into a single column
-    df['Discrete Attributes'] = df[
-        config['discrete_input_attributes'] + expert_input_columns
-    ].apply(lambda row: ' '.join(row), axis=1)
-
-    # Drop the original columns
-    df.drop(config['discrete_input_attributes'] + expert_input_columns, axis=1, inplace=True)
+    df = prepare_dataframe_for_sequence_processing(df, config)
 
     # Return the prepared DataFrame
     return df
@@ -753,6 +717,99 @@ def run_validation(model: Transformer, validation_ds: DataLoader, tokenizer_src:
         bleu = metric(predicted, expected)
         writer.add_scalar('validation BLEU', bleu, global_step)
         writer.flush()
+
+
+def select_columns(df: pd.DataFrame, column_mapping: dict) -> pd.DataFrame:
+    """
+    Select columns from DataFrame based on selected columns.
+
+    :param df: DataFrame containing the log data.
+    :param column_mapping: Mapping of attribute aliases to column names.
+    :return: DataFrame with selected columns.
+    """
+    selected_columns = {}
+    automatically_selected_columns = {}
+    selected_col_alias = []
+
+    for col_alias, col_name in column_mapping.items():
+        # Check if the column exists in the DataFrame
+        if col_name.lower() in map(str.lower, df.columns):
+            # If found, automatically select the column
+            automatically_selected_columns[col_alias] = col_name
+            selected_col_alias.append(col_alias)
+        else:
+            # If not found, prompt the user to select the column
+            print(f"Column '{col_name}' for '{col_alias}' not found in the dataframe.")
+            # List available columns for user selection
+            available_columns = [col for col in df.columns.tolist() if col not in selected_columns.values()]
+            num_available_columns = len(available_columns)
+            if num_available_columns == 0:
+                raise ValueError("No available columns left. Cannot proceed.")
+            else:
+                print(f"{num_available_columns} available column{'s' if num_available_columns > 1 else ''}: "
+                      f"{', '.join(available_columns)}")
+            # Prompt the user to select the column
+            user_input = input(f"Please select the name of the column corresponding to '{col_alias}': ")
+            matching_column = next((col for col in df.columns if col.lower() == user_input.lower()), None)
+            if matching_column:
+                selected_columns[col_alias] = matching_column
+                print(f"Column '{matching_column}' selected for '{col_alias}'.\n")
+            else:
+                raise ValueError("No matching column found. Please try again.")
+
+    # If some columns are selected automatically
+    if len(selected_col_alias) != 0:
+        print(f"Following column{'s' if len(selected_col_alias) != 1 else ''} "
+              f"w{'ere' if len(selected_col_alias) != 1 else 'as'} automatically matched:")
+        for index, col_alias in enumerate(selected_col_alias):
+            print(f"'{automatically_selected_columns[col_alias]}' for '{col_alias}'"
+                  f"{';' if index != len(selected_col_alias) - 1 else '.'}")
+
+        # Ask for user confirmation on the automatically selected columns
+        user_confirmation = input(f"Is this {'completely ' if len(selected_col_alias) != 1 else ''}"
+                                  f"correct? (yes/no): ").lower().strip()
+
+        if user_confirmation not in ('yes', 'no'):
+            raise ValueError("Please enter either 'yes' or 'no'.")
+
+        if user_confirmation == 'no':
+            if len(selected_col_alias) != 1:
+                incorrect_aliases = [alias.strip() for alias in input(f"Please enter the incorrect attribute(s) "
+                                                                      f"separated by a comma: ").split(',')]
+                if not all(alias in selected_col_alias for alias in incorrect_aliases):
+                    raise ValueError("One or more provided incorrect attributes are not valid.")
+            else:
+                incorrect_aliases = [selected_col_alias[0]]
+            for alias in incorrect_aliases:
+                del automatically_selected_columns[alias]
+                available_columns = [col for col in df.columns.tolist() if col not in selected_columns.values()]
+                num_available_columns = len(available_columns)
+                if num_available_columns == 0:
+                    raise ValueError("No available columns left. Cannot proceed.")
+                else:
+                    print(f"{num_available_columns} available column{'s' if num_available_columns > 1 else ''}: "
+                          f"{', '.join(available_columns)}")
+                user_input = input(f"Please select the name of the column corresponding to '{alias}': ")
+                matching_column = next((col for col in df.columns if col.lower() == user_input.lower()), None)
+                if matching_column:
+                    selected_columns[alias] = matching_column
+                    print(f"Column '{matching_column}' selected for '{alias}'.\n")
+                else:
+                    raise ValueError("No matching column found. Please try again.")
+
+        # Check for duplicate selections
+        for col_alias, col_name in automatically_selected_columns.items():
+            if col_name in selected_columns.values():
+                raise ValueError(f"Column '{col_name}' was inadmissibly selected twice.")
+
+        # Update the selected columns with the automatically matched columns
+        selected_columns.update(automatically_selected_columns)
+
+    # Select columns from DataFrame based on selected columns
+    df = df[list(selected_columns.values())]
+    df.columns = list(selected_columns.keys())
+
+    return df
 
 
 def train_model(config: dict) -> None:
