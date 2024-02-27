@@ -27,28 +27,40 @@ from tokenizers import Tokenizer, models, trainers, pre_tokenizers  # For tokeni
 # Local application/library specific imports
 from model import build_transformer, Transformer  # Importing Transformer model builder
 from dataset import BilingualDataset, causal_mask  # Importing custom dataset and mask functions
-from config import (get_config, get_weights_file_path, latest_weights_file_path, get_cached_df_copy, set_cached_df_copy,
-                    get_expert_input_columns, set_expert_input_columns, attribute_specification)
+from config import (attribute_specification, get_cached_df_copy, get_config, get_expert_input_columns,
+                    get_weights_file_path, latest_weights_file_path, reset_log, set_cached_df_copy,
+                    set_expert_input_columns)
 
 from tqdm import tqdm  # For progress bars
 
 
-def create_log(config: dict, chunk_size: int = None, consider_ids: bool = False) -> pd.DataFrame:
+def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
     """
     Creates a log with determined case IDs based on the given configuration and chunk size.
 
     :param config: Dictionary containing configuration parameters for log creation. It includes keys like 'tf_input',
     'tf_output', and 'seq_len'.
     :param chunk_size: Number of rows to be processed as a single chunk. Default is set to `config['seq_len']` - 2.
-    :param consider_ids: If True, Actual Case ID will overwrite Determined Case ID when Actual Case ID is not empty.
-    Default is False.
     :return: DataFrame representing the log with determined cases.
     """
+    prediction_preference = input("Do you want to predict the case IDs using the event log that was used for training? "
+                                  "(yes/no): ").strip().lower()
+
+    if prediction_preference not in ['yes', 'no']:
+        raise ValueError("Invalid input! Please enter 'yes' or 'no'.")
+
+    if prediction_preference == 'yes':
+        consider_ids = False
+    else:
+        reset_log(False)
+        print("Please ensure the new event log matches the process used during training.")
+        config = get_config()
+        consider_ids = True
+
+    data_complete = read_log(config, True)
+
     if chunk_size is None:
         chunk_size = config['seq_len'] - 2
-
-    # Read the complete log data
-    data_complete = read_log(config, True)
 
     df = prepare_dataframe_for_sequence_processing(data_complete, config, chunk_size)
 
@@ -192,7 +204,7 @@ def get_ds(config: dict) -> Tuple[DataLoader, DataLoader, Tokenizer, Tokenizer]:
     ds_raw = HuggingfaceDataset.from_pandas(train)
 
     # TODO: Continuous: Late fusion: concatenate the output of the Transformer encoder with the output of a simple
-    #  feed-forward net that encodes continuous data (needs to be in shape (Batch, seq_len, d_model)) AND
+    #  feed-forward net that encodes continuous data (needs to be in shape (batch, seq_len, d_model)) AND
     #  encoding vector is constructed
     # Build tokenizers
     tokenizer_src = get_or_build_tokenizer(config, ds_raw, 'Discrete Attributes')

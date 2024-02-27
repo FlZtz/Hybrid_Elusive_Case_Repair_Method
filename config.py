@@ -29,7 +29,9 @@ expert_attributes: dict = {
     'End Activity': {'type': 'unary', 'attribute': 'Activity'},
     'Directly Following': {'type': 'binary', 'attribute': 'Activity'}
 }
+expert_input_attributes: List[str] = []
 expert_input_columns: List[str] = []
+expert_input_values: dict = {}
 log_name: Optional[str] = None
 log_path: Optional[str] = None
 tf_input: List[str] = []
@@ -156,7 +158,7 @@ def get_config() -> dict:
 
     :return: Dictionary containing various configuration parameters.
     """
-    global log_path, log_name, tf_input, attribute_config
+    global attribute_config, expert_input_attributes, expert_input_values, log_name, log_path, tf_input
 
     # If log_path is not set, get it using the get_file_path function
     if log_path is None:
@@ -185,18 +187,15 @@ def get_config() -> dict:
         else:
             continuous_input_attributes.append(attr)
 
-    expert_input_attributes = get_expert_attributes()
+    if not expert_input_attributes:
+        expert_input_attributes = get_expert_attributes()
+        expert_input_values = {}
+        if expert_input_attributes:
+            expert_input_values = expert_value_query(expert_input_attributes)
 
     # Determine the model name based on attribute lengths
     model_name = get_model_name(len(discrete_input_attributes), len(continuous_input_attributes),
                                 len(expert_input_attributes))
-
-    expert_input_values = {}
-
-    # Check if there are any expert input attributes
-    if expert_input_attributes:
-        # Query expert values for the expert input attributes
-        expert_input_values = expert_value_query(expert_input_attributes)
 
     # Return a dictionary with configuration parameters
     return {
@@ -411,16 +410,30 @@ def latest_weights_file_path(config: dict) -> str or None:
     return str(weights_files[-1])
 
 
-def reset_log() -> None:
+def reset_log(new_process: bool = True) -> None:
     """
-    Reset the global variables cached_df_copy, expert_input_columns, log_name, log_path, and tf_input to None.
+    Reset the global variables cached_df_copy, log_name, and log_path to None. Optionally reset expert_input_attributes,
+     expert_input_columns, expert_input_values, and tf_input to empty lists or dictionaries if new_process is True.
+
+    :param new_process: Specifies whether to reset expert_input_attributes, expert_input_columns, expert_input_values,
+    and tf_input. Defaults to True.
     """
-    global cached_df_copy, expert_input_columns, log_name, log_path, tf_input
+    global cached_df_copy
+    global expert_input_attributes
+    global expert_input_columns
+    global expert_input_values
+    global log_name
+    global log_path
+    global tf_input
+
     cached_df_copy = None
-    expert_input_columns = []
     log_name = None
     log_path = None
-    tf_input = []
+    if new_process:
+        expert_input_attributes = []
+        expert_input_columns = []
+        expert_input_values = {}
+        tf_input = []
 
 
 def set_cached_df_copy(df: pd.DataFrame) -> None:
