@@ -108,16 +108,16 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
             model_out_values = vocab_tgt.decode(model_out.detach().cpu().numpy()).split()
 
             # Extend the determined_log list with tuples representing rows
-            determined_log.extend((model_out_value, target_value)
-                                  for target_value, model_out_value
-                                  in zip(target_text, model_out_values))
+            determined_log.extend((model_out_value, f"{prob * 100:.2f}%", target_value)
+                                  for target_value, model_out_value, prob
+                                  in zip(target_text, model_out_values, probabilities))
         except Exception as e:
             # If an error occurs during decoding, log the error and skip this batch
             print(f"Error occurred during decoding: {e}")
             continue
 
     # Convert the list of tuples to a DataFrame
-    determined_log = pd.DataFrame(determined_log, columns=['Determined Case ID', 'Actual Case ID'])
+    determined_log = pd.DataFrame(determined_log, columns=['Determined Case ID', 'Probability', 'Actual Case ID'])
 
     # Initialize an empty DataFrame to store the restored columns
     restored_columns = pd.DataFrame()
@@ -142,7 +142,7 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
         extended_log = pd.concat([determined_log, timestamp_column], axis=1)
 
     # Drop column
-    extended_log.drop(columns=['Actual Case ID'], inplace=True)
+    extended_log.drop(columns=['Actual Case ID', 'Probability'], inplace=True)
 
     # Rename 'Determined Case ID' to 'Case ID' first
     extended_log.rename(columns={'Determined Case ID': 'Case ID'}, inplace=True)
@@ -184,7 +184,7 @@ def get_ds(config: dict) -> Tuple[DataLoader, DataLoader, Tokenizer, Tokenizer]:
     ds_raw = HuggingfaceDataset.from_pandas(train)
 
     # TODO: Continuous: Late fusion: concatenate the output of the Transformer encoder with the output of a simple
-    #  feed-forward net that encodes continuous data AND
+    #  feed-forward net that encodes continuous data (needs to be in shape (Batch, seq_len, d_model)) AND
     #  encoding vector is constructed
     # Build tokenizers
     tokenizer_src = get_or_build_tokenizer(config, ds_raw, 'Discrete Attributes')
@@ -306,6 +306,7 @@ def greedy_decode(model: Transformer, source: torch.Tensor, source_mask: torch.T
 
         # get next token
         prob = model.project(out[:, -1])
+        prob = torch.softmax(prob, dim=1)
         probs, indices = torch.topk(prob, k=2, dim=1)
         next_index = indices[:, 0]
         if next_index == eos_idx:
