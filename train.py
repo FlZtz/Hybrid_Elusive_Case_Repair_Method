@@ -33,15 +33,16 @@ from config import (get_config, get_weights_file_path, latest_weights_file_path,
 from tqdm import tqdm  # For progress bars
 
 
-def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
+def create_log(config: dict, chunk_size: int = None, consider_ids: bool = False) -> pd.DataFrame:
     """
     Creates a log with determined case IDs based on the given configuration and chunk size.
 
     :param config: Dictionary containing configuration parameters for log creation. It includes keys like 'tf_input',
     'tf_output', and 'seq_len'.
     :param chunk_size: Number of rows to be processed as a single chunk. Default is set to `config['seq_len']` - 2.
-    :return: DataFrame representing the log with determined cases, including columns for 'Determined Case ID',
-    'Actual Case ID', and 'Activity'.
+    :param consider_ids: If True, Actual Case ID will overwrite Determined Case ID when Actual Case ID is not empty.
+    Default is False.
+    :return: DataFrame representing the log with determined cases.
     """
     if chunk_size is None:
         chunk_size = config['seq_len'] - 2
@@ -118,6 +119,13 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
 
     # Convert the list of tuples to a DataFrame
     determined_log = pd.DataFrame(determined_log, columns=['Determined Case ID', 'Probability', 'Actual Case ID'])
+
+    # Update Determined Case ID and Probability columns based on Actual Case ID if consider_ids is True
+    if consider_ids:
+        for idx, row in determined_log.iterrows():
+            if row['Actual Case ID']:
+                determined_log.at[idx, 'Determined Case ID'] = row['Actual Case ID']
+                determined_log.at[idx, 'Probability'] = "-"
 
     # Initialize an empty DataFrame to store the restored columns
     restored_columns = pd.DataFrame()
