@@ -755,7 +755,12 @@ def select_columns(df: pd.DataFrame, column_mapping: dict) -> pd.DataFrame:
         # Check if the column exists in the DataFrame
         if col_name.lower() in map(str.lower, df.columns):
             # If found, automatically select the column
-            automatically_selected_columns[col_alias] = col_name
+            automatically_selected_columns[col_alias] = df.columns[
+                df.columns.str.lower() == col_name.lower()].values[0]
+            selected_col_alias.append(col_alias)
+        elif col_alias.lower() in map(str.lower, df.columns):
+            automatically_selected_columns[col_alias] = df.columns[
+                df.columns.str.lower() == col_alias.lower()].values[0]
             selected_col_alias.append(col_alias)
         else:
             # If not found, prompt the user to select the column
