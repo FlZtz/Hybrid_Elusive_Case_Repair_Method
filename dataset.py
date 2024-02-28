@@ -1,23 +1,23 @@
-# dataset.py - Definition of BilingualDataset class for handling bilingual text data and related utilities.
+# dataset.py - Definition of InOutDataset class for handling input and output data and related utilities.
 import torch
 from torch.utils.data import Dataset
 from tokenizers import Tokenizer
 
 
-class BilingualDataset(Dataset):
+class InOutDataset(Dataset):
     """
-    Dataset class for bilingual text data.
+    Dataset class for handling input and output data.
     """
     def __init__(self, ds: Dataset, tokenizer_src: Tokenizer, tokenizer_tgt: Tokenizer, tf_input: str, tf_output: str,
                  seq_len: int, disc_attr: int) -> None:
         """
         Initialize the dataset.
 
-        :param ds: List of dictionaries containing source and target text pairs.
-        :param tokenizer_src: Source language tokenizer.
-        :param tokenizer_tgt: Target language tokenizer.
-        :param tf_input: Key indicating the source text in the dictionary.
-        :param tf_output: Key indicating the target text in the dictionary.
+        :param ds: List of dictionaries containing input and output data pairs.
+        :param tokenizer_src: Input tokenizer.
+        :param tokenizer_tgt: Output tokenizer.
+        :param tf_input: Key indicating the input data in the dictionary.
+        :param tf_output: Key indicating the output data in the dictionary.
         :param seq_len: Maximum sequence length for inputs and outputs.
         :param disc_attr: Number of discrete input attributes.
         """

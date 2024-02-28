@@ -1,7 +1,7 @@
 # config.py - Configuration parameters and utility functions for model training.
 import os
 from pathlib import Path
-from typing import List, Optional, Union, Tuple
+from typing import List, Optional, Tuple, Union
 
 import pandas as pd
 import tkinter as tk

@@ -12,7 +12,7 @@ from sklearn.preprocessing import MinMaxScaler  # For normalizing continuous dat
 
 import torch  # PyTorch library
 import torch.nn as nn  # PyTorch neural network module
-from torch.utils.data import Dataset, DataLoader, random_split  # For working with PyTorch datasets
+from torch.utils.data import DataLoader, Dataset,random_split  # For working with PyTorch datasets
 import torchmetrics  # For evaluation metrics
 from torch.utils.tensorboard import SummaryWriter  # For TensorBoard visualization
 
@@ -22,11 +22,11 @@ from pm4py.objects.conversion.log import converter as log_converter  # For log c
 from dateutil import parser  # For parsing date strings
 
 from datasets import Dataset as HuggingfaceDataset  # For Huggingface datasets
-from tokenizers import Tokenizer, models, trainers, pre_tokenizers  # For tokenization
+from tokenizers import models, pre_tokenizers, Tokenizer, trainers  # For tokenization
 
 # Local application/library specific imports
 from model import build_transformer, Transformer  # Importing Transformer model builder
-from dataset import BilingualDataset, causal_mask  # Importing custom dataset and mask functions
+from dataset import causal_mask, InOutDataset  # Importing custom dataset and mask functions
 from config import (attribute_specification, get_cached_df_copy, get_config, get_expert_input_columns,
                     get_weights_file_path, latest_weights_file_path, reset_log, set_cached_df_copy,
                     set_expert_input_columns)
@@ -73,12 +73,12 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
 
     expert_input_columns = get_expert_input_columns()
 
-    # Create a BilingualDataset using source and target tokenizers
-    ds = BilingualDataset(ds_raw, vocab_src, vocab_tgt, 'Discrete Attributes',
-                          config['tf_output'], config['seq_len'],
-                          len(config['discrete_input_attributes']) + len(expert_input_columns))
+    # Create a InOutDataset using source and target tokenizers
+    ds = InOutDataset(ds_raw, vocab_src, vocab_tgt, 'Discrete Attributes',
+                      config['tf_output'], config['seq_len'],
+                      len(config['discrete_input_attributes']) + len(expert_input_columns))
 
-    # Create a DataLoader for the BilingualDataset
+    # Create a DataLoader for the InOutDataset
     ds_dataloader = DataLoader(ds, batch_size=1, shuffle=False)
 
     # Determine the device to use for training (GPU if available, else CPU)
@@ -217,12 +217,12 @@ def get_ds(config: dict) -> Tuple[DataLoader, DataLoader, Tokenizer, Tokenizer]:
 
     expert_input_columns = get_expert_input_columns()
 
-    train_ds = BilingualDataset(train_ds_raw, tokenizer_src, tokenizer_tgt, 'Discrete Attributes',
-                                config['tf_output'], config['seq_len'],
-                                len(config['discrete_input_attributes']) + len(expert_input_columns))
-    val_ds = BilingualDataset(val_ds_raw, tokenizer_src, tokenizer_tgt, 'Discrete Attributes',
-                              config['tf_output'], config['seq_len'],
-                              len(config['discrete_input_attributes']) + len(expert_input_columns))
+    train_ds = InOutDataset(train_ds_raw, tokenizer_src, tokenizer_tgt, 'Discrete Attributes',
+                            config['tf_output'], config['seq_len'],
+                            len(config['discrete_input_attributes']) + len(expert_input_columns))
+    val_ds = InOutDataset(val_ds_raw, tokenizer_src, tokenizer_tgt, 'Discrete Attributes',
+                          config['tf_output'], config['seq_len'],
+                          len(config['discrete_input_attributes']) + len(expert_input_columns))
 
     # Find the maximum length of each sentence in the source and target sentence
     max_len_src = 0
@@ -299,7 +299,7 @@ def greedy_decode(model: Transformer, source: torch.Tensor, source_mask: torch.T
     :param model: The trained Transformer model.
     :param source: The source input tensor.
     :param source_mask: The mask for source sequence.
-    :param tokenizer_tgt: Tokenizer for target language.
+    :param tokenizer_tgt: Tokenizer for output.
     :param max_len: Maximum length of the output sequence.
     :param device: Device to perform computations on.
     :return: The decoded target sequence tensor and the corresponding probabilities.
@@ -659,7 +659,7 @@ def run_validation(model: Transformer, validation_ds: DataLoader, tokenizer_tgt:
 
     :param model: The trained Transformer model.
     :param validation_ds: DataLoader for the validation dataset.
-    :param tokenizer_tgt: Tokenizer for target language.
+    :param tokenizer_tgt: Tokenizer for output.
     :param max_len: Maximum length of the output sequence.
     :param device: Device to perform computations on.
     :param print_msg: Function to print messages.
@@ -844,9 +844,9 @@ def train_model(config: dict) -> None:
     :param config: Configuration options.
     """
     # Define the device
-    device = "cuda" if torch.cuda.is_available() \
-        else "mps" if torch.has_mps or torch.backends.mps.is_available() \
-        else "cpu"
+    device = ("cuda" if torch.cuda.is_available()
+              else "mps" if torch.has_mps or torch.backends.mps.is_available()
+              else "cpu")
     print("Using device:", device)
     if device == 'cuda':
         print(f"Device name: {torch.cuda.get_device_name(device.index)}")
@@ -876,8 +876,10 @@ def train_model(config: dict) -> None:
     initial_epoch = 0
     global_step = 0
     preload = config['preload']
-    model_filename = latest_weights_file_path(config) \
-        if preload == 'latest' else get_weights_file_path(config, preload) if preload else None
+    model_filename = (latest_weights_file_path(config)
+                      if preload == 'latest'
+                      else get_weights_file_path(config, preload) if preload
+                      else None)
     if model_filename:
         print(f'Preloading model {model_filename}')
         state = torch.load(model_filename, map_location=device)
