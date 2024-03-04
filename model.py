@@ -124,6 +124,32 @@ class PositionalEncoding(nn.Module):
         return self.dropout(x)
 
 
+class ContinuousEmbedding(nn.Module):
+    """
+    Continuous embedding module.
+    """
+    def __init__(self, d_model: int, dropout: float) -> None:
+        """
+        Initialize the continuous embedding module.
+
+        :param d_model: Dimensionality of the model.
+        :param dropout: Dropout probability.
+        """
+        super().__init__()
+        self.linear = nn.Linear(1, d_model)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass of the continuous embedding module.
+
+        :param x: Input tensor of shape (batch_size, seq_len).
+        :return: Output tensor of shape (batch_size, seq_len, d_model).
+        """
+        x = x.unsqueeze(-1)
+        return self.dropout(self.linear(x))
+
+
 class ResidualConnection(nn.Module):
     """
     Residual connection module.
@@ -375,14 +401,17 @@ class Transformer(nn.Module):
     """
     Transformer module.
     """
-    def __init__(self, encoder: Encoder, decoder: Decoder, src_embed: InputEmbeddings, tgt_embed: InputEmbeddings,
-                 src_pos: PositionalEncoding, tgt_pos: PositionalEncoding, projection_layer: ProjectionLayer) -> None:
+    def __init__(self, encoder: Encoder, decoder: Decoder, src_embed: InputEmbeddings, cont_embed: ContinuousEmbedding,
+                 cont_ff_block: FeedForwardBlock, tgt_embed: InputEmbeddings, src_pos: PositionalEncoding,
+                 tgt_pos: PositionalEncoding, projection_layer: ProjectionLayer) -> None:
         """
         Initialize the transformer module.
 
         :param encoder: Encoder module.
         :param decoder: Decoder module.
         :param src_embed: Source input embeddings module.
+        :param cont_embed: Continuous input embeddings module.
+        :param cont_ff_block: Continuous feedforward block module.
         :param tgt_embed: Target input embeddings module.
         :param src_pos: Source positional encoding module.
         :param tgt_pos: Target positional encoding module.
@@ -392,6 +421,8 @@ class Transformer(nn.Module):
         self.encoder = encoder
         self.decoder = decoder
         self.src_embed = src_embed
+        self.cont_embed = cont_embed
+        self.cont_ff_block = cont_ff_block
         self.tgt_embed = tgt_embed
         self.src_pos = src_pos
         self.tgt_pos = tgt_pos
@@ -408,6 +439,18 @@ class Transformer(nn.Module):
         src = self.src_embed(src)
         src = self.src_pos(src)
         return self.encoder(src, src_mask)
+
+    def cont_enrichment(self, encoder_output: torch.Tensor, cont_input: torch.Tensor) -> torch.Tensor:
+        """
+        Enrich the encoder output with continuous data.
+
+        :param encoder_output: Encoder output tensor.
+        :param cont_input: Continuous input tensor.
+        :return: Enriched encoder output tensor.
+        """
+        cont = self.cont_embed(cont_input)
+        cont = self.cont_ff_block(cont)
+        return torch.cat((encoder_output, cont), dim=1)
 
     def decode(self, encoder_output: torch.Tensor, src_mask: torch.Tensor, tgt: torch.Tensor,
                tgt_mask: torch.Tensor) -> torch.Tensor:
@@ -475,9 +518,13 @@ def build_transformer(src_vocab_size: int, tgt_vocab_size: int, src_seq_len: int
     encoder = Encoder(d_model, nn.ModuleList(encoder_blocks))
     decoder = Decoder(d_model, nn.ModuleList(decoder_blocks))
 
+    continuous_embed = ContinuousEmbedding(d_model, dropout)
+    continuous_ff_block = FeedForwardBlock(d_model, d_ff, dropout)
+
     projection_layer = ProjectionLayer(d_model, tgt_vocab_size)
 
-    transformer = Transformer(encoder, decoder, src_embed, tgt_embed, src_pos, tgt_pos, projection_layer)
+    transformer = Transformer(encoder, decoder, src_embed, continuous_embed, continuous_ff_block, tgt_embed, src_pos,
+                              tgt_pos, projection_layer)
 
     for p in transformer.parameters():
         if p.dim() > 1:

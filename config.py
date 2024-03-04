@@ -62,7 +62,7 @@ def expert_value_query(attributes: list) -> dict:
 
     :param attributes: A list of attribute names to query.
     :return: A dictionary containing attribute names as keys and dictionaries as values. Each value dictionary contains
-    the expert values, the corresponding attribute name, and the occurrences of each value or combination.
+     the expert values, the corresponding attribute name, and the occurrences of each value or combination.
     """
     global expert_attributes
     expert_values = {}
@@ -173,8 +173,8 @@ def get_config() -> dict:
     # Creating a dictionary to map attributes to their corresponding data mappings
     attribute_dictionary = {key: value['mapping'] for key, value in attribute_config.items()}
 
-    if not tf_input:
-        tf_input = ["Activity"]
+    if "Activity" not in tf_input:
+        tf_input.append("Activity")
 
     # Initialize lists for discrete and continuous input attributes
     discrete_input_attributes = []
@@ -413,10 +413,10 @@ def latest_weights_file_path(config: dict) -> str or None:
 def reset_log(new_process: bool = True) -> None:
     """
     Reset the global variables cached_df_copy, log_name, and log_path to None. Optionally reset expert_input_attributes,
-     expert_input_columns, expert_input_values, and tf_input to empty lists or dictionaries if new_process is True.
+    expert_input_columns, expert_input_values, and tf_input to empty lists or dictionaries if new_process is True.
 
     :param new_process: Specifies whether to reset expert_input_attributes, expert_input_columns, expert_input_values,
-    and tf_input. Defaults to True.
+     and tf_input. Defaults to True.
     """
     global cached_df_copy
     global expert_input_attributes

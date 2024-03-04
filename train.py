@@ -12,7 +12,7 @@ from sklearn.preprocessing import MinMaxScaler  # For normalizing continuous dat
 
 import torch  # PyTorch library
 import torch.nn as nn  # PyTorch neural network module
-from torch.utils.data import DataLoader, Dataset,random_split  # For working with PyTorch datasets
+from torch.utils.data import DataLoader, Dataset, random_split  # For working with PyTorch datasets
 import torchmetrics  # For evaluation metrics
 from torch.utils.tensorboard import SummaryWriter  # For TensorBoard visualization
 
@@ -38,9 +38,9 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
     """
     Creates a log with determined case IDs based on the given configuration and chunk size.
 
-    :param config: Dictionary containing configuration parameters for log creation. It includes keys like 'tf_input',
-    'tf_output', and 'seq_len'.
-    :param chunk_size: Number of rows to be processed as a single chunk. Default is set to `config['seq_len']` - 2.
+    :param config: Dictionary containing configuration parameters for log creation. It includes keys like `tf_input`,
+     `tf_output`, and `seq_len`.
+    :param chunk_size: Number of rows to be processed as a single chunk. Default is set to `config['seq_len'] - 2`.
     :return: DataFrame representing the log with determined cases.
     """
     prediction_preference = input("Do you want to predict the case IDs using the event log that was used for training? "
@@ -74,9 +74,10 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
     expert_input_columns = get_expert_input_columns()
 
     # Create a InOutDataset using source and target tokenizers
-    ds = InOutDataset(ds_raw, vocab_src, vocab_tgt, 'Discrete Attributes',
+    ds = InOutDataset(ds_raw, vocab_src, vocab_tgt, 'Discrete Attributes', 'Continuous Attributes',
                       config['tf_output'], config['seq_len'],
-                      len(config['discrete_input_attributes']) + len(expert_input_columns))
+                      len(config['discrete_input_attributes']) + len(expert_input_columns),
+                      len(config['continuous_input_attributes']))
 
     # Create a DataLoader for the InOutDataset
     ds_dataloader = DataLoader(ds, batch_size=1, shuffle=False)
@@ -100,6 +101,8 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
         # Get input and mask tensors
         encoder_input = batch["encoder_input"].to(device)
         encoder_mask = batch["encoder_mask"].to(device)
+        continuous_input = batch["continuous_input"].to(device)
+        continuous_mask = batch["continuous_mask"].to(device)
 
         # Split target text into a list of values
         target_text = batch["tgt_text"][0].split()
@@ -114,9 +117,12 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
                 model,
                 encoder_input,
                 encoder_mask,
+                continuous_input,
+                continuous_mask,
                 vocab_tgt,
                 batch_size + 2,
-                device
+                device,
+                config
             )
             model_out_values = vocab_tgt.decode(model_out.detach().cpu().numpy()).split()
 
@@ -180,13 +186,13 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
     return determined_log
 
 
-def get_all_sentences(ds: Dataset, data: str) -> str:
+def get_all_sequences(ds: Dataset, data: str) -> str:
     """
-    Generator function to yield all sentences in a dataset.
+    Generator function to yield all sequences in a dataset.
 
-    :param ds: Dataset to extract sentences from.
+    :param ds: Dataset to extract sequences from.
     :param data: Name of the data field.
-    :return: Sentences from the dataset.
+    :return: Sequences from the dataset.
     """
     for item in ds:
         yield item[data]
@@ -203,9 +209,6 @@ def get_ds(config: dict) -> Tuple[DataLoader, DataLoader, Tokenizer, Tokenizer]:
     train, test = train_test_split(df, test_size=0.1, shuffle=True)
     ds_raw = HuggingfaceDataset.from_pandas(train)
 
-    # TODO: Continuous: Late fusion: concatenate the output of the Transformer encoder with the output of a simple
-    #  feed-forward net that encodes continuous data (needs to be in shape (batch, seq_len, d_model)) AND
-    #  encoding vector is constructed
     # Build tokenizers
     tokenizer_src = get_or_build_tokenizer(config, ds_raw, 'Discrete Attributes')
     tokenizer_tgt = get_or_build_tokenizer(config, ds_raw, config['tf_output'])
@@ -217,14 +220,16 @@ def get_ds(config: dict) -> Tuple[DataLoader, DataLoader, Tokenizer, Tokenizer]:
 
     expert_input_columns = get_expert_input_columns()
 
-    train_ds = InOutDataset(train_ds_raw, tokenizer_src, tokenizer_tgt, 'Discrete Attributes',
+    train_ds = InOutDataset(train_ds_raw, tokenizer_src, tokenizer_tgt, 'Discrete Attributes', 'Continuous Attributes',
                             config['tf_output'], config['seq_len'],
-                            len(config['discrete_input_attributes']) + len(expert_input_columns))
-    val_ds = InOutDataset(val_ds_raw, tokenizer_src, tokenizer_tgt, 'Discrete Attributes',
+                            len(config['discrete_input_attributes']) + len(expert_input_columns),
+                            len(config['continuous_input_attributes']))
+    val_ds = InOutDataset(val_ds_raw, tokenizer_src, tokenizer_tgt, 'Discrete Attributes', 'Continuous Attributes',
                           config['tf_output'], config['seq_len'],
-                          len(config['discrete_input_attributes']) + len(expert_input_columns))
+                          len(config['discrete_input_attributes']) + len(expert_input_columns),
+                          len(config['continuous_input_attributes']))
 
-    # Find the maximum length of each sentence in the source and target sentence
+    # Find the maximum length of each sequence in the source and target sequence
     max_len_src = 0
     max_len_tgt = 0
 
@@ -234,8 +239,8 @@ def get_ds(config: dict) -> Tuple[DataLoader, DataLoader, Tokenizer, Tokenizer]:
         max_len_src = max(max_len_src, len(src_ids))
         max_len_tgt = max(max_len_tgt, len(tgt_ids))
 
-    print(f'Max length of source sentence: {max_len_src}')
-    print(f'Max length of target sentence: {max_len_tgt}')
+    print(f'Max length of source sequence: {max_len_src}')
+    print(f'Max length of target sequence: {max_len_tgt}')
 
     train_dataloader = DataLoader(train_ds, batch_size=config['batch_size'], shuffle=True)
     val_dataloader = DataLoader(val_ds, batch_size=1, shuffle=True)
@@ -283,7 +288,7 @@ def get_or_build_tokenizer(config: dict, ds: Dataset, data: str) -> Tokenizer:
         # Customize pre-tokenization and training
         tokenizer.pre_tokenizer = pre_tokenizers.Whitespace()
         trainer = trainers.WordLevelTrainer(special_tokens=["[UNK]", "[PAD]", "[SOS]", "[EOS]"])
-        tokenizer.train_from_iterator(get_all_sentences(ds, data), trainer=trainer)
+        tokenizer.train_from_iterator(get_all_sequences(ds, data), trainer=trainer)
         tokenizer.save(str(tokenizer_path))
     else:
         # Load existing tokenizer
@@ -291,17 +296,21 @@ def get_or_build_tokenizer(config: dict, ds: Dataset, data: str) -> Tokenizer:
     return tokenizer
 
 
-def greedy_decode(model: Transformer, source: torch.Tensor, source_mask: torch.Tensor, tokenizer_tgt: Tokenizer,
-                  max_len: int, device: torch.device) -> Tuple[torch.Tensor, List[float]]:
+def greedy_decode(model: Transformer, source: torch.Tensor, source_mask: torch.Tensor, cont_input: torch.Tensor,
+                  cont_mask: torch.Tensor, tokenizer_tgt: Tokenizer, max_len: int, device: torch.device,
+                  config: dict) -> Tuple[torch.Tensor, List[float]]:
     """
     Greedy decoding algorithm for generating target sequences based on a trained Transformer model.
 
     :param model: The trained Transformer model.
     :param source: The source input tensor.
     :param source_mask: The mask for source sequence.
+    :param cont_input: The continuous input tensor.
+    :param cont_mask: The mask for the input sequence enriched with continuous data.
     :param tokenizer_tgt: Tokenizer for output.
     :param max_len: Maximum length of the output sequence.
     :param device: Device to perform computations on.
+    :param config: Configuration options.
     :return: The decoded target sequence tensor and the corresponding probabilities.
     """
     sos_idx = tokenizer_tgt.token_to_id('[SOS]')
@@ -309,6 +318,11 @@ def greedy_decode(model: Transformer, source: torch.Tensor, source_mask: torch.T
 
     # Precompute the encoder output and reuse it for every step
     encoder_output = model.encode(source, source_mask)
+
+    if config['continuous_input_attributes']:
+        encoder_output = model.cont_enrichment(encoder_output, cont_input)
+        source_mask = cont_mask
+
     # Initialize the decoder input with the sos token
     decoder_input = torch.empty(1, 1).fill_(sos_idx).type_as(source).to(device)
 
@@ -443,6 +457,17 @@ def prepare_dataframe_for_sequence_processing(df: pd.DataFrame, config: dict, ch
 
     # Drop the original columns
     df.drop(config['discrete_input_attributes'] + expert_input_columns, axis=1, inplace=True)
+
+    if config['continuous_input_attributes']:
+        # Concatenate continuous attributes
+        df['Continuous Attributes'] = df[
+            [attr + '_normalized' for attr in config['continuous_input_attributes']]
+        ].apply(lambda row: ' '.join(row), axis=1)
+    else:
+        df['Continuous Attributes'] = ''
+
+    # Drop the original continuous attribute columns
+    df.drop([attr + '_normalized' for attr in config['continuous_input_attributes']], axis=1, inplace=True)
 
     return df
 
@@ -653,7 +678,7 @@ def read_log(config: dict, complete: bool = False) -> pd.DataFrame:
 
 def run_validation(model: Transformer, validation_ds: DataLoader, tokenizer_tgt: Tokenizer, max_len: int,
                    device: torch.device, print_msg: Callable[[str], None], global_step: int, writer: SummaryWriter,
-                   num_examples: int = 2) -> None:
+                   config: dict, num_examples: int = 2) -> None:
     """
     Run validation on the trained model and log evaluation metrics.
 
@@ -665,6 +690,7 @@ def run_validation(model: Transformer, validation_ds: DataLoader, tokenizer_tgt:
     :param print_msg: Function to print messages.
     :param global_step: Current global step in training.
     :param writer: TensorBoard SummaryWriter.
+    :param config: Configuration options.
     :param num_examples: Number of examples to show during validation. Defaults to 2.
     """
     model.eval()
@@ -687,6 +713,8 @@ def run_validation(model: Transformer, validation_ds: DataLoader, tokenizer_tgt:
             count += 1
             encoder_input = batch["encoder_input"].to(device)  # (b, seq_len)
             encoder_mask = batch["encoder_mask"].to(device)  # (b, 1, 1, seq_len)
+            continuous_input = batch["continuous_input"].to(device)
+            continuous_mask = batch["continuous_mask"].to(device)
 
             # check that the batch size is 1
             assert encoder_input.size(0) == 1, "Batch size must be 1 for validation"
@@ -695,14 +723,20 @@ def run_validation(model: Transformer, validation_ds: DataLoader, tokenizer_tgt:
                 model,
                 encoder_input,
                 encoder_mask,
+                continuous_input,
+                continuous_mask,
                 tokenizer_tgt,
                 max_len,
-                device
+                device,
+                config
             )
 
             source_text = batch["src_text"][0]
             target_text = batch["tgt_text"][0]
             model_out_text = tokenizer_tgt.decode(model_out.detach().cpu().numpy())
+
+            if config['continuous_input_attributes']:
+                source_text = source_text + " " + batch["continuous_data"][0]
 
             source_texts.append(source_text)
             expected.append(target_text)
@@ -765,22 +799,8 @@ def select_columns(df: pd.DataFrame, column_mapping: dict) -> pd.DataFrame:
         else:
             # If not found, prompt the user to select the column
             print(f"Column '{col_name}' for '{col_alias}' not found in the dataframe.")
-            # List available columns for user selection
-            available_columns = [col for col in df.columns.tolist() if col not in selected_columns.values()]
-            num_available_columns = len(available_columns)
-            if num_available_columns == 0:
-                raise ValueError("No available columns left. Cannot proceed.")
-            else:
-                print(f"{num_available_columns} available column{'s' if num_available_columns > 1 else ''}: "
-                      f"{', '.join(available_columns)}")
-            # Prompt the user to select the column
-            user_input = input(f"Please select the name of the column corresponding to '{col_alias}': ")
-            matching_column = next((col for col in df.columns if col.lower() == user_input.lower()), None)
-            if matching_column:
-                selected_columns[col_alias] = matching_column
-                print(f"Column '{matching_column}' selected for '{col_alias}'.\n")
-            else:
-                raise ValueError("No matching column found. Please try again.")
+            selected_column = select_matching_column(df, col_alias, selected_columns)
+            selected_columns[col_alias] = selected_column
 
     # If some columns are selected automatically
     if len(selected_col_alias) != 0:
@@ -807,20 +827,8 @@ def select_columns(df: pd.DataFrame, column_mapping: dict) -> pd.DataFrame:
                 incorrect_aliases = [selected_col_alias[0]]
             for alias in incorrect_aliases:
                 del automatically_selected_columns[alias]
-                available_columns = [col for col in df.columns.tolist() if col not in selected_columns.values()]
-                num_available_columns = len(available_columns)
-                if num_available_columns == 0:
-                    raise ValueError("No available columns left. Cannot proceed.")
-                else:
-                    print(f"{num_available_columns} available column{'s' if num_available_columns > 1 else ''}: "
-                          f"{', '.join(available_columns)}")
-                user_input = input(f"Please select the name of the column corresponding to '{alias}': ")
-                matching_column = next((col for col in df.columns if col.lower() == user_input.lower()), None)
-                if matching_column:
-                    selected_columns[alias] = matching_column
-                    print(f"Column '{matching_column}' selected for '{alias}'.\n")
-                else:
-                    raise ValueError("No matching column found. Please try again.")
+                selected_column = select_matching_column(df, alias, selected_columns)
+                selected_columns[alias] = selected_column
 
         # Check for duplicate selections
         for col_alias, col_name in automatically_selected_columns.items():
@@ -835,6 +843,33 @@ def select_columns(df: pd.DataFrame, column_mapping: dict) -> pd.DataFrame:
     df.columns = list(selected_columns.keys())
 
     return df
+
+
+def select_matching_column(df: pd.DataFrame, alias: str, selected_columns: dict) -> str:
+    """
+    Prompt the user to select a column corresponding to the provided alias from the DataFrame.
+
+    :param df: DataFrame containing the columns to choose from.
+    :param alias: Alias corresponding to the column to be selected.
+    :param selected_columns: Dictionary containing already selected columns.
+    :return: Name of the selected column.
+    """
+    # List available columns for user selection
+    available_columns = [col for col in df.columns.tolist() if col not in selected_columns.values()]
+    num_available_columns = len(available_columns)
+    if num_available_columns == 0:
+        raise ValueError("No available columns left. Cannot proceed.")
+    else:
+        print(f"{num_available_columns} available column{'s' if num_available_columns > 1 else ''}: "
+              f"{', '.join(available_columns)}")
+    # Prompt the user to select the column
+    user_input = input(f"Please select the name of the column corresponding to '{alias}': ")
+    matching_column = next((col for col in df.columns if col.lower() == user_input.lower()), None)
+    if matching_column:
+        print(f"Column '{matching_column}' selected for '{alias}'.\n")
+        return matching_column
+    else:
+        raise ValueError("No matching column found. Please try again.")
 
 
 def train_model(config: dict) -> None:
@@ -897,13 +932,20 @@ def train_model(config: dict) -> None:
         model.train()
         batch_iterator = tqdm(train_dataloader, desc=f"Processing Epoch {epoch:02d}")
         for batch in batch_iterator:
-            encoder_input = batch['encoder_input'].to(device)  # (b, seq_len)
+            encoder_input = batch['encoder_input'].to(device)  # (B, seq_len)
             decoder_input = batch['decoder_input'].to(device)  # (B, seq_len)
+            continuous_input = batch['continuous_input'].to(device)
+
             encoder_mask = batch['encoder_mask'].to(device)  # (B, 1, 1, seq_len)
             decoder_mask = batch['decoder_mask'].to(device)  # (B, 1, seq_len, seq_len)
 
             # Run the tensors through the encoder, decoder and the projection layer
             encoder_output = model.encode(encoder_input, encoder_mask)  # (B, seq_len, d_model)
+
+            if config['continuous_input_attributes']:
+                encoder_output = model.cont_enrichment(encoder_output, continuous_input)
+                encoder_mask = batch['continuous_mask'].to(device)
+
             decoder_output = model.decode(encoder_output, encoder_mask, decoder_input,
                                           decoder_mask)  # (B, seq_len, d_model)
             proj_output = model.project(decoder_output)  # (B, seq_len, vocab_size)
@@ -930,7 +972,7 @@ def train_model(config: dict) -> None:
 
         # Run validation at the end of every epoch
         run_validation(model, val_dataloader, tokenizer_tgt, config['seq_len'], device,
-                       lambda msg: batch_iterator.write(msg), global_step, writer)
+                       lambda msg: batch_iterator.write(msg), global_step, writer, config)
 
         # Save the model at the end of every epoch
         model_filename = get_weights_file_path(config, f"{epoch:02d}")
