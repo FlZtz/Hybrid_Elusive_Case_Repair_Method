@@ -26,7 +26,7 @@ from tokenizers import models, pre_tokenizers, Tokenizer, trainers  # For tokeni
 # Local application/library specific imports
 from model import build_transformer, Transformer  # Importing Transformer model builder
 from dataset import causal_mask, InOutDataset  # Importing custom dataset and mask functions
-from config import (get_cached_df_copy, get_config, get_expert_input_columns, get_weights_file_path,
+from config import (get_cached_df_copy, get_config, get_expert_input_columns, get_prob_threshold, get_weights_file_path,
                     latest_weights_file_path, reset_log, set_cached_df_copy, set_expert_input_columns)
 
 from tqdm import tqdm  # For progress bars
@@ -94,6 +94,8 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
     # Initialize an empty list to store tuples representing rows
     determined_log = []
 
+    prob_threshold = get_prob_threshold()
+
     # Iterate over batches in the DataLoader
     for batch in ds_dataloader:
         # Get input and mask tensors
@@ -120,9 +122,12 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
                 vocab_tgt,
                 batch_size + 2,
                 device,
-                config
+                config,
+                prob_threshold
             )
-            model_out_values = vocab_tgt.decode(model_out.detach().cpu().numpy()).split()
+
+            model_out_values = vocab_tgt.decode(model_out.detach().cpu().numpy(), False).split()
+            model_out_values = model_out_values[1:]
 
             # Extend the determined_log list with tuples representing rows
             determined_log.extend((model_out_value, f"{prob * 100:.2f}%", target_value)
@@ -135,6 +140,11 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
 
     # Convert the list of tuples to a DataFrame
     determined_log = pd.DataFrame(determined_log, columns=['Determined Case ID', 'Probability', 'Actual Case ID'])
+
+    determined_log['Determined Case ID'] = determined_log['Determined Case ID'].replace('[NONE]', pd.NA)
+    determined_log['Probability'] = determined_log[
+        'Probability'
+    ].mask(determined_log['Determined Case ID'].isna(), pd.NA)
 
     # Update Determined Case ID and Probability columns based on Actual Case ID if consider_ids is True
     if consider_ids:
@@ -161,9 +171,12 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
 
     # Prepare extended log
     extended_log = determined_log.copy()
+
+    extended_log.fillna('NA', inplace=True)
+
     if 'Timestamp' not in config['tf_input']:
         timestamp_column = pd.DataFrame(data_complete['Timestamp'])
-        extended_log = pd.concat([determined_log, timestamp_column], axis=1)
+        extended_log = pd.concat([extended_log, timestamp_column], axis=1)
 
     # Drop column
     extended_log.drop(columns=['Actual Case ID', 'Probability'], inplace=True)
@@ -285,7 +298,7 @@ def get_or_build_tokenizer(config: dict, ds: Dataset, data: str) -> Tokenizer:
         tokenizer = Tokenizer(models.WordLevel(unk_token="[UNK]"))
         # Customize pre-tokenization and training
         tokenizer.pre_tokenizer = pre_tokenizers.Whitespace()
-        trainer = trainers.WordLevelTrainer(special_tokens=["[UNK]", "[PAD]", "[SOS]", "[EOS]"])
+        trainer = trainers.WordLevelTrainer(special_tokens=["[UNK]", "[PAD]", "[SOS]", "[EOS]", "[NONE]"])
         tokenizer.train_from_iterator(get_all_sequences(ds, data), trainer=trainer)
         tokenizer.save(str(tokenizer_path))
     else:
@@ -296,7 +309,7 @@ def get_or_build_tokenizer(config: dict, ds: Dataset, data: str) -> Tokenizer:
 
 def greedy_decode(model: Transformer, source: torch.Tensor, source_mask: torch.Tensor, cont_input: torch.Tensor,
                   cont_mask: torch.Tensor, tokenizer_tgt: Tokenizer, max_len: int, device: torch.device,
-                  config: dict) -> Tuple[torch.Tensor, List[float]]:
+                  config: dict, prob_threshold: float = 0) -> Tuple[torch.Tensor, List[float]]:
     """
     Greedy decoding algorithm for generating target sequences based on a trained Transformer model.
 
@@ -309,10 +322,12 @@ def greedy_decode(model: Transformer, source: torch.Tensor, source_mask: torch.T
     :param max_len: Maximum length of the output sequence.
     :param device: Device to perform computations on.
     :param config: Configuration options.
+    :param prob_threshold: Probability threshold for selecting the next token. Defaults to 0.
     :return: The decoded target sequence tensor and the corresponding probabilities.
     """
     sos_idx = tokenizer_tgt.token_to_id('[SOS]')
     eos_idx = tokenizer_tgt.token_to_id('[EOS]')
+    none_idx = tokenizer_tgt.token_to_id('[NONE]')
 
     # Precompute the encoder output and reuse it for every step
     encoder_output = model.encode(source, source_mask)
@@ -342,13 +357,21 @@ def greedy_decode(model: Transformer, source: torch.Tensor, source_mask: torch.T
         probs, indices = torch.topk(prob, k=2, dim=1)
         next_index = indices[:, 0]
         if next_index == eos_idx:
-            next_output = indices[:, 1]
-            probabilities.append(probs[:, 1].item())
+            if probs[:, 1].item() >= prob_threshold:
+                next_output = indices[:, 1].item()
+                probabilities.append(probs[:, 1].item())
+            else:
+                next_output = none_idx
+                probabilities.append(0)
         else:
-            next_output = next_index
-            probabilities.append(probs[:, 0].item())
+            if probs[:, 0].item() >= prob_threshold:
+                next_output = next_index.item()
+                probabilities.append(probs[:, 0].item())
+            else:
+                next_output = none_idx
+                probabilities.append(0)
         decoder_input = torch.cat(
-            [decoder_input, torch.empty(1, 1).type_as(source).fill_(next_output.item()).to(device)], dim=1
+            [decoder_input, torch.empty(1, 1).type_as(source).fill_(next_output).to(device)], dim=1
         )
 
         if next_output == eos_idx:

@@ -38,6 +38,7 @@ expert_input_values: dict = {}
 log: Optional[pd.DataFrame] = None
 log_name: Optional[str] = None
 log_path: Optional[str] = None
+probability_threshold: Optional[float] = None
 tf_input: List[str] = []
 
 
@@ -387,6 +388,20 @@ def get_model_name(discrete_len: int, continuous_len: int, expert_len: int) -> s
         return "complete"
 
 
+def get_prob_threshold() -> float:
+    """
+    Get the probability threshold for determining the case ID.
+
+    :return: Probability threshold for determining the case ID.
+    """
+    global probability_threshold
+
+    if probability_threshold is None:
+        set_prob_threshold()
+
+    return probability_threshold
+
+
 def get_weights_file_path(config: dict, epoch: str) -> str:
     """
     Get the file path for the weights of the model at a specific epoch.
@@ -475,11 +490,11 @@ def read_file(path: str) -> None:
 def reset_log(new_process: bool = True) -> None:
     """
     Reset the global variables cached_df_copy, log, log_name, and log_path to None. Optionally reset
-    expert_input_attributes, expert_input_columns, expert_input_values, and tf_input to empty lists or dictionaries if
-    new_process is True.
+    expert_input_attributes, expert_input_columns, expert_input_values, probability_threshold and tf_input to empty
+    lists or dictionaries if new_process is True.
 
     :param new_process: Specifies whether to reset expert_input_attributes, expert_input_columns, expert_input_values,
-     and tf_input. Defaults to True.
+     probability_threshold and tf_input. Defaults to True.
     """
     global cached_df_copy
     global expert_input_attributes
@@ -488,6 +503,7 @@ def reset_log(new_process: bool = True) -> None:
     global log
     global log_name
     global log_path
+    global probability_threshold
     global tf_input
 
     cached_df_copy = None
@@ -498,6 +514,7 @@ def reset_log(new_process: bool = True) -> None:
         expert_input_attributes = []
         expert_input_columns = []
         expert_input_values = {}
+        probability_threshold = None
         tf_input = []
 
 
@@ -519,6 +536,27 @@ def set_expert_input_columns(columns: List[str]) -> None:
     """
     global expert_input_columns
     expert_input_columns = columns
+
+
+def set_prob_threshold() -> None:
+    """
+    Set the probability threshold for determining the case ID.
+    """
+    global probability_threshold
+
+    thresh = input("Please enter the minimum probability (in %) with which the case ID must be determined "
+                   "in order for it to be accepted: ").strip()
+    if not thresh:
+        raise ValueError("No threshold provided. Please try again.")
+
+    if not thresh.lstrip('-').replace('.', '').isdigit() or thresh.count('.') > 1:
+        raise ValueError("Invalid threshold. Please enter a number.")
+
+    thresh = float(thresh)
+    if thresh < 0 or thresh > 100:
+        raise ValueError("Invalid threshold. Please enter a number between 0 and 100.")
+
+    probability_threshold = thresh / 100
 
 
 def set_tf_input(*attributes: str) -> None:
