@@ -17,7 +17,6 @@ import torchmetrics  # For evaluation metrics
 from torch.utils.tensorboard import SummaryWriter  # For TensorBoard visualization
 
 import pm4py  # For process mining operations
-from pm4py.objects.conversion.log import converter as log_converter  # For log conversion
 
 from dateutil import parser  # For parsing date strings
 
@@ -27,9 +26,8 @@ from tokenizers import models, pre_tokenizers, Tokenizer, trainers  # For tokeni
 # Local application/library specific imports
 from model import build_transformer, Transformer  # Importing Transformer model builder
 from dataset import causal_mask, InOutDataset  # Importing custom dataset and mask functions
-from config import (attribute_specification, get_cached_df_copy, get_config, get_expert_input_columns,
-                    get_weights_file_path, latest_weights_file_path, reset_log, set_cached_df_copy,
-                    set_expert_input_columns)
+from config import (get_cached_df_copy, get_config, get_expert_input_columns, get_weights_file_path,
+                    latest_weights_file_path, reset_log, set_cached_df_copy, set_expert_input_columns)
 
 from tqdm import tqdm  # For progress bars
 
@@ -602,22 +600,6 @@ def process_expert_input_attributes(df: pd.DataFrame, config: dict) -> pd.DataFr
     return df
 
 
-def read_file(config: dict) -> pd.DataFrame:
-    """
-    Read log file into a DataFrame based on the file extension.
-
-    :param config: Configuration object containing necessary parameters.
-    :return: DataFrame containing the read data.
-    """
-    if config['log_path'].endswith('.csv'):
-        return pd.read_csv(config['log_path'])
-    elif config['log_path'].endswith('.xes'):
-        file = pm4py.read_xes(config['log_path'])
-        return log_converter.apply(file, variant=log_converter.Variants.TO_DATA_FRAME)
-    else:
-        raise ValueError('Unknown file type. Supported types are .csv and .xes.')
-
-
 def read_log(config: dict, complete: bool = False) -> pd.DataFrame:
     """
     Read log file and preprocess data according to configuration.
@@ -630,7 +612,7 @@ def read_log(config: dict, complete: bool = False) -> pd.DataFrame:
     if cached_df_copy is not None and complete:
         return cached_df_copy
 
-    df = read_file(config)
+    df = config['log']
 
     # Define the required attributes including 'Timestamp' only if it's not already in config['tf_input']
     # or config['tf_output']
@@ -986,7 +968,6 @@ def train_model(config: dict) -> None:
 
 if __name__ == '__main__':
     warnings.filterwarnings("ignore")
-    attribute_specification()
     config = get_config()
     train_model(config)
     create_log(config)

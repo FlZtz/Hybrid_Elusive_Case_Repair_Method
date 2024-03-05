@@ -4,6 +4,9 @@ from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
 import pandas as pd
+import pm4py
+from pm4py.algo.discovery.dfg import algorithm as dfg_algorithm
+from pm4py.objects.conversion.log import converter as log_converter
 import tkinter as tk
 from tkinter import filedialog
 
@@ -32,6 +35,7 @@ expert_attributes: dict = {
 expert_input_attributes: List[str] = []
 expert_input_columns: List[str] = []
 expert_input_values: dict = {}
+log: Optional[pd.DataFrame] = None
 log_name: Optional[str] = None
 log_path: Optional[str] = None
 tf_input: List[str] = []
@@ -64,7 +68,7 @@ def expert_value_query(attributes: list) -> dict:
     :return: A dictionary containing attribute names as keys and dictionaries as values. Each value dictionary contains
      the expert values, the corresponding attribute name, and the occurrences of each value or combination.
     """
-    global expert_attributes
+    global expert_attributes, log
     expert_values = {}
 
     for attribute in attributes:
@@ -77,9 +81,28 @@ def expert_value_query(attributes: list) -> dict:
             value_dict = {'values': None, 'attribute': attribute_name, 'occurrences': []}
 
             if attribute_type == 'unary':
+                suggestions = []
+                if attribute == 'Start Activity':
+                    start_activities = pm4py.get_start_activities(log)
+                    suggestions = [
+                        activity[0]
+                        for activity in sorted(start_activities.items(), key=lambda x: x[1], reverse=True)
+                        [:min(3, len(start_activities))]
+                    ]
+                elif attribute == 'End Activity':
+                    end_activities = pm4py.get_end_activities(log)
+                    suggestions = [
+                        activity[0]
+                        for activity in sorted(end_activities.items(), key=lambda x: x[1], reverse=True)
+                        [:min(3, len(end_activities))]
+                    ]
+                suffix = 's' if len(suggestions) > 1 else ''
+                prompt_end = ' – Suggestion' + suffix + ': ' + ', '.join(suggestions) + ':\n' if suggestions else ': '
                 # Prompt the user for unary attribute values
-                expert_value = input(f"Please enter the value(s) that represent(s) the attribute '{attribute}' "
-                                     f"(separated by commas): ")
+                expert_value = input(
+                    f"Please enter the value(s) that represent(s) the attribute '{attribute}' "
+                    f"(separated by commas){prompt_end}"
+                )
                 if not expert_value:
                     # Raise an error if no value is provided
                     raise ValueError("No value provided. Please try again.")
@@ -96,13 +119,26 @@ def expert_value_query(attributes: list) -> dict:
 
                 value_dict['values'] = value_list
             elif attribute_type == 'binary':
+                suggestions = []
+                if attribute == 'Directly Following':
+                    dfg = dfg_algorithm.apply(log, variant=dfg_algorithm.Variants.FREQUENCY)
+                    suggestions = [
+                        df[0]
+                        for df in sorted(dfg.items(), key=lambda x: x[1], reverse=True)
+                        [:min(3, len(dfg))]
+                    ]
+                suffix = 's' if len(suggestions) > 1 else ''
+                suggestions_str = ', '.join([f'{s[0]} + {s[1]}' for s in suggestions])
+                prompt_end = ' –\n' + 'Suggestion' + suffix + ': ' + suggestions_str + ':' if suggestions else ':'
                 # Prompt the user for binary attribute values
-                expert_value = input(f"Please enter the combination(s) for the attribute '{attribute}' \n"
-                                     f"(values of a combination in the correct order connected with a plus sign and "
-                                     f"combinations separated by commas): ")
+                expert_value = input(
+                    f"Please enter the combination(s) for the attribute '{attribute}' \n"
+                    f"(values of a combination in the correct order connected with a plus sign and "
+                    f"combinations separated by commas){prompt_end}\n"
+                )
                 if not expert_value:
                     # Raise an error if no value is provided
-                    raise ValueError("No value provided. Please try again.")
+                    raise ValueError("No values provided. Please try again.")
                 # Split the input values, map each combination, and strip any leading/trailing whitespace
                 value_list = [list(map(str.strip, value.split('+'))) for value in expert_value.split(',')]
 
@@ -168,10 +204,16 @@ def get_config() -> dict:
     if log_name is None:
         log_name = extract_log_name(log_path)
 
+    if log is None:
+        read_file(log_path)
+
     num_tokens = 2
 
     # Creating a dictionary to map attributes to their corresponding data mappings
     attribute_dictionary = {key: value['mapping'] for key, value in attribute_config.items()}
+
+    if not tf_input:
+        attribute_specification()
 
     if "Activity" not in tf_input:
         tf_input.append("Activity")
@@ -204,6 +246,7 @@ def get_config() -> dict:
         "lr": 10 ** -4,
         "seq_len": 10 + num_tokens,  # Adjusted seq_len accounting for SOS and EOS tokens
         "d_model": 512,
+        "log": log,
         "log_path": log_path,
         "log_name": log_name,
         "tf_input": tf_input,
@@ -410,10 +453,30 @@ def latest_weights_file_path(config: dict) -> str or None:
     return str(weights_files[-1])
 
 
+def read_file(path: str) -> None:
+    """
+    Read log file into a DataFrame based on the file extension.
+
+    :param path: File path to the event log.
+    """
+    global log
+
+    if path.endswith('.csv'):
+        log = pd.read_csv(path)
+        print("CSV file successfully read.")
+    elif path.endswith('.xes'):
+        file = pm4py.read_xes(path)
+        log = log_converter.apply(file, variant=log_converter.Variants.TO_DATA_FRAME)
+        print("XES file successfully read.")
+    else:
+        raise ValueError('Unknown file type. Supported types are .csv and .xes.')
+
+
 def reset_log(new_process: bool = True) -> None:
     """
-    Reset the global variables cached_df_copy, log_name, and log_path to None. Optionally reset expert_input_attributes,
-    expert_input_columns, expert_input_values, and tf_input to empty lists or dictionaries if new_process is True.
+    Reset the global variables cached_df_copy, log, log_name, and log_path to None. Optionally reset
+    expert_input_attributes, expert_input_columns, expert_input_values, and tf_input to empty lists or dictionaries if
+    new_process is True.
 
     :param new_process: Specifies whether to reset expert_input_attributes, expert_input_columns, expert_input_values,
      and tf_input. Defaults to True.
@@ -422,11 +485,13 @@ def reset_log(new_process: bool = True) -> None:
     global expert_input_attributes
     global expert_input_columns
     global expert_input_values
+    global log
     global log_name
     global log_path
     global tf_input
 
     cached_df_copy = None
+    log = None
     log_name = None
     log_path = None
     if new_process:
