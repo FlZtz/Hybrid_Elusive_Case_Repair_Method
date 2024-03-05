@@ -172,7 +172,7 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
     # Prepare extended log
     extended_log = determined_log.copy()
 
-    extended_log.fillna('NA', inplace=True)
+    extended_log.fillna('', inplace=True)
 
     if 'Timestamp' not in config['tf_input']:
         timestamp_column = pd.DataFrame(data_complete['Timestamp'])
