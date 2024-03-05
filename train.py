@@ -649,8 +649,8 @@ def read_log(config: dict, complete: bool = False) -> pd.DataFrame:
 
     # Convert Timestamp column to datetime
     df['Timestamp'] = df['Timestamp'].apply(lambda x: parser.isoparse(x) if isinstance(x, str) else x)
-    df = df.sort_values(['Timestamp']).reset_index(drop=True)
     df['Timestamp'] = pd.to_datetime(df['Timestamp'], utc=True)
+    df = df.sort_values(['Timestamp']).reset_index(drop=True)
     df['Timestamp'] = df['Timestamp'].dt.tz_localize(None)
 
     if config['continuous_input_attributes']:
