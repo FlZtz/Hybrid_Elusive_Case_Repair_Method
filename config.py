@@ -281,15 +281,17 @@ def get_expert_attributes() -> List[str]:
     expert = input("Do you want to add one or more expert attributes? (yes/no): ").strip().lower()
 
     if expert == "yes":
-        attribute_input = input(f"Following expert attribute is available: {list(expert_attributes.keys())[0]}.\n"
-                                if len(expert_attributes) == 1 else
-                                f"Following expert attributes are available: "
-                                f"{', '.join(list(expert_attributes.keys())[:-1])} and "
-                                f"{list(expert_attributes.keys())[-1]}.\n"
+        if len(expert_attributes) == 1:
+            suffix = ' is'
+            attributes = list(expert_attributes.keys())[0]
+        else:
+            suffix = 's are'
+            attributes = ', '.join(list(expert_attributes.keys())[:-1]) + f" and {list(expert_attributes.keys())[-1]}"
+        attribute_input = input(f"Following expert attribute{suffix} available: {attributes}.\n"
                                 f"Please enter the attribute(s) for which you have expert knowledge "
                                 f"(separated by commas): ")
         if not attribute_input:
-            raise ValueError("No attributes provided. Please try again.")
+            raise ValueError("No attribute(s) provided. Please try again.")
         attribute_list = [attribute.strip() for attribute in attribute_input.split(',')]
         attributes = input_validation(attribute_list, expert_attributes)
         return attributes
@@ -388,16 +390,17 @@ def get_model_name(discrete_len: int, continuous_len: int, expert_len: int) -> s
         return "complete"
 
 
-def get_prob_threshold() -> float:
+def get_prob_threshold(config: dict) -> float:
     """
-    Get the probability threshold for determining the case ID.
+    Get the probability threshold for determining config['tf_output'].
 
-    :return: Probability threshold for determining the case ID.
+    :param config: Configuration parameters.
+    :return: Probability threshold for determining config['tf_output'].
     """
     global probability_threshold
 
     if probability_threshold is None:
-        set_prob_threshold()
+        set_prob_threshold(config)
 
     return probability_threshold
 
@@ -470,21 +473,19 @@ def latest_weights_file_path(config: dict) -> str or None:
 
 def read_file(path: str) -> None:
     """
-    Read log file into a DataFrame based on the file extension.
+    Read log file into a DataFrame.
 
     :param path: File path to the event log.
     """
     global log
 
-    if path.endswith('.csv'):
-        log = pd.read_csv(path)
-        print("CSV file successfully read.")
-    elif path.endswith('.xes'):
+    if path.endswith('.xes'):
         file = pm4py.read_xes(path)
         log = log_converter.apply(file, variant=log_converter.Variants.TO_DATA_FRAME)
+        log.replace('', '[NONE]', inplace=True)
         print("XES file successfully read.")
     else:
-        raise ValueError('Unknown file type. Supported types are .csv and .xes.')
+        raise ValueError('Unknown file type. Supported type is .xes.')
 
 
 def reset_log(new_process: bool = True) -> None:
@@ -538,14 +539,16 @@ def set_expert_input_columns(columns: List[str]) -> None:
     expert_input_columns = columns
 
 
-def set_prob_threshold() -> None:
+def set_prob_threshold(config: dict) -> None:
     """
-    Set the probability threshold for determining the case ID.
+    Set the probability threshold for determining config['tf_output'].
+
+    :param config: Configuration parameters.
     """
     global probability_threshold
 
-    thresh = input("Please enter the minimum probability (in %) with which the case ID must be determined "
-                   "in order for it to be accepted: ").strip()
+    thresh = input(f"Please enter the minimum probability (in %) with which the {config['tf_output']} must be "
+                   f"determined in order for it to be accepted: ").strip()
     if not thresh:
         raise ValueError("No threshold provided. Please try again.")
 

@@ -1,4 +1,4 @@
-# train.py - Script for training a Transformer model and creating a log with determined case IDs
+# train.py - Script for training a Transformer model and creating a log with determined config['tf_output']
 import os  # For filesystem operations
 import shutil  # For filesystem operations
 import warnings  # For managing warnings
@@ -34,24 +34,24 @@ from tqdm import tqdm  # For progress bars
 
 def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
     """
-    Creates a log with determined case IDs based on the given configuration and chunk size.
+    Creates a log with determined config['tf_output'] based on the given configuration and chunk size.
 
     :param config: Dictionary containing configuration parameters for log creation. It includes keys like `tf_input`,
      `tf_output`, and `seq_len`.
     :param chunk_size: Number of rows to be processed as a single chunk. Default is set to `config['seq_len'] - 2`.
-    :return: DataFrame representing the log with determined cases.
+    :return: DataFrame representing the log with determined config['tf_output'].
     """
-    prediction_preference = input("Do you want to predict the case IDs using the event log that was used for training? "
-                                  "(yes/no): ").strip().lower()
+    prediction_preference = input(f"Do you want to predict the {config['tf_output']} values using the event log that "
+                                  f"was used for training? (yes/no): ").strip().lower()
 
-    if prediction_preference not in ['yes', 'no']:
+    if not prediction_preference or prediction_preference not in ['yes', 'no']:
         raise ValueError("Invalid input! Please enter 'yes' or 'no'.")
 
     if prediction_preference == 'yes':
         consider_ids = False
     else:
         reset_log(False)
-        print("Please ensure the new event log matches the process used during training.")
+        print("Please ensure the new event log and its name match the process used during training.")
         config = get_config()
         consider_ids = True
 
@@ -94,7 +94,7 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
     # Initialize an empty list to store tuples representing rows
     determined_log = []
 
-    prob_threshold = get_prob_threshold()
+    prob_threshold = get_prob_threshold(config)
 
     # Iterate over batches in the DataLoader
     for batch in ds_dataloader:
@@ -139,18 +139,25 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
             continue
 
     # Convert the list of tuples to a DataFrame
-    determined_log = pd.DataFrame(determined_log, columns=['Determined Case ID', 'Probability', 'Actual Case ID'])
+    determined_log = pd.DataFrame(
+        determined_log,
+        columns=[
+            f"Determined {config['tf_output']}",
+            'Probability',
+            f"Actual {config['tf_output']}"
+        ]
+    )
 
-    determined_log['Determined Case ID'] = determined_log['Determined Case ID'].replace('[NONE]', pd.NA)
+    determined_log.replace('[NONE]', pd.NA, inplace=True)
     determined_log['Probability'] = determined_log[
         'Probability'
-    ].mask(determined_log['Determined Case ID'].isna(), pd.NA)
+    ].mask(determined_log[f"Determined {config['tf_output']}"].isna(), pd.NA)
 
-    # Update Determined Case ID and Probability columns based on Actual Case ID if consider_ids is True
+    # Update Determined config['tf_output'] and Probability columns based on Actual config['tf_output'] if consider_ids
     if consider_ids:
         for idx, row in determined_log.iterrows():
-            if row['Actual Case ID']:
-                determined_log.at[idx, 'Determined Case ID'] = row['Actual Case ID']
+            if pd.notna(row[f"Actual {config['tf_output']}"]):
+                determined_log.at[idx, f"Determined {config['tf_output']}"] = row[f"Actual {config['tf_output']}"]
                 determined_log.at[idx, 'Probability'] = "-"
 
     # Initialize an empty DataFrame to store the restored columns
@@ -170,7 +177,7 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
     determined_log.to_csv(os.path.join(config['result_folder'], config['result_csv_file']), index=False)
 
     # Prepare extended log
-    extended_log = determined_log.copy()
+    extended_log = determined_log.drop(columns=[f"Actual {config['tf_output']}", 'Probability'])
 
     extended_log.fillna('', inplace=True)
 
@@ -178,11 +185,8 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
         timestamp_column = pd.DataFrame(data_complete['Timestamp'])
         extended_log = pd.concat([extended_log, timestamp_column], axis=1)
 
-    # Drop column
-    extended_log.drop(columns=['Actual Case ID', 'Probability'], inplace=True)
-
-    # Rename 'Determined Case ID' to 'Case ID' first
-    extended_log.rename(columns={'Determined Case ID': 'Case ID'}, inplace=True)
+    # Rename 'Determined config['tf_output']' to 'config['tf_output']' first
+    extended_log.rename(columns={f"Determined {config['tf_output']}": f"{config['tf_output']}"}, inplace=True)
 
     # Then rename the rest of the columns specified in config['attribute_dictionary']
     extended_log.rename(columns=config['attribute_dictionary'], inplace=True)
@@ -819,7 +823,7 @@ def select_columns(df: pd.DataFrame, column_mapping: dict) -> pd.DataFrame:
         user_confirmation = input(f"Is this {'completely ' if len(selected_col_alias) != 1 else ''}"
                                   f"correct? (yes/no): ").lower().strip()
 
-        if user_confirmation not in ('yes', 'no'):
+        if not user_confirmation or user_confirmation not in ('yes', 'no'):
             raise ValueError("Please enter either 'yes' or 'no'.")
 
         if user_confirmation == 'no':
@@ -991,6 +995,7 @@ def train_model(config: dict) -> None:
 
 if __name__ == '__main__':
     warnings.filterwarnings("ignore")
+    print("Configuration of model training")
     config = get_config()
     train_model(config)
     create_log(config)
