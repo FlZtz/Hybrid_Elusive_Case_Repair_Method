@@ -93,8 +93,8 @@ class InOutDataset(Dataset):
         # Construct continuous input tensor with padding tokens
         cont_input = torch.cat(
             [
-                torch.tensor(cont_input_tokens, dtype=torch.float32),
-                torch.tensor([self.pad_token] * cont_num_padding_tokens, dtype=torch.float32),
+                torch.tensor(cont_input_tokens, dtype=torch.float16),
+                torch.tensor([self.pad_token] * cont_num_padding_tokens, dtype=torch.float16),
             ],
             dim=0,
         )
