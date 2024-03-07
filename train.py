@@ -97,7 +97,7 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
     prob_threshold = get_prob_threshold(config)
 
     # Iterate over batches in the DataLoader
-    for batch in ds_dataloader:
+    for batch in tqdm(ds_dataloader, desc=f"Determining {config['tf_output']} Values"):
         # Get input and mask tensors
         encoder_input = batch["encoder_input"].to(device)
         encoder_mask = batch["encoder_mask"].to(device)
