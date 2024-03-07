@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
+from dateutil import parser
 import pandas as pd
 import pm4py
 from pm4py.algo.discovery.dfg import algorithm as dfg_algorithm
@@ -83,22 +84,37 @@ def expert_value_query(attributes: list) -> dict:
 
             if attribute_type == 'unary':
                 suggestions = []
-                if attribute == 'Start Activity':
-                    start_activities = pm4py.get_start_activities(log)
-                    suggestions = [
-                        activity[0]
-                        for activity in sorted(start_activities.items(), key=lambda x: x[1], reverse=True)
-                        [:min(3, len(start_activities))]
-                    ]
-                elif attribute == 'End Activity':
-                    end_activities = pm4py.get_end_activities(log)
-                    suggestions = [
-                        activity[0]
-                        for activity in sorted(end_activities.items(), key=lambda x: x[1], reverse=True)
-                        [:min(3, len(end_activities))]
-                    ]
+
+                if all(col in log.columns for col in ['concept:name', 'time:timestamp', 'case:concept:name']):
+                    if not pd.api.types.is_datetime64_any_dtype(log['time:timestamp']):
+                        log['time:timestamp'] = log[
+                            'time:timestamp'
+                        ].apply(lambda x: parser.isoparse(x) if isinstance(x, str) else x)
+                        log['time:timestamp'] = pd.to_datetime(log['time:timestamp'], utc=True)
+
+                    if attribute == 'Start Activity':
+                        start_activities = pm4py.get_start_activities(log)
+                        total_count = sum(start_activities.values())
+                        suggestions = [
+                            (activity, count / total_count)
+                            for activity, count in sorted(start_activities.items(), key=lambda x: x[1], reverse=True)
+                            [:min(3, len(start_activities))]
+                        ]
+                    elif attribute == 'End Activity':
+                        end_activities = pm4py.get_end_activities(log)
+                        total_count = sum(end_activities.values())
+                        suggestions = [
+                            (activity, count / total_count)
+                            for activity, count in sorted(end_activities.items(), key=lambda x: x[1], reverse=True)
+                            [:min(3, len(end_activities))]
+                        ]
+
                 suffix = 's' if len(suggestions) > 1 else ''
-                prompt_end = ' – Suggestion' + suffix + ': ' + ', '.join(suggestions) + ':\n' if suggestions else ': '
+                suggestion_str = ', '.join(
+                    [f"{activity} ({frequency * 100:.2f}%)" for activity, frequency in suggestions]
+                )
+                prompt_end = ' –\nSuggestion' + suffix + ': ' + suggestion_str + ':\n' if suggestions else ': '
+
                 # Prompt the user for unary attribute values
                 expert_value = input(
                     f"Please enter the value(s) that represent(s) the attribute '{attribute}' "
@@ -112,7 +128,7 @@ def expert_value_query(attributes: list) -> dict:
 
                 # Prompt the user for occurrences for each value in value_list
                 for value in value_list:
-                    occurrence = input(f"Does '{value}' always or sometimes represent the attribute '{attribute}'? "
+                    occurrence = input(f"Does '{value}' always or sometimes represent the attribute '{attribute}'?\n"
                                        f"Enter 'always' or 'sometimes': ").strip().lower()
                     if occurrence not in ['always', 'sometimes']:
                         raise ValueError("Invalid occurrence value. Please enter 'always' or 'sometimes'.")
@@ -121,16 +137,22 @@ def expert_value_query(attributes: list) -> dict:
                 value_dict['values'] = value_list
             elif attribute_type == 'binary':
                 suggestions = []
+
                 if attribute == 'Directly Following':
                     dfg = dfg_algorithm.apply(log, variant=dfg_algorithm.Variants.FREQUENCY)
+                    total_count = sum(dfg.values())
                     suggestions = [
-                        df[0]
-                        for df in sorted(dfg.items(), key=lambda x: x[1], reverse=True)
+                        (activity_pair, count / total_count)
+                        for activity_pair, count in sorted(dfg.items(), key=lambda x: x[1], reverse=True)
                         [:min(3, len(dfg))]
                     ]
+
                 suffix = 's' if len(suggestions) > 1 else ''
-                suggestions_str = ', '.join([f'{s[0]} + {s[1]}' for s in suggestions])
-                prompt_end = ' –\n' + 'Suggestion' + suffix + ': ' + suggestions_str + ':' if suggestions else ':'
+                suggestions_str = ', '.join(
+                    [f'{activity_pair[0]} + {activity_pair[1]} ({frequency * 100:.2f}%)'
+                     for activity_pair, frequency in suggestions]
+                )
+                prompt_end = ' –\nSuggestion' + suffix + ': ' + suggestions_str + ':' if suggestions else ':'
                 # Prompt the user for binary attribute values
                 expert_value = input(
                     f"Please enter the combination(s) for the attribute '{attribute}' \n"
@@ -145,8 +167,9 @@ def expert_value_query(attributes: list) -> dict:
 
                 # Prompt the user for occurrences for each combination in value_list
                 for combination in value_list:
-                    occurrence = input(f"Does the combination '{' + '.join(combination)}' always or sometimes represent"
-                                       f" the attribute '{attribute}'? Enter 'always' or 'sometimes': ").strip().lower()
+                    occurrence = input(f"Does the combination '{' + '.join(combination)}' always or sometimes "
+                                       f"represent the attribute '{attribute}'?\n"
+                                       f"Enter 'always' or 'sometimes': ").strip().lower()
                     if occurrence not in ['always', 'sometimes']:
                         raise ValueError("Invalid occurrence value. Please enter 'always' or 'sometimes'.")
                     value_dict['occurrences'].append(occurrence)

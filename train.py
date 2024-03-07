@@ -651,6 +651,8 @@ def read_log(config: dict, complete: bool = False) -> pd.DataFrame:
 
     df = select_columns(df, column_mapping)
 
+    print("Input processing. Please wait ...")
+
     # Convert Timestamp column to datetime
     df['Timestamp'] = df['Timestamp'].apply(lambda x: parser.isoparse(x) if isinstance(x, str) else x)
     df['Timestamp'] = pd.to_datetime(df['Timestamp'], utc=True)
