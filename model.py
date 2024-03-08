@@ -146,8 +146,7 @@ class ContinuousEmbedding(nn.Module):
         :param x: Input tensor of shape (batch_size, seq_len).
         :return: Output tensor of shape (batch_size, seq_len, d_model).
         """
-        x = x.unsqueeze(-1)
-        return self.dropout(self.linear(x))
+        return self.dropout(self.linear(x.unsqueeze(-1).float()))
 
 
 class ResidualConnection(nn.Module):
