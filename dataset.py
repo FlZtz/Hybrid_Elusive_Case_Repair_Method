@@ -66,7 +66,7 @@ class InOutDataset(Dataset):
 
         # Transform the text into tokens
         enc_input_tokens = self.tokenizer_src.encode(src_text).ids
-        cont_input_tokens = [float(value) for value in cont_data.split()]
+        cont_input_tokens = [float(value.replace("_", "-")) for value in cont_data.split()]
         dec_input_tokens = self.tokenizer_tgt.encode(tgt_text).ids
 
         # Calculate the number of padding tokens to add
