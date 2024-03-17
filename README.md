@@ -69,7 +69,7 @@ The results can be seen in the `evaluation.ipynb` notebook.
 
 ## License
 
-This project is not licensed.
+See the [LICENSE](LICENSE.md) file for license rights and limitations (MIT).
 
 ## References
 
