@@ -27,33 +27,47 @@ from tokenizers import models, pre_tokenizers, Tokenizer, trainers  # For tokeni
 from model import build_transformer, Transformer  # Importing Transformer model builder
 from dataset import causal_mask, InOutDataset  # Importing custom dataset and mask functions
 from config import (get_cached_df_copy, get_config, get_expert_input_columns, get_prob_threshold, get_weights_file_path,
-                    latest_weights_file_path, reset_log, set_cached_df_copy, set_expert_input_columns)
+                    latest_weights_file_path, reset_log, set_cached_df_copy, set_expert_input_columns, set_log_path)
 
 from tqdm import tqdm  # For progress bars
 
 
-def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
+def create_log(config: dict, chunk_size: int = None, repetition: bool = False) -> Tuple[pd.DataFrame, bool]:
     """
     Creates a log with determined config['tf_output'] based on the given configuration and chunk size.
 
     :param config: Dictionary containing configuration parameters for log creation. It includes keys like `tf_input`,
      `tf_output`, and `seq_len`.
     :param chunk_size: Number of rows to be processed as a single chunk. Default is set to `config['seq_len'] - 2`.
-    :return: DataFrame representing the log with determined config['tf_output'].
+    :param repetition: Flag to indicate if the log creation is a repetition. Default is set to False.
+    :return: A tuple containing a DataFrame representing the log with determined config['tf_output'] and a boolean flag
+     indicating if existing IDs were retained.
     """
-    prediction_preference = input(f"Do you want to predict the {config['tf_output']} values using the event log that "
-                                  f"was used for training? (yes/no): ").strip().lower()
+    consider_ids = True
 
-    if not prediction_preference or prediction_preference not in ['yes', 'no']:
-        raise ValueError("Invalid input! Please enter 'yes' or 'no'.")
+    if not repetition:
+        prediction_preference = get_user_choice(f"Do you want to predict the {config['tf_output']} values using the "
+                                                f"event log that was used for training? (yes/no): ")
 
-    if prediction_preference == 'yes':
-        consider_ids = False
-    else:
+        if prediction_preference == 'yes':
+            consider_ids = False
+
+    if consider_ids:
+        repaired_log_path: str = ""
+
+        if repetition:
+            repaired_log_path = os.path.join(config['result_folder'], config['result_xes_file'])
+            if not os.path.exists(repaired_log_path):
+                raise FileNotFoundError("The repaired log file does not exist. Please create it first.")
+
         reset_log(False)
-        print("Please ensure the new event log and its name match the process used during training.")
+
+        if repaired_log_path:
+            set_log_path(repaired_log_path)
+        else:
+            print("Please ensure the new event log and its name match the process used during training.")
+
         config = get_config()
-        consider_ids = True
 
     data_complete = read_log(config, True)
 
@@ -197,8 +211,8 @@ def create_log(config: dict, chunk_size: int = None) -> pd.DataFrame:
     # Write XES file
     pm4py.write_xes(log, os.path.join(config['result_folder'], config['result_xes_file']))
 
-    # Return the determined log DataFrame
-    return determined_log
+    # Return the determined log DataFrame and the flag indicating if existing IDs were retained
+    return determined_log, consider_ids
 
 
 def get_all_sequences(ds: Dataset, data: str) -> str:
@@ -309,6 +323,21 @@ def get_or_build_tokenizer(config: dict, ds: Dataset, data: str) -> Tokenizer:
         # Load existing tokenizer
         tokenizer = Tokenizer.from_file(str(tokenizer_path))
     return tokenizer
+
+
+def get_user_choice(prompt: str) -> str:
+    """
+    Get user choice for the given prompt.
+
+    :param prompt: Prompt message for the user.
+    :return: User choice.
+    """
+    user_choice = input(prompt).strip().lower()
+
+    if not user_choice or user_choice not in ['yes', 'no']:
+        raise ValueError("Invalid input! Please enter 'yes' or 'no'.")
+
+    return user_choice
 
 
 def greedy_decode(model: Transformer, source: torch.Tensor, source_mask: torch.Tensor, cont_input: torch.Tensor,
@@ -822,11 +851,8 @@ def select_columns(df: pd.DataFrame, column_mapping: dict) -> pd.DataFrame:
                   f"{';' if index != len(selected_col_alias) - 1 else '.'}")
 
         # Ask for user confirmation on the automatically selected columns
-        user_confirmation = input(f"Is this {'completely ' if len(selected_col_alias) != 1 else ''}"
-                                  f"correct? (yes/no): ").lower().strip()
-
-        if not user_confirmation or user_confirmation not in ('yes', 'no'):
-            raise ValueError("Please enter either 'yes' or 'no'.")
+        user_confirmation = get_user_choice(f"Is this {'completely ' if len(selected_col_alias) != 1 else ''}correct? "
+                                            f"(yes/no): ")
 
         if user_confirmation == 'no':
             if len(selected_col_alias) != 1:
@@ -997,7 +1023,23 @@ def train_model(config: dict) -> None:
 
 if __name__ == '__main__':
     warnings.filterwarnings("ignore")
+
     print("Configuration of model training")
+
     config = get_config()
+
     train_model(config)
-    create_log(config)
+
+    # TODO: Declarative rule check ex-ante and ex-post
+
+    _, id_retention = create_log(config)
+
+    if id_retention:
+        while True:
+            repetition_input = get_user_choice("Do you want to use the repaired log as the baseline for an additional "
+                                               "repair? (yes/no): ")
+
+            if repetition_input == 'no':
+                break
+
+            create_log(config, repetition=True)

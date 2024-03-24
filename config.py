@@ -199,6 +199,8 @@ def extract_log_name(path: str) -> str:
     # Extract log_name from log_path
     base_name = os.path.basename(path)
     name, _ = os.path.splitext(base_name)
+    if name.startswith("determined_"):
+        name = name.replace("determined_", "", 1)
     return name
 
 
@@ -560,6 +562,16 @@ def set_expert_input_columns(columns: List[str]) -> None:
     """
     global expert_input_columns
     expert_input_columns = columns
+
+
+def set_log_path(path: str) -> None:
+    """
+    Set the log path.
+
+    :param path: File path to the event log.
+    """
+    global log_path
+    log_path = path
 
 
 def set_prob_threshold(config: dict) -> None:
