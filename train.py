@@ -69,7 +69,10 @@ def create_log(config: dict, chunk_size: int = None, repetition: bool = False) -
 
         config = get_config()
 
-    data_complete = read_log(config, True)
+    if repetition:
+        data_complete = read_log(config, complete=True, repetition=True)
+    else:
+        data_complete = read_log(config, complete=True)
 
     if chunk_size is None:
         chunk_size = config['seq_len'] - 2
@@ -656,12 +659,13 @@ def process_expert_input_attributes(df: pd.DataFrame, config: dict) -> pd.DataFr
     return df
 
 
-def read_log(config: dict, complete: bool = False) -> pd.DataFrame:
+def read_log(config: dict, complete: bool = False, repetition: bool = False) -> pd.DataFrame:
     """
     Read log file and preprocess data according to configuration.
 
     :param config: Configuration object containing necessary parameters.
     :param complete: Flag to indicate if the complete DataFrame should be returned. Defaults to False.
+    :param repetition: Flag to indicate if the log creation is a repetition. Defaults to False.
     :return: Processed DataFrame according to the specified configuration.
     """
     cached_df_copy = get_cached_df_copy()
@@ -678,7 +682,7 @@ def read_log(config: dict, complete: bool = False) -> pd.DataFrame:
     column_mapping = {key: value for key, value in config['attribute_dictionary'].items()
                       if key in required_attributes}
 
-    df = select_columns(df, column_mapping)
+    df = select_columns(df, column_mapping, repetition)
 
     print("Input processing. Please wait ...")
 
@@ -813,12 +817,13 @@ def run_validation(model: Transformer, validation_ds: DataLoader, tokenizer_tgt:
         writer.flush()
 
 
-def select_columns(df: pd.DataFrame, column_mapping: dict) -> pd.DataFrame:
+def select_columns(df: pd.DataFrame, column_mapping: dict, repetition: bool = False) -> pd.DataFrame:
     """
     Select columns from DataFrame based on selected columns.
 
     :param df: DataFrame containing the log data.
     :param column_mapping: Mapping of attribute aliases to column names.
+    :param repetition: Flag to indicate whether a new repair is being performed. Defaults to False.
     :return: DataFrame with selected columns.
     """
     selected_columns = {}
@@ -844,28 +849,29 @@ def select_columns(df: pd.DataFrame, column_mapping: dict) -> pd.DataFrame:
 
     # If some columns are selected automatically
     if len(selected_col_alias) != 0:
-        print(f"Following column{'s' if len(selected_col_alias) != 1 else ''} "
-              f"w{'ere' if len(selected_col_alias) != 1 else 'as'} automatically matched:")
-        for index, col_alias in enumerate(selected_col_alias):
-            print(f"'{automatically_selected_columns[col_alias]}' for '{col_alias}'"
-                  f"{';' if index != len(selected_col_alias) - 1 else '.'}")
+        if not repetition:
+            print(f"Following column{'s' if len(selected_col_alias) != 1 else ''} "
+                  f"w{'ere' if len(selected_col_alias) != 1 else 'as'} automatically matched:")
+            for index, col_alias in enumerate(selected_col_alias):
+                print(f"'{automatically_selected_columns[col_alias]}' for '{col_alias}'"
+                      f"{';' if index != len(selected_col_alias) - 1 else '.'}")
 
-        # Ask for user confirmation on the automatically selected columns
-        user_confirmation = get_user_choice(f"Is this {'completely ' if len(selected_col_alias) != 1 else ''}correct? "
-                                            f"(yes/no): ")
+            # Ask for user confirmation on the automatically selected columns
+            user_confirmation = get_user_choice(f"Is this {'completely ' if len(selected_col_alias) != 1 else ''}"
+                                                f"correct? (yes/no): ")
 
-        if user_confirmation == 'no':
-            if len(selected_col_alias) != 1:
-                incorrect_aliases = [alias.strip() for alias in input(f"Please enter the incorrect attribute(s) "
-                                                                      f"separated by a comma: ").split(',')]
-                if not all(alias in selected_col_alias for alias in incorrect_aliases):
-                    raise ValueError("One or more provided incorrect attributes are not valid.")
-            else:
-                incorrect_aliases = [selected_col_alias[0]]
-            for alias in incorrect_aliases:
-                del automatically_selected_columns[alias]
-                selected_column = select_matching_column(df, alias, selected_columns)
-                selected_columns[alias] = selected_column
+            if user_confirmation == 'no':
+                if len(selected_col_alias) != 1:
+                    incorrect_aliases = [alias.strip() for alias in input(f"Please enter the incorrect attribute(s) "
+                                                                          f"separated by a comma: ").split(',')]
+                    if not all(alias in selected_col_alias for alias in incorrect_aliases):
+                        raise ValueError("One or more provided incorrect attributes are not valid.")
+                else:
+                    incorrect_aliases = [selected_col_alias[0]]
+                for alias in incorrect_aliases:
+                    del automatically_selected_columns[alias]
+                    selected_column = select_matching_column(df, alias, selected_columns)
+                    selected_columns[alias] = selected_column
 
         # Check for duplicate selections
         for col_alias, col_name in automatically_selected_columns.items():
@@ -1032,14 +1038,28 @@ if __name__ == '__main__':
 
     # TODO: Declarative rule check ex-ante and ex-post
 
-    _, id_retention = create_log(config)
+    repaired_log, id_retention = create_log(config)
 
     if id_retention:
+        iteration = 1
+
         while True:
+            print(f"\nRepair Iteration {iteration}:\n")
+
+            print(repaired_log.head(10))
+
+            remaining_rows = len(repaired_log) - 10
+            if remaining_rows > 0:
+                print(f"\n... (+ {remaining_rows} more row{'s' if remaining_rows > 1 else ''})")
+
+            print('-' * 80)
+
             repetition_input = get_user_choice("Do you want to use the repaired log as the baseline for an additional "
                                                "repair? (yes/no): ")
 
             if repetition_input == 'no':
                 break
 
-            create_log(config, repetition=True)
+            repaired_log, _ = create_log(config, repetition=True)
+
+            iteration += 1
