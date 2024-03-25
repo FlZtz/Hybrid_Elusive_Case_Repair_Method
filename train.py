@@ -1079,8 +1079,7 @@ if __name__ == '__main__':
 
     print("\nConfiguration of log repair")
 
-    # TODO: Declarative rule check ex-ante and ex-post,
-    #  exe-file für EVAL
+    # TODO: Declarative rule check ex-ante and ex-post
 
     repaired_log, id_retention = create_log(config)
 
