@@ -1071,7 +1071,7 @@ if __name__ == '__main__':
         config_path = get_file_path("configuration")
         read_file(config_path)
 
-    print("Configuration of model training")
+    print("\nConfiguration of model training")
 
     config = get_config()
 
@@ -1085,6 +1085,14 @@ if __name__ == '__main__':
     repaired_log, id_retention = create_log(config)
 
     if id_retention:
+        percentage_na = (
+            repaired_log[f"Actual {config['tf_output']}"]
+            .isna().
+            sum()
+            / len(repaired_log[f"Actual {config['tf_output']}"])
+        ) * 100
+        print(f"\nFor {percentage_na:.2f}% of the events, the {config['tf_output']} has originally not been recorded.")
+
         iteration = 1
 
         while True:
@@ -1103,7 +1111,13 @@ if __name__ == '__main__':
                 sum()
                 / len(repaired_log[f"Determined {config['tf_output']}"])
             ) * 100
-            print(f"\nFor {percentage_na:.2f}% of the events, a {config['tf_output']} has not yet been determined.")
+
+            if percentage_na == 0:
+                print(f"\nFor all events, the {config['tf_output']} has been determined.")
+                break
+            else:
+                print(f"\nFor {percentage_na:.2f}% of the events, the {config['tf_output']} has not yet been "
+                      f"determined.")
 
             print('-' * 80)
 
