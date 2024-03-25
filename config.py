@@ -617,21 +617,14 @@ def read_file(path: str) -> None:
 def reset_log(new_process: bool = True) -> None:
     """
     Reset the global variables cached_df_copy, log, log_name, and log_path to None. Optionally reset
-    expert_input_attributes, expert_input_columns, expert_input_values, probability_threshold and tf_input to empty
-    lists or dictionaries if new_process is True.
+    expert_input_attributes, expert_input_columns, expert_input_values, input_config, probability_threshold and
+    tf_input to empty lists or dictionaries if new_process is True.
 
     :param new_process: Specifies whether to reset expert_input_attributes, expert_input_columns, expert_input_values,
-     probability_threshold and tf_input. Defaults to True.
+     input_config, probability_threshold and tf_input. Defaults to True.
     """
-    global cached_df_copy
-    global expert_input_attributes
-    global expert_input_columns
-    global expert_input_values
-    global log
-    global log_name
-    global log_path
-    global probability_threshold
-    global tf_input
+    global cached_df_copy, expert_input_attributes, expert_input_columns, expert_input_values, input_config, log
+    global log_name, log_path, probability_threshold, tf_input
 
     cached_df_copy = None
     log = None
@@ -641,6 +634,7 @@ def reset_log(new_process: bool = True) -> None:
         expert_input_attributes = []
         expert_input_columns = []
         expert_input_values = {}
+        input_config = None
         probability_threshold = None
         tf_input = []
 
