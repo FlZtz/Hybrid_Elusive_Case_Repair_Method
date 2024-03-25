@@ -26,9 +26,9 @@ from tokenizers import models, pre_tokenizers, Tokenizer, trainers  # For tokeni
 # Local application/library specific imports
 from model import build_transformer, Transformer  # Importing Transformer model builder
 from dataset import causal_mask, InOutDataset  # Importing custom dataset and mask functions
-from config import (get_cached_df_copy, get_config, get_expert_input_columns, get_prob_threshold, get_weights_file_path,
-                    latest_weights_file_path, reset_log, reset_prob_threshold, set_cached_df_copy,
-                    set_expert_input_columns, set_log_path)
+from config import (get_cached_df_copy, get_config, get_expert_input_columns, get_file_path, get_input_config,
+                    get_prob_threshold, get_weights_file_path, latest_weights_file_path, read_file, reset_log,
+                    reset_prob_threshold, set_cached_df_copy, set_expert_input_columns, set_log_path)
 
 from tqdm import tqdm  # For progress bars
 
@@ -105,7 +105,7 @@ def create_log(config: dict, chunk_size: int = None, repetition: bool = False) -
     model = get_model(config, vocab_src.get_vocab_size(), vocab_tgt.get_vocab_size()).to(device)
 
     # Load the pretrained weights for the model
-    model_filename = get_weights_file_path(config, f"19")
+    model_filename = get_weights_file_path(config, f"{config['num_epochs'] - 1}")
     state = torch.load(model_filename, map_location=device)
     model.load_state_dict(state['model_state_dict'])
 
@@ -166,7 +166,7 @@ def create_log(config: dict, chunk_size: int = None, repetition: bool = False) -
         ]
     )
 
-    determined_log.replace('[NONE]', pd.NA, inplace=True)
+    determined_log.replace(config['missing_placeholder'], pd.NA, inplace=True)
     determined_log['Probability'] = determined_log[
         'Probability'
     ].mask(determined_log[f"Determined {config['tf_output']}"].isna(), pd.NA)
@@ -197,7 +197,7 @@ def create_log(config: dict, chunk_size: int = None, repetition: bool = False) -
     # Prepare extended log
     extended_log = determined_log.drop(columns=[f"Actual {config['tf_output']}", 'Probability'])
 
-    extended_log.fillna('', inplace=True)
+    extended_log.fillna(config['missing_placeholder_xes'], inplace=True)
 
     if 'Timestamp' not in config['tf_input']:
         timestamp_column = pd.DataFrame(data_complete['Timestamp'])
@@ -297,7 +297,11 @@ def get_model(config: dict, vocab_src_len: int, vocab_tgt_len: int) -> Transform
         vocab_tgt_len,
         (config['seq_len'] - 2) * (len(config['discrete_input_attributes']) + len(expert_input_columns)) + 2,
         config['seq_len'],
-        d_model=config['d_model']
+        d_model=config['d_model'],
+        num_layers=config['num_layers'],
+        h=config['num_heads'],
+        dropout=config['dropout'],
+        d_ff=config['dff']
     )
 
     return model
@@ -320,7 +324,9 @@ def get_or_build_tokenizer(config: dict, ds: Dataset, data: str) -> Tokenizer:
         tokenizer = Tokenizer(models.WordLevel(unk_token="[UNK]"))
         # Customize pre-tokenization and training
         tokenizer.pre_tokenizer = pre_tokenizers.Whitespace()
-        trainer = trainers.WordLevelTrainer(special_tokens=["[UNK]", "[PAD]", "[SOS]", "[EOS]", "[NONE]"])
+        trainer = trainers.WordLevelTrainer(special_tokens=[
+            "[UNK]", "[PAD]", "[SOS]", "[EOS]", config['missing_placeholder']
+        ])
         tokenizer.train_from_iterator(get_all_sequences(ds, data), trainer=trainer)
         tokenizer.save(str(tokenizer_path))
     else:
@@ -336,7 +342,15 @@ def get_user_choice(prompt: str) -> str:
     :param prompt: Prompt message for the user.
     :return: User choice.
     """
-    user_choice = input(prompt).strip().lower()
+    input_config, value = get_input_config()
+    user_choice = None
+    if input_config is not None:
+        user_choice = value.strip().lower() if value is not None else None
+
+    if user_choice is not None:
+        print(f"{prompt}{user_choice}")
+    else:
+        user_choice = input(prompt).strip().lower()
 
     if not user_choice or user_choice not in ['yes', 'no']:
         raise ValueError("Invalid input! Please enter 'yes' or 'no'.")
@@ -364,7 +378,7 @@ def greedy_decode(model: Transformer, source: torch.Tensor, source_mask: torch.T
     """
     sos_idx = tokenizer_tgt.token_to_id('[SOS]')
     eos_idx = tokenizer_tgt.token_to_id('[EOS]')
-    none_idx = tokenizer_tgt.token_to_id('[NONE]')
+    none_idx = tokenizer_tgt.token_to_id(config['missing_placeholder'])
 
     # Precompute the encoder output and reuse it for every step
     encoder_output = model.encode(source, source_mask)
@@ -863,8 +877,17 @@ def select_columns(df: pd.DataFrame, column_mapping: dict, repetition: bool = Fa
 
             if user_confirmation == 'no':
                 if len(selected_col_alias) != 1:
-                    incorrect_aliases = [alias.strip() for alias in input(f"Please enter the incorrect attribute(s) "
-                                                                          f"separated by a comma: ").split(',')]
+                    input_config, value = get_input_config()
+                    user_input = None
+                    if input_config is not None:
+                        user_input = value
+
+                    if user_input is not None:
+                        print(f"Please enter the incorrect attribute(s) separated by a comma: {user_input}")
+                    else:
+                        user_input = input(f"Please enter the incorrect attribute(s) separated by a comma: ")
+
+                    incorrect_aliases = [alias.strip() for alias in user_input.split(',')]
                     if not all(alias in selected_col_alias for alias in incorrect_aliases):
                         raise ValueError("One or more provided incorrect attributes are not valid.")
                 else:
@@ -906,8 +929,17 @@ def select_matching_column(df: pd.DataFrame, alias: str, selected_columns: dict)
     else:
         print(f"{num_available_columns} available column{'s' if num_available_columns > 1 else ''}: "
               f"{', '.join(available_columns)}")
-    # Prompt the user to select the column
-    user_input = input(f"Please select the name of the column corresponding to '{alias}': ")
+
+    input_config, value = get_input_config()
+    user_input = None
+    if input_config is not None:
+        user_input = value
+
+    if user_input is not None:
+        print(f"Please select the name of the column corresponding to '{alias}': {user_input}")
+    else:
+        user_input = input(f"Please select the name of the column corresponding to '{alias}': ")
+
     matching_column = next((col for col in df.columns if col.lower() == user_input.lower()), None)
     if matching_column:
         print(f"Column '{matching_column}' selected for '{alias}'.\n")
@@ -949,7 +981,7 @@ def train_model(config: dict) -> None:
     # Tensorboard
     writer = SummaryWriter(config['experiment_name'])
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'], eps=1e-9)
+    optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'], eps=config['eps'])
 
     # If the user specified a model to preload before training, load it
     initial_epoch = 0
@@ -959,6 +991,7 @@ def train_model(config: dict) -> None:
                       if preload == 'latest'
                       else get_weights_file_path(config, preload) if preload
                       else None)
+    # TODO: Preloading check
     if model_filename:
         print(f'Preloading model {model_filename}')
         state = torch.load(model_filename, map_location=device)
@@ -1031,13 +1064,23 @@ def train_model(config: dict) -> None:
 if __name__ == '__main__':
     warnings.filterwarnings("ignore")
 
+    configuration_input = get_user_choice("Do you want to use a specific configuration file for model training? "
+                                          "(yes/no): ")
+
+    if configuration_input == 'yes':
+        config_path = get_file_path("configuration")
+        read_file(config_path)
+
     print("Configuration of model training")
 
     config = get_config()
 
     train_model(config)
 
-    # TODO: Declarative rule check ex-ante and ex-post
+    print("\nConfiguration of log repair")
+
+    # TODO: Declarative rule check ex-ante and ex-post,
+    #  exe-file für EVAL
 
     repaired_log, id_retention = create_log(config)
 
@@ -1047,9 +1090,10 @@ if __name__ == '__main__':
         while True:
             print(f"\nRepair Iteration {iteration}:\n")
 
-            print(repaired_log.head(10))
+            num_rows = config['log_head']
+            print(repaired_log.head(num_rows))
 
-            remaining_rows = len(repaired_log) - 10
+            remaining_rows = len(repaired_log) - num_rows
             if remaining_rows > 0:
                 print(f"\n... (+ {remaining_rows} more row{'s' if remaining_rows > 1 else ''})")
 

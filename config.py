@@ -1,7 +1,7 @@
 # config.py - Configuration parameters and utility functions for model training.
 import os
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import Iterator, List, Optional, Tuple, Union
 
 from dateutil import parser
 import pandas as pd
@@ -36,9 +36,12 @@ expert_attributes: dict = {
 expert_input_attributes: List[str] = []
 expert_input_columns: List[str] = []
 expert_input_values: dict = {}
+input_config: Optional[Iterator[str]] = None
 log: Optional[pd.DataFrame] = None
 log_name: Optional[str] = None
 log_path: Optional[str] = None
+missing_placeholder: str = "[NONE]"
+missing_placeholder_xes: str = ""
 probability_threshold: Optional[float] = None
 tf_input: List[str] = []
 
@@ -47,8 +50,16 @@ def attribute_specification() -> None:
     """
     Allows the user to specify Transformer input attributes based on provided attributes.
     """
-    # Prompt user to enter attributes separated by commas
-    attributes = input("Please enter the input attribute(s) for the transformer (separated by commas): ")
+    global input_config
+
+    attributes = None
+    if input_config is not None:
+        attributes = next(input_config, None)
+
+    if attributes is not None:
+        print(f"Please enter the input attribute(s) for the transformer (separated by commas): {attributes}")
+    else:
+        attributes = input("Please enter the input attribute(s) for the transformer (separated by commas): ")
 
     # Check if user provided any attributes
     if not attributes:
@@ -70,7 +81,7 @@ def expert_value_query(attributes: list) -> dict:
     :return: A dictionary containing attribute names as keys and dictionaries as values. Each value dictionary contains
      the expert values, the corresponding attribute name, and the occurrences of each value or combination.
     """
-    global expert_attributes, log
+    global expert_attributes, input_config, log
     expert_values = {}
 
     for attribute in attributes:
@@ -115,11 +126,19 @@ def expert_value_query(attributes: list) -> dict:
                 )
                 prompt_end = ' –\nSuggestion' + suffix + ': ' + suggestion_str + ':\n' if suggestions else ': '
 
-                # Prompt the user for unary attribute values
-                expert_value = input(
-                    f"Please enter the value(s) that represent(s) the attribute '{attribute}' "
-                    f"(separated by commas){prompt_end}"
-                )
+                expert_value = None
+                if input_config is not None:
+                    expert_value = next(input_config, None)
+
+                if expert_value is not None:
+                    print(f"Please enter the value(s) that represent(s) the attribute '{attribute}' "
+                          f"(separated by commas){prompt_end}{expert_value}")
+                else:
+                    expert_value = input(
+                        f"Please enter the value(s) that represent(s) the attribute '{attribute}' "
+                        f"(separated by commas){prompt_end}"
+                    )
+
                 if not expert_value:
                     # Raise an error if no value is provided
                     raise ValueError("No value provided. Please try again.")
@@ -128,8 +147,18 @@ def expert_value_query(attributes: list) -> dict:
 
                 # Prompt the user for occurrences for each value in value_list
                 for value in value_list:
-                    occurrence = input(f"Does '{value}' always or sometimes represent the attribute '{attribute}'?\n"
-                                       f"Enter 'always' or 'sometimes': ").strip().lower()
+                    occurrence = None
+                    if input_config is not None:
+                        occurrence = next(input_config, None)
+                        occurrence = occurrence.strip().lower() if occurrence is not None else None
+
+                    if occurrence is not None:
+                        print(f"Does '{value}' always or sometimes represent the attribute '{attribute}'?\n"
+                              f"Enter 'always' or 'sometimes': {occurrence}")
+                    else:
+                        occurrence = input(f"Does '{value}' always or sometimes represent the attribute '{attribute}'?"
+                                           f"\nEnter 'always' or 'sometimes': ").strip().lower()
+
                     if occurrence not in ['always', 'sometimes']:
                         raise ValueError("Invalid occurrence value. Please enter 'always' or 'sometimes'.")
                     value_dict['occurrences'].append(occurrence)
@@ -153,12 +182,22 @@ def expert_value_query(attributes: list) -> dict:
                      for activity_pair, frequency in suggestions]
                 )
                 prompt_end = ' –\nSuggestion' + suffix + ': ' + suggestions_str + ':' if suggestions else ':'
-                # Prompt the user for binary attribute values
-                expert_value = input(
-                    f"Please enter the combination(s) for the attribute '{attribute}' \n"
-                    f"(values of a combination in the correct order connected with a plus sign and "
-                    f"combinations separated by commas){prompt_end}\n"
-                )
+
+                expert_value = None
+                if input_config is not None:
+                    expert_value = next(input_config, None)
+
+                if expert_value is not None:
+                    print(f"Please enter the combination(s) for the attribute '{attribute}' \n"
+                          f"(values of a combination in the correct order connected with a plus sign and "
+                          f"combinations separated by commas){prompt_end}\n{expert_value}")
+                else:
+                    expert_value = input(
+                        f"Please enter the combination(s) for the attribute '{attribute}' \n"
+                        f"(values of a combination in the correct order connected with a plus sign and "
+                        f"combinations separated by commas){prompt_end}\n"
+                    )
+
                 if not expert_value:
                     # Raise an error if no value is provided
                     raise ValueError("No values provided. Please try again.")
@@ -167,9 +206,20 @@ def expert_value_query(attributes: list) -> dict:
 
                 # Prompt the user for occurrences for each combination in value_list
                 for combination in value_list:
-                    occurrence = input(f"Does the combination '{' + '.join(combination)}' always or sometimes "
-                                       f"represent the attribute '{attribute}'?\n"
-                                       f"Enter 'always' or 'sometimes': ").strip().lower()
+                    occurrence = None
+                    if input_config is not None:
+                        occurrence = next(input_config, None)
+                        occurrence = occurrence.strip().lower() if occurrence is not None else None
+
+                    if occurrence is not None:
+                        print(f"Does the combination '{' + '.join(combination)}' always or sometimes "
+                              f"represent the attribute '{attribute}'?\n"
+                              f"Enter 'always' or 'sometimes': {occurrence}")
+                    else:
+                        occurrence = input(f"Does the combination '{' + '.join(combination)}' always or sometimes "
+                                           f"represent the attribute '{attribute}'?\n"
+                                           f"Enter 'always' or 'sometimes': ").strip().lower()
+
                     if occurrence not in ['always', 'sometimes']:
                         raise ValueError("Invalid occurrence value. Please enter 'always' or 'sometimes'.")
                     value_dict['occurrences'].append(occurrence)
@@ -220,7 +270,8 @@ def get_config() -> dict:
 
     :return: Dictionary containing various configuration parameters.
     """
-    global attribute_config, expert_input_attributes, expert_input_values, log_name, log_path, tf_input
+    global attribute_config, expert_input_attributes, expert_input_values, log_name, log_path, missing_placeholder
+    global missing_placeholder_xes, tf_input
 
     # If log_path is not set, get it using the get_file_path function
     if log_path is None:
@@ -270,8 +321,16 @@ def get_config() -> dict:
         "batch_size": 8,
         "num_epochs": 20,
         "lr": 10 ** -4,
+        "eps": 1e-9,
         "seq_len": 10 + num_tokens,  # Adjusted seq_len accounting for SOS and EOS tokens
         "d_model": 512,
+        "num_layers": 6,
+        "num_heads": 8,
+        "dropout": 0.1,
+        "dff": 2048,
+        "log_head": 10,
+        "missing_placeholder": missing_placeholder,
+        "missing_placeholder_xes": missing_placeholder_xes,
         "log": log,
         "log_path": log_path,
         "log_name": log_name,
@@ -301,9 +360,17 @@ def get_expert_attributes() -> List[str]:
 
     :return: A list of expert attributes entered by the user.
     """
-    global expert_attributes
+    global expert_attributes, input_config
 
-    expert = input("Do you want to add one or more expert attributes? (yes/no): ").strip().lower()
+    expert = None
+    if input_config is not None:
+        expert = next(input_config, None)
+        expert = expert.strip().lower() if expert is not None else None
+
+    if expert is not None and expert in ["yes", "no"]:
+        print(f"Do you want to add one or more expert attributes? (yes/no): {expert}")
+    else:
+        expert = input("Do you want to add one or more expert attributes? (yes/no): ").strip().lower()
 
     if expert == "yes":
         if len(expert_attributes) == 1:
@@ -312,9 +379,20 @@ def get_expert_attributes() -> List[str]:
         else:
             suffix = 's are'
             attributes = ', '.join(list(expert_attributes.keys())[:-1]) + f" and {list(expert_attributes.keys())[-1]}"
-        attribute_input = input(f"Following expert attribute{suffix} available: {attributes}.\n"
-                                f"Please enter the attribute(s) for which you have expert knowledge "
-                                f"(separated by commas): ")
+
+        attribute_input = None
+        if input_config is not None:
+            attribute_input = next(input_config, None)
+
+        if attribute_input is not None:
+            print(f"Following expert attribute{suffix} available: {attributes}.\n"
+                  f"Please enter the attribute(s) for which you have expert knowledge "
+                  f"(separated by commas): {attribute_input}")
+        else:
+            attribute_input = input(f"Following expert attribute{suffix} available: {attributes}.\n"
+                                    f"Please enter the attribute(s) for which you have expert knowledge "
+                                    f"(separated by commas): ")
+
         if not attribute_input:
             raise ValueError("No attribute(s) provided. Please try again.")
         attribute_list = [attribute.strip() for attribute in attribute_input.split(',')]
@@ -338,18 +416,19 @@ def get_expert_input_columns() -> List[str]:
     return expert_input_columns
 
 
-def get_file_path() -> str:
+def get_file_path(file_type: str = "event log") -> str:
     """
-    Get the file path for the event log, either through GUI or manual input.
+    Get the file path, either through GUI or manual input.
 
-    :return: File path for the event log.
+    :param file_type: Type of file to select. Defaults to "event log".
+    :return: File path.
     """
     if "DISPLAY" in os.environ:
         # GUI components can be used
         root = tk.Tk()
         root.withdraw()  # Hide the main window
 
-        file_path = filedialog.askopenfilename(title="Select the file that contains the event log")
+        file_path = filedialog.askopenfilename(title=f"Select the file that contains the {file_type}")
 
         # Check if the user selected a file or canceled the dialog
         if file_path:
@@ -358,7 +437,7 @@ def get_file_path() -> str:
             raise ValueError("Error: No file selected.")
     else:
         # No display available, use alternative method (e.g., manual input)
-        file_path = input("Enter the path to the file that contains the event log: ")
+        file_path = input(f"Enter the path to the file that contains the {file_type}: ")
 
         # Check if the user entered a file path
         if file_path:
@@ -366,6 +445,22 @@ def get_file_path() -> str:
             return file_path
         else:
             raise ValueError("Error: No file selected.")
+
+
+def get_input_config() -> Tuple[Optional[Iterator[str]], Optional[str]]:
+    """
+    Get the input configuration and the next value from that configuration.
+
+    :return: A tuple containing the current input configuration iterator and the next value from the input iterator.
+    """
+    global input_config
+
+    input_con = input_config
+    next_value = None
+    if input_con is not None:
+        next_value = next(input_con, None)
+
+    return input_con, next_value
 
 
 def get_model_name(discrete_len: int, continuous_len: int, expert_len: int) -> str:
@@ -498,19 +593,25 @@ def latest_weights_file_path(config: dict) -> str or None:
 
 def read_file(path: str) -> None:
     """
-    Read log file into a DataFrame.
+    Read file into a DataFrame.
 
-    :param path: File path to the event log.
+    :param path: File path.
     """
-    global log
+    global input_config, log, missing_placeholder, missing_placeholder_xes
 
     if path.endswith('.xes'):
         file = pm4py.read_xes(path)
         log = log_converter.apply(file, variant=log_converter.Variants.TO_DATA_FRAME)
-        log.replace('', '[NONE]', inplace=True)
+        log.replace(missing_placeholder_xes, missing_placeholder, inplace=True)
         print("XES file successfully read.")
+    elif path.endswith('.txt'):
+        with open(path, 'r') as file:
+            lines = file.readlines()
+        input_values = [line.strip() for line in lines]
+        input_config = (value for value in input_values)
+        print("TXT file successfully read.")
     else:
-        raise ValueError('Unknown file type. Supported type is .xes.')
+        raise ValueError('Unknown file type. Supported types are .xes and .txt.')
 
 
 def reset_log(new_process: bool = True) -> None:
@@ -588,10 +689,20 @@ def set_prob_threshold(config: dict) -> None:
 
     :param config: Configuration parameters.
     """
-    global probability_threshold
+    global input_config, probability_threshold
 
-    thresh = input(f"Please enter the minimum probability (in %) with which the {config['tf_output']} must be "
-                   f"determined in order for it to be accepted: ").strip()
+    thresh = None
+    if input_config is not None:
+        thresh = next(input_config, None)
+        thresh = thresh.strip() if thresh is not None else None
+
+    if thresh is not None:
+        print(f"Please enter the minimum probability (in %) with which the {config['tf_output']} must be "
+              f"determined in order for it to be accepted: {thresh}")
+    else:
+        thresh = input(f"Please enter the minimum probability (in %) with which the {config['tf_output']} must be "
+                       f"determined in order for it to be accepted: ").strip()
+
     if not thresh:
         raise ValueError("No threshold provided. Please try again.")
 

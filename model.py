@@ -476,8 +476,8 @@ class Transformer(nn.Module):
         return self.projection_layer(x)
 
 
-def build_transformer(src_vocab_size: int, tgt_vocab_size: int, src_seq_len: int, tgt_seq_len: int, d_model: int = 512,
-                      num_layers: int = 6, h: int = 8, dropout: float = 0.1, d_ff: int = 2048) -> Transformer:
+def build_transformer(src_vocab_size: int, tgt_vocab_size: int, src_seq_len: int, tgt_seq_len: int, d_model: int,
+                      num_layers: int, h: int, dropout: float, d_ff: int) -> Transformer:
     """
     Build the transformer model.
 
@@ -485,11 +485,11 @@ def build_transformer(src_vocab_size: int, tgt_vocab_size: int, src_seq_len: int
     :param tgt_vocab_size: Size of the target vocabulary.
     :param src_seq_len: Maximum sequence length for source.
     :param tgt_seq_len: Maximum sequence length for target.
-    :param d_model: Dimensionality of the model. Defaults to 512.
-    :param num_layers: Number of encoder and decoder layers. Defaults to 6.
-    :param h: Number of attention heads. Defaults to 8.
-    :param dropout: Dropout probability. Defaults to 0.1.
-    :param d_ff: Dimensionality of the feedforward layer. Defaults to 2048.
+    :param d_model: Dimensionality of the model.
+    :param num_layers: Number of encoder and decoder layers.
+    :param h: Number of attention heads.
+    :param dropout: Dropout probability.
+    :param d_ff: Dimensionality of the feedforward layer.
     :return: Built transformer model.
     """
     src_embed = InputEmbeddings(d_model, src_vocab_size)
