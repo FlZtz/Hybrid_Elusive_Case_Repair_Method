@@ -544,6 +544,14 @@ def reset_log(new_process: bool = True) -> None:
         tf_input = []
 
 
+def reset_prob_threshold() -> None:
+    """
+    Reset the probability threshold to None.
+    """
+    global probability_threshold
+    probability_threshold = None
+
+
 def set_cached_df_copy(df: pd.DataFrame) -> None:
     """
     Set the cached DataFrame copy.

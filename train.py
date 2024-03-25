@@ -27,7 +27,8 @@ from tokenizers import models, pre_tokenizers, Tokenizer, trainers  # For tokeni
 from model import build_transformer, Transformer  # Importing Transformer model builder
 from dataset import causal_mask, InOutDataset  # Importing custom dataset and mask functions
 from config import (get_cached_df_copy, get_config, get_expert_input_columns, get_prob_threshold, get_weights_file_path,
-                    latest_weights_file_path, reset_log, set_cached_df_copy, set_expert_input_columns, set_log_path)
+                    latest_weights_file_path, reset_log, reset_prob_threshold, set_cached_df_copy,
+                    set_expert_input_columns, set_log_path)
 
 from tqdm import tqdm  # For progress bars
 
@@ -1052,6 +1053,14 @@ if __name__ == '__main__':
             if remaining_rows > 0:
                 print(f"\n... (+ {remaining_rows} more row{'s' if remaining_rows > 1 else ''})")
 
+            percentage_na = (
+                repaired_log[f"Determined {config['tf_output']}"]
+                .isna().
+                sum()
+                / len(repaired_log[f"Determined {config['tf_output']}"])
+            ) * 100
+            print(f"\nFor {percentage_na:.2f}% of the events, a {config['tf_output']} has not yet been determined.")
+
             print('-' * 80)
 
             repetition_input = get_user_choice("Do you want to use the repaired log as the baseline for an additional "
@@ -1059,6 +1068,12 @@ if __name__ == '__main__':
 
             if repetition_input == 'no':
                 break
+
+            threshold_input = get_user_choice("Do you want to keep the probability threshold for the next repair? "
+                                              "(yes/no): ")
+
+            if threshold_input == 'no':
+                reset_prob_threshold()
 
             repaired_log, _ = create_log(config, repetition=True)
 
