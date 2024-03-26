@@ -3,7 +3,7 @@ import os  # For filesystem operations
 import shutil  # For filesystem operations
 import warnings  # For managing warnings
 from pathlib import Path  # For working with file paths
-from typing import Callable, List, Tuple  # For type hints
+from typing import Callable, List, Optional, Tuple  # For type hints
 
 # Third-party library imports
 import pandas as pd  # For working with dataframes
@@ -429,6 +429,30 @@ def greedy_decode(model: Transformer, source: torch.Tensor, source_mask: torch.T
             break
 
     return decoder_input.squeeze(0), probabilities
+
+
+def load_model_from_file(filename: str, model: torch.nn.Module, optimizer: torch.optim.Optimizer,
+                         device: torch.device) -> Tuple[Optional[int], Optional[int]]:
+    """
+    Load model and optimizer state from a file.
+
+    :param filename: Path to the model file.
+    :param model: Neural network model to load the state_dict into.
+    :param optimizer: Optimizer to load the state_dict into.
+    :param device: Device where the model will be loaded.
+    :return: A tuple containing the loaded epoch and global_step. Returns (None, None) if an error occurs.
+    """
+    try:
+        state = torch.load(filename, map_location=device)
+        model.load_state_dict(state['model_state_dict'])
+        optimizer.load_state_dict(state['optimizer_state_dict'])
+        epoch = state['epoch'] + 1
+        global_step = state['global_step']
+        print(f'Successfully preloaded model from {filename}')
+        return epoch, global_step
+    except Exception as e:
+        print(f'Error loading model from {filename}: {e}')
+        return None, None
 
 
 def normalize_continuous_attributes(df: pd.DataFrame, continuous_columns: List[str]) -> pd.DataFrame:
@@ -987,18 +1011,23 @@ def train_model(config: dict) -> None:
     initial_epoch = 0
     global_step = 0
     preload = config['preload']
-    model_filename = (latest_weights_file_path(config)
-                      if preload == 'latest'
+    model_filename = (latest_weights_file_path(config) if preload == 'latest'
                       else get_weights_file_path(config, preload) if preload
                       else None)
-    # TODO: Preloading check
+
     if model_filename:
-        print(f'Preloading model {model_filename}')
-        state = torch.load(model_filename, map_location=device)
-        model.load_state_dict(state['model_state_dict'])
-        initial_epoch = state['epoch'] + 1
-        optimizer.load_state_dict(state['optimizer_state_dict'])
-        global_step = state['global_step']
+        print(f'Attempting to preload model from {model_filename}')
+        epoch, g_step = load_model_from_file(model_filename, model, optimizer, device)
+        if epoch is None:
+            model_filename = latest_weights_file_path(config, use_second_latest=True)
+            if model_filename:
+                print(f'Attempting to preload model from {model_filename}')
+                epoch, g_step = load_model_from_file(model_filename, model, optimizer, device)
+        if epoch is None:
+            print('No valid model to preload, starting from scratch')
+        else:
+            initial_epoch = epoch
+            global_step = g_step
     else:
         print('No model to preload, starting from scratch')
 

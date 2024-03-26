@@ -571,12 +571,13 @@ def input_validation(attributes: Union[List[str], Tuple[str, ...]], dictionary: 
     return validated_attributes
 
 
-def latest_weights_file_path(config: dict) -> str or None:
+def latest_weights_file_path(config: dict, use_second_latest: bool = False) -> str or None:
     """
-    Get the file path for the latest weights of the model.
+    Get the file path for the latest or second-latest weights of the model.
 
     :param config: Configuration parameters.
-    :return: File path for the latest weights of the model, or None if no weights are found.
+    :param use_second_latest: Boolean flag to indicate whether to return the second-latest file. Defaults to False.
+    :return: File path for the latest or second-latest weights of the model, or None if no weights are found.
     """
     model_folder = f"{config['model_folder']}"
     model_filename = f"{config['model_basename']}*"
@@ -586,9 +587,14 @@ def latest_weights_file_path(config: dict) -> str or None:
     if len(weights_files) == 0:
         return None
 
-    # Sort the list of weights files and return the path of the latest one
+    # Sort the list of weights files
     weights_files.sort()
-    return str(weights_files[-1])
+
+    # Return the path of the latest or second-latest file based on the flag
+    if use_second_latest:
+        return str(weights_files[-2]) if len(weights_files) > 1 else None
+    else:
+        return str(weights_files[-1])
 
 
 def read_file(path: str) -> None:
