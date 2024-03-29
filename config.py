@@ -318,6 +318,7 @@ def get_config() -> dict:
 
     # Return a dictionary with configuration parameters
     return {
+        # Model Hyperparameters
         "batch_size": 8,
         "num_epochs": 20,
         "lr": 10 ** -4,
@@ -328,29 +329,44 @@ def get_config() -> dict:
         "num_heads": 8,
         "dropout": 0.1,
         "dff": 2048,
-        "log_head": 10,
-        "missing_placeholder": missing_placeholder,
-        "missing_placeholder_xes": missing_placeholder_xes,
-        "log": log,
-        "log_path": log_path,
-        "log_name": log_name,
+
+        # Input and Output Configurations
         "tf_input": tf_input,
         "tf_output": "Case ID",
         "discrete_input_attributes": discrete_input_attributes,
         "continuous_input_attributes": continuous_input_attributes,
         "expert_input_attributes": expert_input_attributes,
         "expert_input_values": expert_input_values,
+
+        # Placeholder Configurations
+        "missing_placeholder": missing_placeholder,
+        "missing_placeholder_xes": missing_placeholder_xes,
+
+        # Logging Configurations
+        "log_head": 10,
+        "log": log,
+        "log_path": log_path,
+        "log_name": log_name,
+
+        # Model and Tokenizer Configurations
         "model_folder": f"weights/{model_name}/{log_name}",
         "model_name": model_name,
         "model_basename": "tmodel_",
         "preload": "latest",
         "tokenizer_folder": f"tokenizers/{model_name}/{log_name}",
         "tokenizer_file": "tokenizer_{0}.json",
+
+        # Experiment and Result Configurations
         "experiment_name": f"runs/{model_name}/{log_name}",
         "result_folder": f"repaired_logs/{model_name}/{log_name}",
         "result_csv_file": f"determined_{log_name}.csv",
         "result_xes_file": f"determined_{log_name}.xes",
+
+        # File and Configuration Paths
         "config_file": f"model_configurations/{model_name}/{log_name}/config.pkl",
+        "response_file": f"response_configurations/{model_name}/{log_name}/{log_name}_{model_name}.txt",
+
+        # Additional Configurations
         "attribute_dictionary": attribute_dictionary
     }
 

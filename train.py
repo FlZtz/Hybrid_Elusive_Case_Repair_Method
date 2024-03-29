@@ -2,6 +2,7 @@
 import os  # For filesystem operations
 import pickle  # For object serialization
 import shutil  # For filesystem operations
+import sys
 import warnings  # For managing warnings
 from pathlib import Path  # For working with file paths
 from typing import Callable, List, Optional, Tuple  # For type hints
@@ -331,6 +332,18 @@ def get_or_build_tokenizer(config: dict, ds: Dataset, data: str, diff_config: bo
         # Load existing tokenizer
         tokenizer = Tokenizer.from_file(str(tokenizer_path))
     return tokenizer
+
+
+def get_response_configuration() -> None:
+    """
+    Get response configuration file for model training if the user chooses to use it.
+    """
+    response_configuration = get_user_choice("Do you want to use a specific response configuration file for model "
+                                             "training? (yes/no): ")
+
+    if response_configuration == 'yes':
+        config_path = get_file_path("configuration")
+        read_file(config_path)
 
 
 def get_user_choice(prompt: str) -> str:
@@ -757,6 +770,66 @@ def read_log(config: dict, complete: bool = False, repetition: bool = False) -> 
     return df
 
 
+def repair_loop(log: pd.DataFrame, config: dict) -> None:
+    """
+    Repair loop for the determined log.
+
+    :param log: Log with determined config['tf_output'] values.
+    :param config: Configuration object containing necessary parameters.
+    """
+    percentage_na = (
+        log[f"Actual {config['tf_output']}"]
+        .isna().
+        sum()
+        / len(log[f"Actual {config['tf_output']}"])
+    ) * 100
+    print(f"\nFor {percentage_na:.2f}% of the events, the {config['tf_output']} has originally not been recorded.")
+
+    iteration = 1
+
+    while True:
+        print(f"\nRepair Iteration {iteration}:\n")
+
+        num_rows = config['log_head']
+        print(log.head(num_rows))
+
+        remaining_rows = len(log) - num_rows
+        if remaining_rows > 0:
+            print(f"\n... (+ {remaining_rows} more row{'s' if remaining_rows > 1 else ''})")
+
+        percentage_na = (
+            log[f"Determined {config['tf_output']}"]
+            .isna().
+            sum()
+            / len(log[f"Determined {config['tf_output']}"])
+        ) * 100
+
+        if percentage_na == 0:
+            print(f"\nFor all events, the {config['tf_output']} has been determined.")
+            break
+        else:
+            print(f"\nFor {percentage_na:.2f}% of the events, the {config['tf_output']} has not yet been "
+                  f"determined.")
+
+        print('-' * 80)
+
+        repetition_input = get_user_choice("Do you want to use the repaired log as the baseline for an additional "
+                                           "repair? (yes/no): ")
+
+        if repetition_input == 'no':
+            break
+
+        threshold_input = get_user_choice("Do you want to keep the probability threshold for the next repair? "
+                                          "(yes/no): ")
+
+        if threshold_input == 'no':
+            reset_prob_threshold()
+
+        log, _ = create_log(config, repetition=True)
+
+        iteration += 1
+
+
 def run_validation(model: Transformer, validation_ds: DataLoader, tokenizer_tgt: Tokenizer, max_len: int,
                    device: torch.device, print_msg: Callable[[str], None], global_step: int, writer: SummaryWriter,
                    config: dict, num_examples: int = 2) -> None:
@@ -999,7 +1072,6 @@ def train_model(config: dict) -> None:
     Path(f"{config['model_folder']}").mkdir(parents=True, exist_ok=True)
 
     different_config = False
-
     model_config_path = os.path.dirname(config['config_file'])
 
     if os.path.exists(model_config_path):
@@ -1013,6 +1085,16 @@ def train_model(config: dict) -> None:
 
         if loaded_config != curr_config:
             different_config = True
+            choice = input("\nAttention: The model's configuration has been modified since the last training.\nIf you "
+                           "proceed, previously calculated weights will be deleted. Do you want to continue? "
+                           "(yes/no): ").strip().lower()
+            print("\n")
+
+            if not choice or choice not in ['yes', 'no']:
+                raise ValueError("Invalid input! Please enter 'yes' or 'no'.")
+
+            if choice == 'no':
+                sys.exit()
 
     train_dataloader, val_dataloader, tokenizer_src, tokenizer_tgt = get_ds(config, different_config)
     model = get_model(config, tokenizer_src.get_vocab_size(), tokenizer_tgt.get_vocab_size()).to(device)
@@ -1031,7 +1113,6 @@ def train_model(config: dict) -> None:
 
     if different_config:
         model_filename = None
-        print("The model configuration has changed since the last training.")
 
         # Delete all saved weights
         weights_folder = Path(f"{config['model_folder']}")
@@ -1121,12 +1202,7 @@ def train_model(config: dict) -> None:
 if __name__ == '__main__':
     warnings.filterwarnings("ignore")
 
-    configuration_input = get_user_choice("Do you want to use a specific configuration file for model training? "
-                                          "(yes/no): ")
-
-    if configuration_input == 'yes':
-        config_path = get_file_path("configuration")
-        read_file(config_path)
+    get_response_configuration()
 
     print("\nConfiguration of model training")
 
@@ -1141,54 +1217,4 @@ if __name__ == '__main__':
     repaired_log, id_retention = create_log(config)
 
     if id_retention:
-        percentage_na = (
-            repaired_log[f"Actual {config['tf_output']}"]
-            .isna().
-            sum()
-            / len(repaired_log[f"Actual {config['tf_output']}"])
-        ) * 100
-        print(f"\nFor {percentage_na:.2f}% of the events, the {config['tf_output']} has originally not been recorded.")
-
-        iteration = 1
-
-        while True:
-            print(f"\nRepair Iteration {iteration}:\n")
-
-            num_rows = config['log_head']
-            print(repaired_log.head(num_rows))
-
-            remaining_rows = len(repaired_log) - num_rows
-            if remaining_rows > 0:
-                print(f"\n... (+ {remaining_rows} more row{'s' if remaining_rows > 1 else ''})")
-
-            percentage_na = (
-                repaired_log[f"Determined {config['tf_output']}"]
-                .isna().
-                sum()
-                / len(repaired_log[f"Determined {config['tf_output']}"])
-            ) * 100
-
-            if percentage_na == 0:
-                print(f"\nFor all events, the {config['tf_output']} has been determined.")
-                break
-            else:
-                print(f"\nFor {percentage_na:.2f}% of the events, the {config['tf_output']} has not yet been "
-                      f"determined.")
-
-            print('-' * 80)
-
-            repetition_input = get_user_choice("Do you want to use the repaired log as the baseline for an additional "
-                                               "repair? (yes/no): ")
-
-            if repetition_input == 'no':
-                break
-
-            threshold_input = get_user_choice("Do you want to keep the probability threshold for the next repair? "
-                                              "(yes/no): ")
-
-            if threshold_input == 'no':
-                reset_prob_threshold()
-
-            repaired_log, _ = create_log(config, repetition=True)
-
-            iteration += 1
+        repair_loop(repaired_log, config)
