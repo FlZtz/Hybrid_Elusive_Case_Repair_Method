@@ -336,9 +336,11 @@ def get_or_build_tokenizer(config: dict, ds: Dataset, data: str, diff_config: bo
     return tokenizer
 
 
-def get_response_configuration() -> None:
+def get_response_configuration() -> bool:
     """
     Get response configuration file for model training if the user chooses to use it.
+
+    :return: True if the user chooses to use a response configuration file, False otherwise.
     """
     response_configuration = get_user_choice("Do you want to use a specific response configuration file for model "
                                              "training? (yes/no): ")
@@ -346,6 +348,9 @@ def get_response_configuration() -> None:
     if response_configuration == 'yes':
         config_path = get_file_path("configuration")
         read_file(config_path)
+        return True
+
+    return False
 
 
 def get_user_choice(prompt: str) -> str:
@@ -1205,9 +1210,11 @@ def train_model(config: dict) -> None:
 if __name__ == '__main__':
     warnings.filterwarnings("ignore")
 
-    get_response_configuration()
+    use_config = get_response_configuration()
 
     print("\nConfiguration of model training")
+    if use_config:
+        print("Please ensure that the process matches the one in the response configuration file.")
 
     config = get_config()
 
