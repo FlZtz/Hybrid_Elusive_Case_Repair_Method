@@ -350,6 +350,7 @@ def get_config() -> dict:
         "result_folder": f"repaired_logs/{model_name}/{log_name}",
         "result_csv_file": f"determined_{log_name}.csv",
         "result_xes_file": f"determined_{log_name}.xes",
+        "config_file": f"model_configurations/{model_name}/{log_name}/config.pkl",
         "attribute_dictionary": attribute_dictionary
     }
 

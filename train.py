@@ -1,5 +1,6 @@
 # train.py - Script for training a Transformer model and creating a log with determined config['tf_output']
 import os  # For filesystem operations
+import pickle  # For object serialization
 import shutil  # For filesystem operations
 import warnings  # For managing warnings
 from pathlib import Path  # For working with file paths
@@ -7,29 +8,24 @@ from typing import Callable, List, Optional, Tuple  # For type hints
 
 # Third-party library imports
 import pandas as pd  # For working with dataframes
+import pm4py  # For process mining operations
 from sklearn.model_selection import train_test_split  # For splitting dataset into train and
 from sklearn.preprocessing import MinMaxScaler  # For normalizing continuous data
-
 import torch  # PyTorch library
 import torch.nn as nn  # PyTorch neural network module
-from torch.utils.data import DataLoader, Dataset, random_split  # For working with PyTorch datasets
 import torchmetrics  # For evaluation metrics
+from torch.utils.data import DataLoader, Dataset, random_split  # For working with PyTorch datasets
 from torch.utils.tensorboard import SummaryWriter  # For TensorBoard visualization
-
-import pm4py  # For process mining operations
-
+from tokenizers import models, pre_tokenizers, Tokenizer, trainers  # For tokenization
+from datasets import Dataset as HuggingfaceDataset  # For Huggingface datasets
 from dateutil import parser  # For parsing date strings
 
-from datasets import Dataset as HuggingfaceDataset  # For Huggingface datasets
-from tokenizers import models, pre_tokenizers, Tokenizer, trainers  # For tokenization
-
 # Local application/library specific imports
-from model import build_transformer, Transformer  # Importing Transformer model builder
-from dataset import causal_mask, InOutDataset  # Importing custom dataset and mask functions
 from config import (get_cached_df_copy, get_config, get_expert_input_columns, get_file_path, get_input_config,
                     get_prob_threshold, get_weights_file_path, latest_weights_file_path, read_file, reset_log,
                     reset_prob_threshold, set_cached_df_copy, set_expert_input_columns, set_log_path)
-
+from dataset import causal_mask, InOutDataset  # Importing custom dataset and mask functions
+from model import build_transformer, Transformer  # Importing Transformer model builder
 from tqdm import tqdm  # For progress bars
 
 
@@ -231,11 +227,12 @@ def get_all_sequences(ds: Dataset, data: str) -> str:
         yield item[data]
 
 
-def get_ds(config: dict) -> Tuple[DataLoader, DataLoader, Tokenizer, Tokenizer]:
+def get_ds(config: dict, different_configuration: bool = False) -> Tuple[DataLoader, DataLoader, Tokenizer, Tokenizer]:
     """
     Gets training and validation DataLoaders along with tokenizers for the dataset.
 
     :param config: Configuration options.
+    :param different_configuration: Flag to indicate if the configuration has changed. Defaults to False.
     :return: Training DataLoader; Validation DataLoader; Source Tokenizer; Target Tokenizer.
     """
     df = read_log(config)
@@ -243,8 +240,8 @@ def get_ds(config: dict) -> Tuple[DataLoader, DataLoader, Tokenizer, Tokenizer]:
     ds_raw = HuggingfaceDataset.from_pandas(train)
 
     # Build tokenizers
-    tokenizer_src = get_or_build_tokenizer(config, ds_raw, 'Discrete Attributes')
-    tokenizer_tgt = get_or_build_tokenizer(config, ds_raw, config['tf_output'])
+    tokenizer_src = get_or_build_tokenizer(config, ds_raw, 'Discrete Attributes', different_configuration)
+    tokenizer_tgt = get_or_build_tokenizer(config, ds_raw, config['tf_output'], different_configuration)
 
     # Keep 90% for training, 10% for validation
     train_ds_size = int(0.9 * len(ds_raw))
@@ -307,19 +304,20 @@ def get_model(config: dict, vocab_src_len: int, vocab_tgt_len: int) -> Transform
     return model
 
 
-def get_or_build_tokenizer(config: dict, ds: Dataset, data: str) -> Tokenizer:
+def get_or_build_tokenizer(config: dict, ds: Dataset, data: str, diff_config: bool = False) -> Tokenizer:
     """
     Get or build a tokenizer for a specific dataset and data field.
 
     :param config: Configuration options.
     :param ds: Dataset to build tokenizer for.
     :param data: Name of the data field.
+    :param diff_config: Flag to indicate if the configuration has changed. Defaults to False.
     :return: Tokenizer for the dataset.
     """
     # Check if tokenizer file exists
     os.makedirs(config['tokenizer_folder'], exist_ok=True)
     tokenizer_path = Path(os.path.join(config['tokenizer_folder'], config['tokenizer_file'].format(data)))
-    if not tokenizer_path.exists():
+    if not tokenizer_path.exists() or diff_config:
         # Train a new tokenizer
         tokenizer = Tokenizer(models.WordLevel(unk_token="[UNK]"))
         # Customize pre-tokenization and training
@@ -1000,7 +998,23 @@ def train_model(config: dict) -> None:
     # Make sure the weights folder exists
     Path(f"{config['model_folder']}").mkdir(parents=True, exist_ok=True)
 
-    train_dataloader, val_dataloader, tokenizer_src, tokenizer_tgt = get_ds(config)
+    different_config = False
+
+    model_config_path = os.path.dirname(config['config_file'])
+
+    if os.path.exists(model_config_path):
+        with open(config['config_file'], 'rb') as file:
+            loaded_config = pickle.load(file)
+
+        loaded_config = {key: value.to_dict() if isinstance(value, pd.DataFrame) else value for key, value in
+                         loaded_config.items()}
+        curr_config = {key: value.to_dict() if isinstance(value, pd.DataFrame) else value for key, value in
+                       config.items()}
+
+        if loaded_config != curr_config:
+            different_config = True
+
+    train_dataloader, val_dataloader, tokenizer_src, tokenizer_tgt = get_ds(config, different_config)
     model = get_model(config, tokenizer_src.get_vocab_size(), tokenizer_tgt.get_vocab_size()).to(device)
     # Tensorboard
     writer = SummaryWriter(config['experiment_name'])
@@ -1014,6 +1028,20 @@ def train_model(config: dict) -> None:
     model_filename = (latest_weights_file_path(config) if preload == 'latest'
                       else get_weights_file_path(config, preload) if preload
                       else None)
+
+    if different_config:
+        model_filename = None
+        print("The model configuration has changed since the last training.")
+
+        # Delete all saved weights
+        weights_folder = Path(f"{config['model_folder']}")
+        for file in weights_folder.glob(f"{config['model_basename']}*.pt"):
+            os.remove(file)
+
+    if not os.path.exists(model_config_path):
+        os.makedirs(model_config_path)
+    with open(config['config_file'], 'wb') as file:
+        pickle.dump(config, file)
 
     if model_filename:
         print(f'Attempting to preload model from {model_filename}')
