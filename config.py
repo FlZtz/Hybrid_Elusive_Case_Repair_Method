@@ -43,7 +43,18 @@ log_path: Optional[str] = None
 missing_placeholder: str = "[NONE]"
 missing_placeholder_xes: str = ""
 probability_threshold: Optional[float] = None
+responses: List[str] = []
 tf_input: List[str] = []
+
+
+def add_response(response: str) -> None:
+    """
+    Add a response to the responses list.
+
+    :param response: Response to add.
+    """
+    global responses
+    responses.append(response)
 
 
 def attribute_specification() -> None:
@@ -81,7 +92,7 @@ def expert_value_query(attributes: list) -> dict:
     :return: A dictionary containing attribute names as keys and dictionaries as values. Each value dictionary contains
      the expert values, the corresponding attribute name, and the occurrences of each value or combination.
     """
-    global expert_attributes, input_config, log
+    global expert_attributes, input_config, log, responses
     expert_values = {}
 
     for attribute in attributes:
@@ -144,6 +155,7 @@ def expert_value_query(attributes: list) -> dict:
                     raise ValueError("No value provided. Please try again.")
                 # Split the input values and strip any leading/trailing whitespace
                 value_list = [value.strip() for value in expert_value.split(',')]
+                responses.append(', '.join(value_list))
 
                 # Prompt the user for occurrences for each value in value_list
                 for value in value_list:
@@ -162,6 +174,7 @@ def expert_value_query(attributes: list) -> dict:
                     if occurrence not in ['always', 'sometimes']:
                         raise ValueError("Invalid occurrence value. Please enter 'always' or 'sometimes'.")
                     value_dict['occurrences'].append(occurrence)
+                    responses.append(occurrence)
 
                 value_dict['values'] = value_list
             elif attribute_type == 'binary':
@@ -203,6 +216,7 @@ def expert_value_query(attributes: list) -> dict:
                     raise ValueError("No values provided. Please try again.")
                 # Split the input values, map each combination, and strip any leading/trailing whitespace
                 value_list = [list(map(str.strip, value.split('+'))) for value in expert_value.split(',')]
+                responses.append(', '.join([f'{" + ".join(combination)}' for combination in value_list]))
 
                 # Prompt the user for occurrences for each combination in value_list
                 for combination in value_list:
@@ -223,6 +237,7 @@ def expert_value_query(attributes: list) -> dict:
                     if occurrence not in ['always', 'sometimes']:
                         raise ValueError("Invalid occurrence value. Please enter 'always' or 'sometimes'.")
                     value_dict['occurrences'].append(occurrence)
+                    responses.append(occurrence)
 
                 value_dict['values'] = value_list
             else:
@@ -377,7 +392,7 @@ def get_expert_attributes() -> List[str]:
 
     :return: A list of expert attributes entered by the user.
     """
-    global expert_attributes, input_config
+    global expert_attributes, input_config, responses
 
     expert = None
     if input_config is not None:
@@ -390,6 +405,8 @@ def get_expert_attributes() -> List[str]:
         expert = input("Do you want to add one or more expert attributes? (yes/no): ").strip().lower()
 
     if expert == "yes":
+        responses.append("yes")
+
         if len(expert_attributes) == 1:
             suffix = ' is'
             attributes = list(expert_attributes.keys())[0]
@@ -414,9 +431,11 @@ def get_expert_attributes() -> List[str]:
             raise ValueError("No attribute(s) provided. Please try again.")
         attribute_list = [attribute.strip() for attribute in attribute_input.split(',')]
         attributes = input_validation(attribute_list, expert_attributes)
+        responses.append(', '.join(attributes))
         return attributes
 
     elif not expert or expert == "no":
+        responses.append("no")
         return []
 
     else:
@@ -670,6 +689,23 @@ def reset_prob_threshold() -> None:
     probability_threshold = None
 
 
+def save_responses(config: dict) -> None:
+    """
+    Save responses to a file.
+
+    :param config: Configuration parameters.
+    """
+    global responses
+
+    response_path = os.path.dirname(config['response_file'])
+    if not os.path.exists(response_path):
+        os.makedirs(response_path)
+
+    # Write responses to the response file
+    with open(config['response_file'], 'w') as file:
+        file.write('\n'.join(responses))
+
+
 def set_cached_df_copy(df: pd.DataFrame) -> None:
     """
     Set the cached DataFrame copy.
@@ -739,7 +775,7 @@ def set_tf_input(*attributes: str) -> None:
 
     :param attributes: Variable number of string arguments representing the attributes to be set.
     """
-    global tf_input, attribute_config
+    global attribute_config, responses, tf_input
 
     # Unpack list if there is only one argument and it's a list
     if len(attributes) == 1 and isinstance(attributes[0], list):
@@ -747,3 +783,4 @@ def set_tf_input(*attributes: str) -> None:
 
     # If all attributes are valid, update tf_input
     tf_input = input_validation(attributes, attribute_config)
+    responses.append(', '.join(tf_input))

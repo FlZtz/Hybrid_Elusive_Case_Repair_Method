@@ -22,9 +22,10 @@ from datasets import Dataset as HuggingfaceDataset  # For Huggingface datasets
 from dateutil import parser  # For parsing date strings
 
 # Local application/library specific imports
-from config import (get_cached_df_copy, get_config, get_expert_input_columns, get_file_path, get_input_config,
-                    get_prob_threshold, get_weights_file_path, latest_weights_file_path, read_file, reset_log,
-                    reset_prob_threshold, set_cached_df_copy, set_expert_input_columns, set_log_path)
+from config import (add_response, get_cached_df_copy, get_config, get_expert_input_columns, get_file_path,
+                    get_input_config, get_prob_threshold, get_weights_file_path, latest_weights_file_path, read_file,
+                    reset_log, reset_prob_threshold, save_responses, set_cached_df_copy, set_expert_input_columns,
+                    set_log_path)
 from dataset import causal_mask, InOutDataset  # Importing custom dataset and mask functions
 from model import build_transformer, Transformer  # Importing Transformer model builder
 from tqdm import tqdm  # For progress bars
@@ -46,6 +47,7 @@ def create_log(config: dict, chunk_size: int = None, repetition: bool = False) -
     if not repetition:
         prediction_preference = get_user_choice(f"Do you want to predict the {config['tf_output']} values using the "
                                                 f"event log that was used for training? (yes/no): ")
+        add_response(prediction_preference)
 
         if prediction_preference == 'yes':
             consider_ids = False
@@ -969,6 +971,7 @@ def select_columns(df: pd.DataFrame, column_mapping: dict, repetition: bool = Fa
             # Ask for user confirmation on the automatically selected columns
             user_confirmation = get_user_choice(f"Is this {'completely ' if len(selected_col_alias) != 1 else ''}"
                                                 f"correct? (yes/no): ")
+            add_response(user_confirmation)
 
             if user_confirmation == 'no':
                 if len(selected_col_alias) != 1:
@@ -1088,7 +1091,7 @@ def train_model(config: dict) -> None:
             choice = input("\nAttention: The model's configuration has been modified since the last training.\nIf you "
                            "proceed, previously calculated weights will be deleted. Do you want to continue? "
                            "(yes/no): ").strip().lower()
-            print("\n")
+            print("")
 
             if not choice or choice not in ['yes', 'no']:
                 raise ValueError("Invalid input! Please enter 'yes' or 'no'.")
@@ -1215,6 +1218,8 @@ if __name__ == '__main__':
     # TODO: Declarative rule check ex-ante and ex-post
 
     repaired_log, id_retention = create_log(config)
+
+    save_responses(config)
 
     if id_retention:
         repair_loop(repaired_log, config)
