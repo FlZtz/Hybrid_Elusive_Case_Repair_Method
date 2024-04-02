@@ -42,6 +42,7 @@ log_name: Optional[str] = None
 log_path: Optional[str] = None
 missing_placeholder: str = "[NONE]"
 missing_placeholder_xes: str = ""
+original_values: Optional[pd.DataFrame] = None
 probability_threshold: Optional[float] = None
 responses: List[str] = []
 tf_input: List[str] = []
@@ -546,6 +547,16 @@ def get_model_name(discrete_len: int, continuous_len: int, expert_len: int) -> s
         return "complete"
 
 
+def get_original_values() -> pd.DataFrame or None:
+    """
+    Get the original values DataFrame.
+
+    :return: Original values DataFrame, or None if it does not exist.
+    """
+    global original_values
+    return original_values
+
+
 def get_prob_threshold(config: dict) -> float:
     """
     Get the probability threshold for determining config['tf_output'].
@@ -659,14 +670,14 @@ def read_file(path: str) -> None:
 def reset_log(new_process: bool = True) -> None:
     """
     Reset the global variables cached_df_copy, log, log_name, and log_path to None. Optionally reset
-    expert_input_attributes, expert_input_columns, expert_input_values, input_config, probability_threshold and
-    tf_input to empty lists or dictionaries if new_process is True.
+    expert_input_attributes, expert_input_columns, expert_input_values, input_config, original_values,
+    probability_threshold, responses and tf_input to empty lists or dictionaries if new_process is True.
 
     :param new_process: Specifies whether to reset expert_input_attributes, expert_input_columns, expert_input_values,
-     input_config, probability_threshold and tf_input. Defaults to True.
+     input_config, original_values, probability_threshold, responses and tf_input. Defaults to True.
     """
     global cached_df_copy, expert_input_attributes, expert_input_columns, expert_input_values, input_config, log
-    global log_name, log_path, probability_threshold, tf_input
+    global log_name, log_path, original_values, probability_threshold, responses, tf_input
 
     cached_df_copy = None
     log = None
@@ -677,7 +688,9 @@ def reset_log(new_process: bool = True) -> None:
         expert_input_columns = []
         expert_input_values = {}
         input_config = None
+        original_values = None
         probability_threshold = None
+        responses = []
         tf_input = []
 
 
@@ -734,6 +747,16 @@ def set_log_path(path: str) -> None:
     """
     global log_path
     log_path = path
+
+
+def set_original_values(values: pd.DataFrame) -> None:
+    """
+    Set the original values DataFrame.
+
+    :param values: DataFrame containing the original values.
+    """
+    global original_values
+    original_values = values
 
 
 def set_prob_threshold(config: dict) -> None:
