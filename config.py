@@ -1,4 +1,4 @@
-# config.py - Configuration parameters and utility functions for model training.
+# config.py - Configuration parameters and utility functions for the model.
 import os
 from pathlib import Path
 from typing import Iterator, List, Optional, Tuple, Union
