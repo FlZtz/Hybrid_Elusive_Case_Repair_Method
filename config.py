@@ -759,14 +759,11 @@ def set_determination_probability(prob: pd.DataFrame) -> None:
     """
     global determination_probability
 
-    prob_copy = prob.copy()
-
-    prob_copy.replace('-', pd.NA, inplace=True)
-
     if determination_probability is None:
-        determination_probability = prob_copy
+        determination_probability = prob
     else:
-        determination_probability.loc[prob_copy.notna().index] = prob_copy[prob_copy.notna()]
+        prob_copy = prob[~((prob['Probability'].isna()) | (prob['Probability'] == '-'))]
+        determination_probability.loc[prob_copy.index] = prob_copy
 
 
 def set_expert_input_columns(columns: List[str]) -> None:
