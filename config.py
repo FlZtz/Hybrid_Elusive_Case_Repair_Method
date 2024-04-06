@@ -28,6 +28,7 @@ attribute_config: dict = {
     'Value Currency': {'mapping': 'org:value:currency', 'property': 'discrete'}
 }
 cached_df_copy: Optional[pd.DataFrame] = None
+determination_probability: Optional[pd.DataFrame] = None
 expert_attributes: dict = {
     'Start Activity': {'type': 'unary', 'attribute': 'Activity'},
     'End Activity': {'type': 'unary', 'attribute': 'Activity'},
@@ -387,6 +388,16 @@ def get_config() -> dict:
     }
 
 
+def get_determination_probability() -> pd.DataFrame or None:
+    """
+    Get the determination probability DataFrame.
+
+    :return: Determination probability DataFrame, or None if it does not exist.
+    """
+    global determination_probability
+    return determination_probability
+
+
 def get_expert_attributes() -> List[str]:
     """
     Asks the user whether to add expert attributes and retrieves them if desired.
@@ -677,20 +688,24 @@ def read_file(path: str, file_type: str = "event log") -> None:
 def reset_log(new_process: bool = True) -> None:
     """
     Reset the global variables cached_df_copy, log, log_name, and log_path to None. Optionally reset
-    expert_input_attributes, expert_input_columns, expert_input_values, input_config, original_values,
-    probability_threshold, responses and tf_input to empty lists or dictionaries if new_process is True.
+    determination_probability, expert_input_attributes, expert_input_columns, expert_input_values, input_config,
+    original_values, probability_threshold, responses and tf_input to empty lists or dictionaries if new_process is
+    True.
 
-    :param new_process: Specifies whether to reset expert_input_attributes, expert_input_columns, expert_input_values,
-     input_config, original_values, probability_threshold, responses and tf_input. Defaults to True.
+    :param new_process: Specifies whether to reset determination_probability, expert_input_attributes,
+     expert_input_columns, expert_input_values, input_config, original_values, probability_threshold, responses and
+     tf_input. Defaults to True.
     """
-    global cached_df_copy, expert_input_attributes, expert_input_columns, expert_input_values, input_config, log
-    global log_name, log_path, original_values, probability_threshold, responses, tf_input
+    global cached_df_copy, determination_probability, expert_input_attributes, expert_input_columns
+    global expert_input_values, input_config, log, log_name, log_path, original_values, probability_threshold
+    global responses, tf_input
 
     cached_df_copy = None
     log = None
     log_name = None
     log_path = None
     if new_process:
+        determination_probability = None
         expert_input_attributes = []
         expert_input_columns = []
         expert_input_values = {}
@@ -734,6 +749,24 @@ def set_cached_df_copy(df: pd.DataFrame) -> None:
     """
     global cached_df_copy
     cached_df_copy = df.copy()
+
+
+def set_determination_probability(prob: pd.DataFrame) -> None:
+    """
+    Set the determination probability DataFrame.
+
+    :param prob: DataFrame containing the determination probabilities.
+    """
+    global determination_probability
+
+    prob_copy = prob.copy()
+
+    prob_copy.replace('-', pd.NA, inplace=True)
+
+    if determination_probability is None:
+        determination_probability = prob_copy
+    else:
+        determination_probability.loc[prob_copy.notna().index] = prob_copy[prob_copy.notna()]
 
 
 def set_expert_input_columns(columns: List[str]) -> None:
