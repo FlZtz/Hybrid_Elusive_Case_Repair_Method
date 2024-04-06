@@ -22,13 +22,379 @@ from datasets import Dataset as HuggingfaceDataset  # For Huggingface datasets
 from dateutil import parser  # For parsing date strings
 
 # Local application/library specific imports
-from config import (add_response, get_cached_df_copy, get_config, get_expert_input_columns, get_file_path,
-                    get_input_config, get_prob_threshold, get_weights_file_path, latest_weights_file_path, read_file,
-                    reset_log, reset_prob_threshold, save_responses, set_cached_df_copy, set_expert_input_columns,
-                    set_log_path)
+from config import (add_response, get_cached_df_copy, get_config, get_determination_probability,
+                    get_expert_input_columns, get_file_path, get_input_config, get_original_values, get_prob_threshold,
+                    get_weights_file_path, latest_weights_file_path, read_file, reset_log, reset_prob_threshold,
+                    save_responses, set_cached_df_copy, set_determination_probability, set_expert_input_columns,
+                    set_log_path, set_original_values)
 from dataset import causal_mask, InOutDataset  # Importing custom dataset and mask functions
 from model import build_transformer, Transformer  # Importing Transformer model builder
 from tqdm import tqdm  # For progress bars
+
+
+def check_boundary_activity_rule(config: dict, log: pd.DataFrame, ex_post: bool, activity_type: str) -> pd.DataFrame:
+    """
+    Check the log for boundary activity rules specified in the configuration.
+
+    Ex post: If a potential boundary activity occurs within a case, then it is designated as the boundary of that case,
+    and all preceding and subsequent determinations are cleared. If no potential boundary activity is identified within
+    a case, all determinations for that case are reset, provided there are no remaining undefined case IDs in the log.
+
+    Ex ante: For every always boundary activity, if there isn't an 'always' boundary activity present, we determine the
+    index of the current boundary activity for each associated case. Subsequently, it is assessed which case aligns
+    most closely with the boundary activity, considering the relevant role. If the time gap between the ongoing
+    boundary activity and the particular boundary activity is shorter than the case's current lead time, the activity
+    is allocated to that case.
+
+    :param config: Configuration parameters.
+    :param log: Event log represented as a pandas DataFrame.
+    :param ex_post: Flag for ex-post checking.
+    :param activity_type: Type of activity to check for. Should be 'start' or 'end'.
+    :return: Event log after rule checking as a pandas DataFrame.
+    """
+    if activity_type.lower() not in ['start', 'end']:
+        raise ValueError("Invalid activity type. Please enter 'start' or 'end'.")
+
+    attribute = f"{activity_type.capitalize()} Activity"
+
+    values, attribute_column, occurrences = get_attribute_values(config, attribute)
+
+    if not any(col.lower() == attribute_column.lower() for col in log.columns):
+        raise ValueError(f"The column '{attribute_column}' specified for attribute '{attribute}' does not exist in "
+                         f"the DataFrame.")
+
+    if not isinstance(values, list) and all(isinstance(val, str) for val in values):
+        raise ValueError("Unsupported format for values. Please provide a one-dimensional list.")
+
+    activity_column = log.columns[log.columns.str.lower() == attribute_column.lower()][0]
+
+    for val in values:
+        if not log[activity_column].str.lower().str.contains(val.lower()).any():
+            raise ValueError(f"The value '{val}' specified for attribute '{attribute}' does not exist in the DataFrame "
+                             f"column '{activity_column}'.")
+
+    always_boundary_activities = []
+    sometimes_boundary_activities = []
+
+    for val, occurrence in zip(values, occurrences):
+        if occurrence.lower() == 'always':
+            always_boundary_activities.append(val)
+        elif occurrence.lower() == 'sometimes':
+            sometimes_boundary_activities.append(val)
+        else:
+            raise ValueError("Invalid occurrence value. Please enter 'always' or 'sometimes'.")
+
+    possible_boundary_activities = always_boundary_activities + sometimes_boundary_activities
+
+    log['original_index'] = log.index
+
+    if ex_post:
+        modified_log = []
+        grouped_log = log.groupby(f"Determined {config['tf_output']}")
+
+        reset_count = 0
+
+        for case_id, group in grouped_log:
+            if case_id == pd.NA:
+                modified_log.append(group)
+                continue
+
+            group.reset_index(drop=True, inplace=True)
+
+            boundary_activity = float('-inf') if activity_type == 'end' else float('inf')
+
+            for activity in possible_boundary_activities:
+                positions = group[group[activity_column] == activity].index.tolist()
+                if positions:
+                    occurrence = positions[-1] if activity_type == 'end' else positions[0]
+                    if ((activity_type == 'end' and occurrence > boundary_activity) or
+                            (activity_type == 'start' and occurrence < boundary_activity)):
+                        boundary_activity = occurrence
+
+            if boundary_activity != float('-inf') and boundary_activity != float('inf'):
+                if ((activity_type == 'end' and boundary_activity != group.index[-1]) or
+                        (activity_type == 'start' and boundary_activity != 0)):
+                    condition = group.loc[
+                                boundary_activity + 1:
+                                ] if activity_type == 'end' else group.loc[:boundary_activity - 1]
+                    condition = condition[f"Original {config['tf_output']}"].isna()
+                    group.loc[condition, [f"Determined {config['tf_output']}", "Probability"]] = pd.NA
+                    reset_count += condition.sum()
+            else:
+                if pd.NA not in grouped_log.groups.keys():
+                    condition = group[f"Original {config['tf_output']}"].isna()
+                    group.loc[condition, [f"Determined {config['tf_output']}", "Probability"]] = pd.NA
+                    reset_count += condition.sum()
+
+            modified_log.append(group)
+
+        log = pd.concat(modified_log, ignore_index=True).sort_values(by='original_index').reset_index(drop=True)
+
+        if reset_count > 0:
+            print(f"Reset {reset_count} determined {config['tf_output']} values based on the input for '{attribute}'.")
+
+    set_count = 0
+
+    current_ids = log[f"Determined {config['tf_output']}"].unique()
+    current_ids = [ids for ids in current_ids if pd.notna(ids)]
+
+    for activity in always_boundary_activities:
+        elusive_indices = log.loc[
+            (log[f"Determined {config['tf_output']}"].isna()) & (log[activity_column] == activity),
+            'original_index'
+        ].tolist()
+
+        if elusive_indices:
+            ids_with_boundary = log[log[activity_column] == activity][f"Determined {config['tf_output']}"].unique()
+            ids_with_boundary = [ids for ids in ids_with_boundary if pd.notna(ids)]
+            possible_ids = [ids for ids in current_ids if ids not in ids_with_boundary]
+
+            if len(possible_ids) > 0:
+                if activity_type == 'end':
+                    current_boundary_activity_index = log[
+                        log[f"Determined {config['tf_output']}"].isin(possible_ids)
+                    ].groupby(f"Determined {config['tf_output']}")['original_index'].max().to_dict()
+                else:
+                    current_boundary_activity_index = log[
+                        log[f"Determined {config['tf_output']}"].isin(possible_ids)
+                    ].groupby(f"Determined {config['tf_output']}")['original_index'].min().to_dict()
+
+                current_boundary_activity_index = dict(
+                    sorted(current_boundary_activity_index.items(),
+                           key=lambda item: item[1],
+                           reverse=activity_type == 'end')
+                )
+
+                for idx in elusive_indices:
+                    closest_index = None
+                    corresponding_case = None
+                    for case, bd_idx in current_boundary_activity_index.items():
+                        if (activity_type == 'end' and idx < bd_idx) or (activity_type == 'start' and idx > bd_idx):
+                            continue
+                        closest_index = bd_idx
+                        corresponding_case = case
+                        break
+
+                    if closest_index is not None:
+                        filtered_log = log[log[f"Determined {config['tf_output']}"] == corresponding_case]
+                        duration = filtered_log.iloc[-1]['Timestamp'] - filtered_log.iloc[0]['Timestamp']
+
+                        if idx in log.index and closest_index in log.index:
+                            if abs(log.loc[idx, 'Timestamp'] - log.loc[closest_index, 'Timestamp']) < duration:
+                                log.loc[idx, f"Determined {config['tf_output']}"] = corresponding_case
+                                log.loc[idx, 'Probability'] = 'Rule-based'
+                                current_boundary_activity_index.pop(corresponding_case)
+                                set_count += 1
+
+    if set_count > 0:
+        print(f"Set {set_count} determined {config['tf_output']} values based on the input for '{attribute}'.")
+
+    log.drop(columns='original_index', inplace=True)
+
+    return log
+
+
+def check_directly_following_rule(config: dict, log: pd.DataFrame, ex_post: bool) -> pd.DataFrame:
+    """
+    Check the log for directly following rules specified in the configuration.
+
+    Ex post: For each 'always' relationship specified, it is checked whether the related activities exist in a given
+    case. If neither activity is found and there are no undefined case IDs left in the log, all determinations related
+    to that case are reset. Otherwise, to ensure an equal number of predecessors and successors, any excess activities
+    are reset. If a case has an equal number of both, it is checked whether a 'follows' relationship is feasible by
+    resetting potential successors located before the first predecessor or potential predecessors positioned after the
+    last successor.
+
+    Ex ante: When analyzing each pair, both the preceding and succeeding elements are checked to see if either lacks a
+    case ID. Cases missing the corresponding activity are then reviewed. The closest matching counterpart is
+    identified, and its case ID is assigned to the activity if the time interval between the counterparts is shorter
+    than the current lead time of the corresponding case.
+
+    :param config: Configuration parameters.
+    :param log: Event log represented as a pandas DataFrame.
+    :param ex_post: Flag for ex-post checking.
+    :return: Event log after rule checking as a pandas DataFrame.
+    """
+    attribute = 'Directly Following'
+
+    values, attribute_column, occurrences = get_attribute_values(config, attribute)
+
+    if not any(col.lower() == attribute_column.lower() for col in log.columns):
+        raise ValueError(f"The column '{attribute_column}' specified for attribute '{attribute}' does not exist in "
+                         f"the DataFrame.")
+
+    if not isinstance(values, list) and all(isinstance(val, str) for sublist in values for val in sublist):
+        raise ValueError("Unsupported format for values. Please provide a two-dimensional list.")
+
+    activity_column = log.columns[log.columns.str.lower() == attribute_column.lower()][0]
+
+    for sublist in values:
+        for val in sublist:
+            if not log[activity_column].str.lower().str.contains(val.lower()).any():
+                raise ValueError(f"The value '{val}' specified for attribute '{attribute}' does not exist in the "
+                                 f"DataFrame column '{activity_column}'.")
+
+    if any(occurrence.lower() not in ['always', 'sometimes'] for occurrence in occurrences):
+        raise ValueError("Invalid occurrence value. Please enter 'always' or 'sometimes'.")
+
+    always_directly_following = [val for val, occurrence in zip(values, occurrences) if occurrence.lower() == 'always']
+
+    log['original_index'] = log.index
+
+    if ex_post:
+        modified_log = log.copy()
+        reset_count = 0
+
+        for sublist in always_directly_following:
+            grouped_log = modified_log.groupby(f"Determined {config['tf_output']}")
+            temp_modified_log = []
+
+            for case_id, group in grouped_log:
+                if case_id == pd.NA:
+                    temp_modified_log.append(group)
+                    continue
+
+                group.reset_index(drop=True, inplace=True)
+
+                positions_predecessor = group[group[activity_column] == sublist[0]].index.tolist()
+                positions_successor = group[group[activity_column] == sublist[1]].index.tolist()
+
+                if not positions_predecessor and not positions_successor:
+                    if pd.NA not in grouped_log.groups.keys():
+                        condition = group[f"Original {config['tf_output']}"].isna()
+                        group.loc[condition, [f"Determined {config['tf_output']}", "Probability"]] = pd.NA
+                        reset_count += condition.sum()
+                    temp_modified_log.append(group)
+                    continue
+
+                inadmissible_activities = abs(len(positions_predecessor) - len(positions_successor))
+
+                if inadmissible_activities:
+                    if len(positions_predecessor) > len(positions_successor):
+                        inadmissible_indices = [idx for idx in positions_predecessor if
+                                                pd.isna(group.loc[idx, f"Original {config['tf_output']}"])]
+                        inadmissible_activities = min(inadmissible_activities, len(inadmissible_indices))
+                        group.loc[inadmissible_indices[-inadmissible_activities:], [f"Determined {config['tf_output']}",
+                                                                                    "Probability"]] = pd.NA
+                        reset_count += inadmissible_activities
+                        positions_predecessor = [idx for idx in positions_predecessor if
+                                                 idx not in inadmissible_indices]
+                    else:
+                        inadmissible_indices = [idx for idx in positions_successor if
+                                                pd.isna(group.loc[idx, f"Original {config['tf_output']}"])]
+                        inadmissible_activities = min(inadmissible_activities, len(inadmissible_indices))
+                        group.loc[inadmissible_indices[:inadmissible_activities], [f"Determined {config['tf_output']}",
+                                                                                   "Probability"]] = pd.NA
+                        reset_count += inadmissible_activities
+                        positions_successor = [idx for idx in positions_successor if idx not in inadmissible_indices]
+
+                    inadmissible_activities = abs(len(positions_predecessor) - len(positions_successor))
+
+                if not inadmissible_activities:
+                    first_predecessor, last_predecessor = positions_predecessor[0], positions_predecessor[-1]
+                    first_successor, last_successor = positions_successor[0], positions_successor[-1]
+
+                    if last_predecessor < first_successor:
+                        temp_modified_log.append(group)
+                        continue
+
+                    if first_predecessor > first_successor:
+                        possible_reset = [idx for idx in positions_successor if idx < first_predecessor]
+                        condition = group.loc[possible_reset, f"Original {config['tf_output']}"].isna()
+                        group.loc[condition, [f"Determined {config['tf_output']}", "Probability"]] = pd.NA
+                        reset_count += condition.sum()
+
+                    if last_predecessor > last_successor:
+                        possible_reset = [idx for idx in positions_predecessor if idx > last_successor]
+                        condition = group.loc[possible_reset, f"Original {config['tf_output']}"].isna()
+                        group.loc[condition, [f"Determined {config['tf_output']}", "Probability"]] = pd.NA
+                        reset_count += condition.sum()
+
+                temp_modified_log.append(group)
+
+            modified_log = pd.concat(temp_modified_log, ignore_index=True)
+
+        log = modified_log.sort_values(by='original_index').reset_index(drop=True)
+
+        if reset_count > 0:
+            print(f"Reset {reset_count} determined {config['tf_output']} values based on the input for '{attribute}'.")
+
+    set_count = 0
+
+    predecessors = [pair[0] for pair in always_directly_following]
+    successors = [pair[1] for pair in always_directly_following]
+
+    for predecessor, successor in zip(predecessors, successors):
+
+        elusive_indices_predecessor = log.loc[
+            log[f"Determined {config['tf_output']}"].isna() & log[activity_column] == predecessor,
+            'original_index'
+        ].tolist()
+
+        elusive_indices_successor = log.loc[
+            log[f"Determined {config['tf_output']}"].isna() & log[activity_column] == successor,
+            'original_index'
+        ].tolist()
+
+        for elusive_indices, label, other_label in [(elusive_indices_predecessor, predecessor, successor),
+                                                    (elusive_indices_successor, successor, predecessor)]:
+
+            if not elusive_indices:
+                continue
+
+            possible_ids = {}
+            corresponding_indices = []
+            grouped_log = log.groupby(f"Determined {config['tf_output']}")
+
+            for case_id, group in grouped_log:
+                if pd.isna(case_id):
+                    continue
+                positions_current = group[group[activity_column] == label].index.tolist()
+                positions_other = group[group[activity_column] == other_label]['original_index'].tolist()
+
+                if len(positions_current) < len(positions_other):
+
+                    if case_id not in possible_ids:
+                        difference = abs(len(positions_other) - len(positions_current))
+                        time_diff = group.iloc[-1]['Timestamp'] - group.iloc[0]['Timestamp']
+                        possible_ids[case_id] = {'difference': difference, 'indices': positions_other,
+                                                 'time': time_diff}
+                        corresponding_indices.extend(positions_other)
+
+            if not possible_ids:
+                continue
+
+            corresponding_indices = sorted(corresponding_indices, reverse=(label == successor))
+
+            for idx in elusive_indices:
+                closest_index = next((corr_idx for corr_idx in corresponding_indices
+                                      if (label == predecessor and idx < corr_idx) or
+                                      (label == successor and idx > corr_idx)), None)
+
+                if closest_index is not None:
+                    corresponding_case = log.loc[closest_index, f"Determined {config['tf_output']}"]
+                    if log.index.contains(idx) and log.index.contains(closest_index):
+                        if (abs(log.loc[closest_index, 'Timestamp'] - log.loc[idx, 'Timestamp']) <
+                                possible_ids[corresponding_case]['time']):
+                            log.loc[idx, f"Determined {config['tf_output']}"] = corresponding_case
+                            log.loc[idx, 'Probability'] = 'Rule-based'
+                            set_count += 1
+                            corresponding_indices.remove(closest_index)
+
+                            possible_ids[corresponding_case]['difference'] -= 1
+                            if possible_ids[corresponding_case]['difference'] == 0:
+                                corresponding_indices = [
+                                    idx for idx in corresponding_indices
+                                    if idx not in possible_ids[corresponding_case]['indices']
+                                ]
+                                corresponding_indices = sorted(corresponding_indices, reverse=(label == successor))
+
+    if set_count > 0:
+        print(f"Set {set_count} determined {config['tf_output']} values based on the input for '{attribute}'.")
+
+    log.drop(columns='original_index', inplace=True)
+
+    return log
 
 
 def create_log(config: dict, chunk_size: int = None, repetition: bool = False) -> Tuple[pd.DataFrame, bool]:
@@ -161,7 +527,7 @@ def create_log(config: dict, chunk_size: int = None, repetition: bool = False) -
         columns=[
             f"Determined {config['tf_output']}",
             'Probability',
-            f"Actual {config['tf_output']}"
+            f"Previous {config['tf_output']}"
         ]
     )
 
@@ -170,22 +536,46 @@ def create_log(config: dict, chunk_size: int = None, repetition: bool = False) -
         'Probability'
     ].mask(determined_log[f"Determined {config['tf_output']}"].isna(), pd.NA)
 
-    # Update Determined config['tf_output'] and Probability columns based on Actual config['tf_output'] if consider_ids
+    # Update Determined config['tf_output'] + Probability columns based on Previous config['tf_output'] if consider_ids
     if consider_ids:
         for idx, row in determined_log.iterrows():
-            if pd.notna(row[f"Actual {config['tf_output']}"]):
-                determined_log.at[idx, f"Determined {config['tf_output']}"] = row[f"Actual {config['tf_output']}"]
-                determined_log.at[idx, 'Probability'] = "-"
+            if pd.notna(row[f"Previous {config['tf_output']}"]):
+                determined_log.at[idx, f"Determined {config['tf_output']}"] = row[f"Previous {config['tf_output']}"]
+                determined_log.at[idx, 'Probability'] = pd.NA
+
+    input_attributes = config['tf_input'].copy()
+
+    if 'Timestamp' not in input_attributes:
+        input_attributes.append('Timestamp')
 
     # Initialize an empty DataFrame to store the restored columns
     restored_columns = pd.DataFrame()
 
-    for attr in config['tf_input']:
+    for attr in input_attributes:
         attr_column = pd.DataFrame(data_complete[attr])
         restored_columns = pd.concat([restored_columns, attr_column], axis=1)
 
-    # Concatenate determined_log with restored_columns and assign it back to determined_log
-    determined_log = pd.concat([determined_log, restored_columns], axis=1)
+    original_values = get_original_values()
+    determined_log = pd.concat([determined_log, original_values, restored_columns], axis=1)
+
+    if not repetition:
+        determined_log.drop(columns=[f"Previous {config['tf_output']}"], inplace=True)
+
+    determined_log = declarative_rule_checking(config, determined_log, True)
+
+    set_determination_probability(determined_log[['Probability']])
+
+    determination_probability = get_determination_probability()
+    determination_probability.rename(columns={'Probability': 'Determination Probability'}, inplace=True)
+
+    original_col_index = determined_log.columns.get_loc(f"Original {config['tf_output']}")
+    left_cols = determined_log.columns[:original_col_index]
+    right_cols = determined_log.columns[original_col_index:]
+
+    determined_log = pd.concat([determined_log[left_cols], determination_probability, determined_log[right_cols]],
+                               axis=1)
+
+    determined_log.rename(columns={'Probability': 'Iteration Probability'}, inplace=True)
 
     # Create directories if they don't exist
     os.makedirs(config['result_folder'], exist_ok=True)
@@ -194,13 +584,12 @@ def create_log(config: dict, chunk_size: int = None, repetition: bool = False) -
     determined_log.to_csv(os.path.join(config['result_folder'], config['result_csv_file']), index=False)
 
     # Prepare extended log
-    extended_log = determined_log.drop(columns=[f"Actual {config['tf_output']}", 'Probability'])
+    extended_log = determined_log.drop(columns=[f"Original {config['tf_output']}", 'Iteration Probability',
+                                                'Determination Probability'])
+    if repetition:
+        extended_log.drop(columns=[f"Previous {config['tf_output']}"], inplace=True)
 
     extended_log.fillna(config['missing_placeholder_xes'], inplace=True)
-
-    if 'Timestamp' not in config['tf_input']:
-        timestamp_column = pd.DataFrame(data_complete['Timestamp'])
-        extended_log = pd.concat([extended_log, timestamp_column], axis=1)
 
     # Rename 'Determined config['tf_output']' to 'config['tf_output']' first
     extended_log.rename(columns={f"Determined {config['tf_output']}": f"{config['tf_output']}"}, inplace=True)
@@ -218,6 +607,61 @@ def create_log(config: dict, chunk_size: int = None, repetition: bool = False) -
     return determined_log, consider_ids
 
 
+def declarative_rule_checking(config: dict, log: pd.DataFrame, ex_post: bool = False) -> pd.DataFrame:
+    """
+    Check the log for declarative rules specified in the configuration.
+
+    :param config: Configuration parameters including 'expert_input_attributes'.
+    :param log: Event log represented as a pandas DataFrame.
+    :param ex_post: Flag for ex-post checking. Defaults to False.
+    :return: Event log after rule checking. If no rule checking is chosen, the original log is returned unchanged.
+
+    """
+    if config['expert_input_attributes']:
+        examination = "ex post" if ex_post else "ex ante"
+        rule_integration = get_user_choice(f"Please note that incorporating declarative rule checking may result in "
+                                           f"assumption-based modifications.\nDo you want to proceed with "
+                                           f"{examination} rule checking in this iteration? (yes/no): ")
+        if rule_integration == 'no':
+            return log
+
+        if f"Determined {config['tf_output']}" in log.columns:
+            if 'Directly Following' in config['expert_input_attributes']:
+                log = check_directly_following_rule(config, log, ex_post)
+                print(f"Directly Following rule checking completed for {examination} analysis.")
+            if 'Start Activity' in config['expert_input_attributes']:
+                log = check_boundary_activity_rule(config, log, ex_post, 'start')
+                print(f"Start Activity rule checking completed for {examination} analysis.")
+            if 'End Activity' in config['expert_input_attributes']:
+                log = check_boundary_activity_rule(config, log, ex_post, 'end')
+                print(f"End Activity rule checking completed for {examination} analysis.")
+
+    return log
+
+
+def ex_ante_rule_checking(config: dict, log: pd.DataFrame, repetition: bool) -> pd.DataFrame:
+    """
+    Check the log ex-ante for declarative rules specified in the configuration.
+
+    :param config: Configuration parameters.
+    :param log: Event log represented as a pandas DataFrame.
+    :param repetition: Flag to indicate if the log creation is a repetition.
+    :return: Event log after rule checking as a pandas DataFrame.
+    """
+    log.rename(columns={f"{config['tf_output']}": f"Determined {config['tf_output']}"}, inplace=True)
+    log[f"Determined {config['tf_output']}"].replace(config['missing_placeholder'], pd.NA, inplace=True)
+    log['Probability'] = pd.NA
+    if not repetition:
+        set_original_values(log[[f"Determined {config['tf_output']}"]]
+                            .rename(columns={f"Determined {config['tf_output']}": f"Original {config['tf_output']}"}))
+    log = declarative_rule_checking(config, log)
+    set_determination_probability(log[['Probability']])
+    log.drop(columns='Probability', inplace=True)
+    log[f"Determined {config['tf_output']}"].replace(pd.NA, config['missing_placeholder'], inplace=True)
+    log.rename(columns={f"Determined {config['tf_output']}": f"{config['tf_output']}"}, inplace=True)
+    return log
+
+
 def get_all_sequences(ds: Dataset, data: str) -> str:
     """
     Generator function to yield all sequences in a dataset.
@@ -228,6 +672,21 @@ def get_all_sequences(ds: Dataset, data: str) -> str:
     """
     for item in ds:
         yield item[data]
+
+
+def get_attribute_values(config: dict, attribute: str) -> Tuple[List[str], str, List[str]]:
+    """
+    Get values, attribute column, and occurrences for a given attribute from the configuration.
+
+    :param config: Configuration parameters.
+    :param attribute: Attribute name.
+    :return: Tuple containing values, attribute column, and occurrences.
+    """
+    values = config['expert_input_values'][attribute]['values']
+    attribute_column = config['expert_input_values'][attribute]['attribute']
+    occurrences = config['expert_input_values'][attribute]['occurrences']
+
+    return values, attribute_column, occurrences
 
 
 def get_ds(config: dict, different_configuration: bool = False) -> Tuple[DataLoader, DataLoader, Tokenizer, Tokenizer]:
@@ -347,7 +806,7 @@ def get_response_configuration() -> bool:
 
     if response_configuration == 'yes':
         config_path = get_file_path("configuration")
-        read_file(config_path)
+        read_file(config_path, "configuration")
         return True
 
     return False
@@ -727,6 +1186,7 @@ def read_log(config: dict, complete: bool = False, repetition: bool = False) -> 
     """
     cached_df_copy = get_cached_df_copy()
     if cached_df_copy is not None and complete:
+        cached_df_copy = ex_ante_rule_checking(config, cached_df_copy, repetition)
         return cached_df_copy
 
     df = config['log']
@@ -769,6 +1229,7 @@ def read_log(config: dict, complete: bool = False, repetition: bool = False) -> 
 
     # If complete flag is set, return the DataFrame
     if complete:
+        df = ex_ante_rule_checking(config, df, repetition)
         return df
 
     df = prepare_dataframe_for_sequence_processing(df, config)
@@ -785,10 +1246,10 @@ def repair_loop(log: pd.DataFrame, config: dict) -> None:
     :param config: Configuration object containing necessary parameters.
     """
     percentage_na = (
-        log[f"Actual {config['tf_output']}"]
+        log[f"Original {config['tf_output']}"]
         .isna().
         sum()
-        / len(log[f"Actual {config['tf_output']}"])
+        / len(log[f"Original {config['tf_output']}"])
     ) * 100
     print(f"\nFor {percentage_na:.2f}% of the events, the {config['tf_output']} has originally not been recorded.")
 
@@ -1221,8 +1682,6 @@ if __name__ == '__main__':
     train_model(config)
 
     print("\nConfiguration of log repair")
-
-    # TODO: Declarative rule check ex-ante and ex-post
 
     repaired_log, id_retention = create_log(config)
 
