@@ -644,27 +644,34 @@ def latest_weights_file_path(config: dict, use_second_latest: bool = False) -> s
         return str(weights_files[-1])
 
 
-def read_file(path: str) -> None:
+def read_file(path: str, file_type: str = "event log") -> None:
     """
     Read file into a DataFrame.
 
     :param path: File path.
+    :param file_type: Type of file to read. Supported types are "event log" & "configuration". Defaults to "event log".
     """
     global input_config, log, missing_placeholder, missing_placeholder_xes
 
-    if path.endswith('.xes'):
+    if file_type == "event log":
+        if not path.endswith('.xes'):
+            raise ValueError('Unknown file type. Supported type is .xes.')
+
         file = pm4py.read_xes(path)
         log = log_converter.apply(file, variant=log_converter.Variants.TO_DATA_FRAME)
         log.replace(missing_placeholder_xes, missing_placeholder, inplace=True)
         print("XES file successfully read.")
-    elif path.endswith('.txt'):
+
+    elif file_type == "configuration":
+        if not path.endswith('.txt'):
+            raise ValueError('Unknown file type. Supported type is .txt.')
+
         with open(path, 'r') as file:
-            lines = file.readlines()
-        input_values = [line.strip() for line in lines]
-        input_config = (value for value in input_values)
+            input_config = (line.strip() for line in file.readlines())
         print("TXT file successfully read.")
+
     else:
-        raise ValueError('Unknown file type. Supported types are .xes and .txt.')
+        raise ValueError('Unknown file type.')
 
 
 def reset_log(new_process: bool = True) -> None:
