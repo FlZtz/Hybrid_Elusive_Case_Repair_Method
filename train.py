@@ -90,12 +90,13 @@ def check_boundary_activity_rule(config: dict, log: pd.DataFrame, ex_post: bool,
 
     if ex_post:
         modified_log = []
-        grouped_log = log.groupby(f"Determined {config['tf_output']}")
+        log[f"Determined {config['tf_output']}_str"] = log[f"Determined {config['tf_output']}"].astype(str)
+        grouped_log = log.groupby(f"Determined {config['tf_output']}_str")
 
         reset_count = 0
 
         for case_id, group in grouped_log:
-            if case_id == pd.NA:
+            if case_id == '<NA>':
                 modified_log.append(group)
                 continue
 
@@ -117,21 +118,25 @@ def check_boundary_activity_rule(config: dict, log: pd.DataFrame, ex_post: bool,
                     condition = group.loc[
                                 boundary_activity + 1:
                                 ] if activity_type == 'end' else group.loc[:boundary_activity - 1]
-                    condition = condition[f"Original {config['tf_output']}"].isna()
-                    group.loc[condition, [f"Determined {config['tf_output']}", "Probability"]] = pd.NA
-                    reset_count += condition.sum()
+                    condition = condition[condition[f"Original {config['tf_output']}"].isna()]
+                    group.loc[condition.index, [f"Determined {config['tf_output']}", "Probability"]] = pd.NA
+                    reset_count += len(condition)
             else:
-                if pd.NA not in grouped_log.groups.keys():
-                    condition = group[f"Original {config['tf_output']}"].isna()
-                    group.loc[condition, [f"Determined {config['tf_output']}", "Probability"]] = pd.NA
-                    reset_count += condition.sum()
+                if '<NA>' not in grouped_log.groups.keys():
+                    condition = group[group[f"Original {config['tf_output']}"].isna()]
+                    group.loc[condition.index, [f"Determined {config['tf_output']}", "Probability"]] = pd.NA
+                    reset_count += len(condition)
 
             modified_log.append(group)
 
         log = pd.concat(modified_log, ignore_index=True).sort_values(by='original_index').reset_index(drop=True)
 
         if reset_count > 0:
-            print(f"Reset {reset_count} determined {config['tf_output']} values based on the input for '{attribute}'.")
+            suffix = 's' if reset_count > 1 else ''
+            print(f"Reset {reset_count} determined {config['tf_output']} value{suffix} based on the input for "
+                  f"'{attribute}'.")
+
+        log.drop(columns=f"Determined {config['tf_output']}_str", inplace=True)
 
     set_count = 0
 
@@ -187,7 +192,8 @@ def check_boundary_activity_rule(config: dict, log: pd.DataFrame, ex_post: bool,
                                 set_count += 1
 
     if set_count > 0:
-        print(f"Set {set_count} determined {config['tf_output']} values based on the input for '{attribute}'.")
+        suffix = 's' if set_count > 1 else ''
+        print(f"Set {set_count} determined {config['tf_output']} value{suffix} based on the input for '{attribute}'.")
 
     log.drop(columns='original_index', inplace=True)
 
@@ -240,17 +246,18 @@ def check_directly_following_rule(config: dict, log: pd.DataFrame, ex_post: bool
     always_directly_following = [val for val, occurrence in zip(values, occurrences) if occurrence.lower() == 'always']
 
     log['original_index'] = log.index
+    log[f"Determined {config['tf_output']}_str"] = log[f"Determined {config['tf_output']}"].astype(str)
 
     if ex_post:
         modified_log = log.copy()
         reset_count = 0
 
         for sublist in always_directly_following:
-            grouped_log = modified_log.groupby(f"Determined {config['tf_output']}")
+            grouped_log = modified_log.groupby(f"Determined {config['tf_output']}_str")
             temp_modified_log = []
 
             for case_id, group in grouped_log:
-                if case_id == pd.NA:
+                if case_id == '<NA>':
                     temp_modified_log.append(group)
                     continue
 
@@ -260,10 +267,10 @@ def check_directly_following_rule(config: dict, log: pd.DataFrame, ex_post: bool
                 positions_successor = group[group[activity_column] == sublist[1]].index.tolist()
 
                 if not positions_predecessor and not positions_successor:
-                    if pd.NA not in grouped_log.groups.keys():
-                        condition = group[f"Original {config['tf_output']}"].isna()
-                        group.loc[condition, [f"Determined {config['tf_output']}", "Probability"]] = pd.NA
-                        reset_count += condition.sum()
+                    if '<NA>' not in grouped_log.groups.keys():
+                        condition = group[group[f"Original {config['tf_output']}"].isna()]
+                        group.loc[condition.index, [f"Determined {config['tf_output']}", "Probability"]] = pd.NA
+                        reset_count += len(condition)
                     temp_modified_log.append(group)
                     continue
 
@@ -299,16 +306,16 @@ def check_directly_following_rule(config: dict, log: pd.DataFrame, ex_post: bool
                         continue
 
                     if first_predecessor > first_successor:
-                        possible_reset = [idx for idx in positions_successor if idx < first_predecessor]
-                        condition = group.loc[possible_reset, f"Original {config['tf_output']}"].isna()
-                        group.loc[condition, [f"Determined {config['tf_output']}", "Probability"]] = pd.NA
-                        reset_count += condition.sum()
+                        condition = group.loc[(group[f"Original_{config['tf_output']}"].isna()) &
+                                              (positions_successor < first_predecessor)]
+                        group.loc[condition.index, [f"Determined {config['tf_output']}", "Probability"]] = pd.NA
+                        reset_count += len(condition)
 
                     if last_predecessor > last_successor:
-                        possible_reset = [idx for idx in positions_predecessor if idx > last_successor]
-                        condition = group.loc[possible_reset, f"Original {config['tf_output']}"].isna()
-                        group.loc[condition, [f"Determined {config['tf_output']}", "Probability"]] = pd.NA
-                        reset_count += condition.sum()
+                        condition = group.loc[(group[f"Original_{config['tf_output']}"].isna()) &
+                                              (positions_predecessor > last_successor)]
+                        group.loc[condition.index, [f"Determined {config['tf_output']}", "Probability"]] = pd.NA
+                        reset_count += len(condition)
 
                 temp_modified_log.append(group)
 
@@ -317,7 +324,9 @@ def check_directly_following_rule(config: dict, log: pd.DataFrame, ex_post: bool
         log = modified_log.sort_values(by='original_index').reset_index(drop=True)
 
         if reset_count > 0:
-            print(f"Reset {reset_count} determined {config['tf_output']} values based on the input for '{attribute}'.")
+            suffix = 's' if reset_count > 1 else ''
+            print(f"Reset {reset_count} determined {config['tf_output']} value{suffix} based on the input for "
+                  f"'{attribute}'.")
 
     set_count = 0
 
@@ -344,10 +353,10 @@ def check_directly_following_rule(config: dict, log: pd.DataFrame, ex_post: bool
 
             possible_ids = {}
             corresponding_indices = []
-            grouped_log = log.groupby(f"Determined {config['tf_output']}")
+            grouped_log = log.groupby(f"Determined {config['tf_output']}_str")
 
             for case_id, group in grouped_log:
-                if pd.isna(case_id):
+                if case_id == '<NA>':
                     continue
                 positions_current = group[group[activity_column] == label].index.tolist()
                 positions_other = group[group[activity_column] == other_label]['original_index'].tolist()
@@ -390,9 +399,10 @@ def check_directly_following_rule(config: dict, log: pd.DataFrame, ex_post: bool
                                 corresponding_indices = sorted(corresponding_indices, reverse=(label == successor))
 
     if set_count > 0:
-        print(f"Set {set_count} determined {config['tf_output']} values based on the input for '{attribute}'.")
+        suffix = 's' if set_count > 1 else ''
+        print(f"Set {set_count} determined {config['tf_output']} value{suffix} based on the input for '{attribute}'.")
 
-    log.drop(columns='original_index', inplace=True)
+    log.drop(columns=['original_index', f"Determined {config['tf_output']}_str"], inplace=True)
 
     return log
 
