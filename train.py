@@ -118,14 +118,16 @@ def check_boundary_activity_rule(config: dict, log: pd.DataFrame, ex_post: bool,
                     condition = group.loc[
                                 boundary_activity + 1:
                                 ] if activity_type == 'end' else group.loc[:boundary_activity - 1]
-                    condition = condition[condition[f"Original {config['tf_output']}"].isna()]
-                    group.loc[condition.index, [f"Determined {config['tf_output']}", "Probability"]] = pd.NA
-                    reset_count += len(condition)
+                else:
+                    condition = pd.DataFrame()
             else:
-                if '<NA>' not in grouped_log.groups.keys():
-                    condition = group[group[f"Original {config['tf_output']}"].isna()]
-                    group.loc[condition.index, [f"Determined {config['tf_output']}", "Probability"]] = pd.NA
-                    reset_count += len(condition)
+                condition = group if '<NA>' not in grouped_log.groups.keys() else pd.DataFrame()
+
+            column_name = f"Original {config['tf_output']}"
+            condition = condition[condition[column_name].isna()] if column_name in condition.columns else condition
+            group.loc[condition.index, [f"Determined {config['tf_output']}", "Probability",
+                                        "Modification"]] = [pd.NA, pd.NA, True]
+            reset_count += len(condition)
 
             modified_log.append(group)
 
@@ -186,8 +188,8 @@ def check_boundary_activity_rule(config: dict, log: pd.DataFrame, ex_post: bool,
 
                         if idx in log.index and closest_index in log.index:
                             if abs(log.loc[idx, 'Timestamp'] - log.loc[closest_index, 'Timestamp']) < duration:
-                                log.loc[idx, f"Determined {config['tf_output']}"] = corresponding_case
-                                log.loc[idx, 'Probability'] = 'Rule-based'
+                                log.loc[idx, [f"Determined {config['tf_output']}", "Probability", "Modification"]] = [
+                                    corresponding_case, "Rule-based", True]
                                 current_boundary_activity_index.pop(corresponding_case)
                                 set_count += 1
 
@@ -269,7 +271,8 @@ def check_directly_following_rule(config: dict, log: pd.DataFrame, ex_post: bool
                 if not positions_predecessor and not positions_successor:
                     if '<NA>' not in grouped_log.groups.keys():
                         condition = group[group[f"Original {config['tf_output']}"].isna()]
-                        group.loc[condition.index, [f"Determined {config['tf_output']}", "Probability"]] = pd.NA
+                        group.loc[condition.index, [f"Determined {config['tf_output']}", "Probability",
+                                                    "Modification"]] = [pd.NA, pd.NA, True]
                         reset_count += len(condition)
                     temp_modified_log.append(group)
                     continue
@@ -281,8 +284,8 @@ def check_directly_following_rule(config: dict, log: pd.DataFrame, ex_post: bool
                         inadmissible_indices = [idx for idx in positions_predecessor if
                                                 pd.isna(group.loc[idx, f"Original {config['tf_output']}"])]
                         inadmissible_activities = min(inadmissible_activities, len(inadmissible_indices))
-                        group.loc[inadmissible_indices[-inadmissible_activities:], [f"Determined {config['tf_output']}",
-                                                                                    "Probability"]] = pd.NA
+                        group.loc[inadmissible_indices[-inadmissible_activities:], [
+                            f"Determined {config['tf_output']}", "Probability", "Modification"]] = [pd.NA, pd.NA, True]
                         reset_count += inadmissible_activities
                         positions_predecessor = [idx for idx in positions_predecessor if
                                                  idx not in inadmissible_indices]
@@ -290,8 +293,8 @@ def check_directly_following_rule(config: dict, log: pd.DataFrame, ex_post: bool
                         inadmissible_indices = [idx for idx in positions_successor if
                                                 pd.isna(group.loc[idx, f"Original {config['tf_output']}"])]
                         inadmissible_activities = min(inadmissible_activities, len(inadmissible_indices))
-                        group.loc[inadmissible_indices[:inadmissible_activities], [f"Determined {config['tf_output']}",
-                                                                                   "Probability"]] = pd.NA
+                        group.loc[inadmissible_indices[:inadmissible_activities], [
+                            f"Determined {config['tf_output']}", "Probability", "Modification"]] = [pd.NA, pd.NA, True]
                         reset_count += inadmissible_activities
                         positions_successor = [idx for idx in positions_successor if idx not in inadmissible_indices]
 
@@ -308,13 +311,15 @@ def check_directly_following_rule(config: dict, log: pd.DataFrame, ex_post: bool
                     if first_predecessor > first_successor:
                         condition = group.loc[(group[f"Original_{config['tf_output']}"].isna()) &
                                               (positions_successor < first_predecessor)]
-                        group.loc[condition.index, [f"Determined {config['tf_output']}", "Probability"]] = pd.NA
+                        group.loc[condition.index, [f"Determined {config['tf_output']}", "Probability",
+                                                    "Modification"]] = [pd.NA, pd.NA, True]
                         reset_count += len(condition)
 
                     if last_predecessor > last_successor:
                         condition = group.loc[(group[f"Original_{config['tf_output']}"].isna()) &
                                               (positions_predecessor > last_successor)]
-                        group.loc[condition.index, [f"Determined {config['tf_output']}", "Probability"]] = pd.NA
+                        group.loc[condition.index, [f"Determined {config['tf_output']}", "Probability",
+                                                    "Modification"]] = [pd.NA, pd.NA, True]
                         reset_count += len(condition)
 
                 temp_modified_log.append(group)
@@ -385,8 +390,8 @@ def check_directly_following_rule(config: dict, log: pd.DataFrame, ex_post: bool
                     if log.index.contains(idx) and log.index.contains(closest_index):
                         if (abs(log.loc[closest_index, 'Timestamp'] - log.loc[idx, 'Timestamp']) <
                                 possible_ids[corresponding_case]['time']):
-                            log.loc[idx, f"Determined {config['tf_output']}"] = corresponding_case
-                            log.loc[idx, 'Probability'] = 'Rule-based'
+                            log.loc[idx, [f"Determined {config['tf_output']}", "Probability", "Modification"]] = [
+                                corresponding_case, "Rule-based", True]
                             set_count += 1
                             corresponding_indices.remove(closest_index)
 
@@ -573,7 +578,8 @@ def create_log(config: dict, chunk_size: int = None, repetition: bool = False) -
 
     determined_log = declarative_rule_checking(config, determined_log, True)
 
-    set_determination_probability(determined_log[['Probability']])
+    set_determination_probability(determined_log[['Probability', 'Modification']])
+    determined_log.drop(columns='Modification', inplace=True)
 
     determination_probability = get_determination_probability()
     determination_probability.rename(columns={'Probability': 'Determination Probability'}, inplace=True)
@@ -627,6 +633,8 @@ def declarative_rule_checking(config: dict, log: pd.DataFrame, ex_post: bool = F
     :return: Event log after rule checking. If no rule checking is chosen, the original log is returned unchanged.
 
     """
+    log['Modification'] = False
+
     if config['expert_input_attributes']:
         examination = "ex post" if ex_post else "ex ante"
         rule_integration = get_user_choice(f"Please note that incorporating declarative rule checking may result in "
@@ -665,8 +673,8 @@ def ex_ante_rule_checking(config: dict, log: pd.DataFrame, repetition: bool) -> 
         set_original_values(log[[f"Determined {config['tf_output']}"]]
                             .rename(columns={f"Determined {config['tf_output']}": f"Original {config['tf_output']}"}))
     log = declarative_rule_checking(config, log)
-    set_determination_probability(log[['Probability']])
-    log.drop(columns='Probability', inplace=True)
+    set_determination_probability(log[['Probability', 'Modification']])
+    log.drop(columns=['Probability', 'Modification'], inplace=True)
     log[f"Determined {config['tf_output']}"].replace(pd.NA, config['missing_placeholder'], inplace=True)
     log.rename(columns={f"Determined {config['tf_output']}": f"{config['tf_output']}"}, inplace=True)
     return log

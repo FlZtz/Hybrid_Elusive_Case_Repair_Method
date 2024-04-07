@@ -751,18 +751,22 @@ def set_cached_df_copy(df: pd.DataFrame) -> None:
     cached_df_copy = df.copy()
 
 
-def set_determination_probability(prob: pd.DataFrame) -> None:
+def set_determination_probability(data: pd.DataFrame) -> None:
     """
     Set the determination probability DataFrame.
 
-    :param prob: DataFrame containing the determination probabilities.
+    :param data: DataFrame containing the determination probabilities and modifications.
     """
     global determination_probability
 
+    prob = data[['Probability']]
+    modification = data[['Modification']]
+
     if determination_probability is None:
-        determination_probability = prob
+        determination_probability = prob.copy()
     else:
-        prob_copy = prob[~((prob['Probability'].isna()) | (prob['Probability'] == '-'))]
+        prob_copy = prob.loc[~((prob['Probability'].isna()) | (prob['Probability'] == '-')) &
+                             (~modification['Modification'])]
         determination_probability.loc[prob_copy.index] = prob_copy
 
 
