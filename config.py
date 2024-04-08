@@ -765,9 +765,8 @@ def set_determination_probability(data: pd.DataFrame) -> None:
     if determination_probability is None:
         determination_probability = prob.copy()
     else:
-        prob_copy = prob.loc[(prob['Probability'].isna() & modification['Modification']) |
-                             ((prob['Probability'] == '-') & modification['Modification']) |
-                             ((prob['Probability'].notna()) & (prob['Probability'] != '-'))]
+        prob_copy = prob.loc[~((prob['Probability'].isna() & ~modification['Modification']) |
+                               (prob['Probability'] == '-') & ~modification['Modification'])]
         determination_probability.loc[prob_copy.index] = prob_copy
 
 
