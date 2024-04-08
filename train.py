@@ -89,6 +89,7 @@ def check_boundary_activity_rule(config: dict, log: pd.DataFrame, ex_post: bool,
     log['original_index'] = log.index
 
     if ex_post:
+        elusive_log = log[f"Original {config['tf_output']}"].isna().any()
         modified_log = []
         log[f"Determined {config['tf_output']}_str"] = log[f"Determined {config['tf_output']}"].astype(str)
         grouped_log = log.groupby(f"Determined {config['tf_output']}_str")
@@ -123,8 +124,10 @@ def check_boundary_activity_rule(config: dict, log: pd.DataFrame, ex_post: bool,
             else:
                 condition = group if '<NA>' not in grouped_log.groups.keys() else pd.DataFrame()
 
-            column_name = f"Original {config['tf_output']}"
-            condition = condition[condition[column_name].isna()] if column_name in condition.columns else condition
+            if elusive_log:
+                column_name = f"Original {config['tf_output']}"
+                condition = condition[condition[column_name].isna()] if column_name in condition.columns else condition
+
             group.loc[condition.index, [f"Determined {config['tf_output']}", "Probability",
                                         "Modification"]] = [pd.NA, pd.NA, True]
             reset_count += len(condition)
@@ -251,6 +254,7 @@ def check_directly_following_rule(config: dict, log: pd.DataFrame, ex_post: bool
     log[f"Determined {config['tf_output']}_str"] = log[f"Determined {config['tf_output']}"].astype(str)
 
     if ex_post:
+        elusive_log = log[f"Original {config['tf_output']}"].isna().any()
         modified_log = log.copy()
         reset_count = 0
 
@@ -270,7 +274,9 @@ def check_directly_following_rule(config: dict, log: pd.DataFrame, ex_post: bool
 
                 if not positions_predecessor and not positions_successor:
                     if '<NA>' not in grouped_log.groups.keys():
-                        condition = group[group[f"Original {config['tf_output']}"].isna()]
+                        condition = group
+                        if elusive_log:
+                            condition = group[group[f"Original {config['tf_output']}"].isna()]
                         group.loc[condition.index, [f"Determined {config['tf_output']}", "Probability",
                                                     "Modification"]] = [pd.NA, pd.NA, True]
                         reset_count += len(condition)
@@ -281,22 +287,27 @@ def check_directly_following_rule(config: dict, log: pd.DataFrame, ex_post: bool
 
                 if inadmissible_activities:
                     if len(positions_predecessor) > len(positions_successor):
-                        inadmissible_indices = [idx for idx in positions_predecessor if
-                                                pd.isna(group.loc[idx, f"Original {config['tf_output']}"])]
-                        inadmissible_activities = min(inadmissible_activities, len(inadmissible_indices))
+                        inadmissible_indices = positions_predecessor
+                        if elusive_log:
+                            inadmissible_indices = [idx for idx in positions_predecessor if
+                                                    pd.isna(group.loc[idx, f"Original {config['tf_output']}"])]
+                            inadmissible_activities = min(inadmissible_activities, len(inadmissible_indices))
                         group.loc[inadmissible_indices[-inadmissible_activities:], [
                             f"Determined {config['tf_output']}", "Probability", "Modification"]] = [pd.NA, pd.NA, True]
                         reset_count += inadmissible_activities
-                        positions_predecessor = [idx for idx in positions_predecessor if
-                                                 idx not in inadmissible_indices]
+                        positions_predecessor = [idx for idx in positions_predecessor
+                                                 if idx not in inadmissible_indices[-inadmissible_activities:]]
                     else:
-                        inadmissible_indices = [idx for idx in positions_successor if
-                                                pd.isna(group.loc[idx, f"Original {config['tf_output']}"])]
-                        inadmissible_activities = min(inadmissible_activities, len(inadmissible_indices))
+                        inadmissible_indices = positions_successor
+                        if elusive_log:
+                            inadmissible_indices = [idx for idx in positions_successor if
+                                                    pd.isna(group.loc[idx, f"Original {config['tf_output']}"])]
+                            inadmissible_activities = min(inadmissible_activities, len(inadmissible_indices))
                         group.loc[inadmissible_indices[:inadmissible_activities], [
                             f"Determined {config['tf_output']}", "Probability", "Modification"]] = [pd.NA, pd.NA, True]
                         reset_count += inadmissible_activities
-                        positions_successor = [idx for idx in positions_successor if idx not in inadmissible_indices]
+                        positions_successor = [idx for idx in positions_successor
+                                               if idx not in inadmissible_indices[:inadmissible_activities]]
 
                     inadmissible_activities = abs(len(positions_predecessor) - len(positions_successor))
 
@@ -309,15 +320,17 @@ def check_directly_following_rule(config: dict, log: pd.DataFrame, ex_post: bool
                         continue
 
                     if first_predecessor > first_successor:
-                        condition = group.loc[(group[f"Original_{config['tf_output']}"].isna()) &
-                                              (positions_successor < first_predecessor)]
+                        condition = group.loc[positions_successor < first_predecessor]
+                        if elusive_log:
+                            condition = condition.loc[condition[f"Original {config['tf_output']}"].isna()]
                         group.loc[condition.index, [f"Determined {config['tf_output']}", "Probability",
                                                     "Modification"]] = [pd.NA, pd.NA, True]
                         reset_count += len(condition)
 
                     if last_predecessor > last_successor:
-                        condition = group.loc[(group[f"Original_{config['tf_output']}"].isna()) &
-                                              (positions_predecessor > last_successor)]
+                        condition = group.loc[positions_predecessor > last_successor]
+                        if elusive_log:
+                            condition = condition.loc[condition[f"Original {config['tf_output']}"].isna()]
                         group.loc[condition.index, [f"Determined {config['tf_output']}", "Probability",
                                                     "Modification"]] = [pd.NA, pd.NA, True]
                         reset_count += len(condition)
@@ -412,7 +425,7 @@ def check_directly_following_rule(config: dict, log: pd.DataFrame, ex_post: bool
     return log
 
 
-def create_log(config: dict, chunk_size: int = None, repetition: bool = False) -> Tuple[pd.DataFrame, bool]:
+def create_log(config: dict, chunk_size: int = None, repetition: bool = False) -> pd.DataFrame:
     """
     Creates a log with determined config['tf_output'] based on the given configuration and chunk size.
 
@@ -420,8 +433,7 @@ def create_log(config: dict, chunk_size: int = None, repetition: bool = False) -
      `tf_output`, and `seq_len`.
     :param chunk_size: Number of rows to be processed as a single chunk. Default is set to `config['seq_len'] - 2`.
     :param repetition: Flag to indicate if the log creation is a repetition. Default is set to False.
-    :return: A tuple containing a DataFrame representing the log with determined config['tf_output'] and a boolean flag
-     indicating if existing IDs were retained.
+    :return: DataFrame representing the log with determined config['tf_output'].
     """
     consider_ids = True
 
@@ -451,7 +463,7 @@ def create_log(config: dict, chunk_size: int = None, repetition: bool = False) -
         config = get_config()
 
     if repetition:
-        data_complete = read_log(config, complete=True, repetition=True)
+        data_complete = read_log(config, complete=True, first_iteration=False)
     else:
         data_complete = read_log(config, complete=True)
 
@@ -619,8 +631,8 @@ def create_log(config: dict, chunk_size: int = None, repetition: bool = False) -
     # Write XES file
     pm4py.write_xes(log, os.path.join(config['result_folder'], config['result_xes_file']))
 
-    # Return the determined log DataFrame and the flag indicating if existing IDs were retained
-    return determined_log, consider_ids
+    # Return the determined log DataFrame
+    return determined_log
 
 
 def declarative_rule_checking(config: dict, log: pd.DataFrame, ex_post: bool = False) -> pd.DataFrame:
@@ -657,24 +669,28 @@ def declarative_rule_checking(config: dict, log: pd.DataFrame, ex_post: bool = F
     return log
 
 
-def ex_ante_rule_checking(config: dict, log: pd.DataFrame, repetition: bool) -> pd.DataFrame:
+def ex_ante_rule_checking(config: dict, log: pd.DataFrame, first_iteration: bool,
+                          elusive_log: bool = True) -> pd.DataFrame:
     """
     Check the log ex-ante for declarative rules specified in the configuration.
 
     :param config: Configuration parameters.
     :param log: Event log represented as a pandas DataFrame.
-    :param repetition: Flag to indicate if the log creation is a repetition.
+    :param first_iteration: Flag to indicate if this is the first iteration.
+    :param elusive_log: Flag to indicate if the log is elusive. Defaults to True.
     :return: Event log after rule checking as a pandas DataFrame.
     """
     log.rename(columns={f"{config['tf_output']}": f"Determined {config['tf_output']}"}, inplace=True)
     log[f"Determined {config['tf_output']}"].replace(config['missing_placeholder'], pd.NA, inplace=True)
     log['Probability'] = pd.NA
-    if not repetition:
+    if first_iteration:
         set_original_values(log[[f"Determined {config['tf_output']}"]]
                             .rename(columns={f"Determined {config['tf_output']}": f"Original {config['tf_output']}"}))
-    log = declarative_rule_checking(config, log)
-    set_determination_probability(log[['Probability', 'Modification']])
-    log.drop(columns=['Probability', 'Modification'], inplace=True)
+    if elusive_log or not first_iteration:
+        log = declarative_rule_checking(config, log)
+        set_determination_probability(log[['Probability', 'Modification']])
+        log.drop(columns='Modification', inplace=True)
+    log.drop(columns='Probability', inplace=True)
     log[f"Determined {config['tf_output']}"].replace(pd.NA, config['missing_placeholder'], inplace=True)
     log.rename(columns={f"Determined {config['tf_output']}": f"{config['tf_output']}"}, inplace=True)
     return log
@@ -1193,18 +1209,18 @@ def process_expert_input_attributes(df: pd.DataFrame, config: dict) -> pd.DataFr
     return df
 
 
-def read_log(config: dict, complete: bool = False, repetition: bool = False) -> pd.DataFrame:
+def read_log(config: dict, complete: bool = False, first_iteration: bool = True) -> pd.DataFrame:
     """
     Read log file and preprocess data according to configuration.
 
     :param config: Configuration object containing necessary parameters.
     :param complete: Flag to indicate if the complete DataFrame should be returned. Defaults to False.
-    :param repetition: Flag to indicate if the log creation is a repetition. Defaults to False.
+    :param first_iteration: Flag to indicate if it's the first iteration. Defaults to True.
     :return: Processed DataFrame according to the specified configuration.
     """
     cached_df_copy = get_cached_df_copy()
     if cached_df_copy is not None and complete:
-        cached_df_copy = ex_ante_rule_checking(config, cached_df_copy, repetition)
+        cached_df_copy = ex_ante_rule_checking(config, cached_df_copy, first_iteration, False)
         return cached_df_copy
 
     df = config['log']
@@ -1217,7 +1233,7 @@ def read_log(config: dict, complete: bool = False, repetition: bool = False) -> 
     column_mapping = {key: value for key, value in config['attribute_dictionary'].items()
                       if key in required_attributes}
 
-    df = select_columns(df, column_mapping, repetition)
+    df = select_columns(df, column_mapping, first_iteration)
 
     print("Input processing. Please wait ...")
 
@@ -1247,7 +1263,7 @@ def read_log(config: dict, complete: bool = False, repetition: bool = False) -> 
 
     # If complete flag is set, return the DataFrame
     if complete:
-        df = ex_ante_rule_checking(config, df, repetition)
+        df = ex_ante_rule_checking(config, df, first_iteration)
         return df
 
     df = prepare_dataframe_for_sequence_processing(df, config)
@@ -1311,7 +1327,7 @@ def repair_loop(log: pd.DataFrame, config: dict) -> None:
         if threshold_input == 'no':
             reset_prob_threshold()
 
-        log, _ = create_log(config, repetition=True)
+        log = create_log(config, repetition=True)
 
         iteration += 1
 
@@ -1413,13 +1429,13 @@ def run_validation(model: Transformer, validation_ds: DataLoader, tokenizer_tgt:
         writer.flush()
 
 
-def select_columns(df: pd.DataFrame, column_mapping: dict, repetition: bool = False) -> pd.DataFrame:
+def select_columns(df: pd.DataFrame, column_mapping: dict, first_iteration: bool = True) -> pd.DataFrame:
     """
     Select columns from DataFrame based on selected columns.
 
     :param df: DataFrame containing the log data.
     :param column_mapping: Mapping of attribute aliases to column names.
-    :param repetition: Flag to indicate whether a new repair is being performed. Defaults to False.
+    :param first_iteration: Flag to indicate whether it's the first iteration. Defaults to True.
     :return: DataFrame with selected columns.
     """
     selected_columns = {}
@@ -1445,7 +1461,7 @@ def select_columns(df: pd.DataFrame, column_mapping: dict, repetition: bool = Fa
 
     # If some columns are selected automatically
     if len(selected_col_alias) != 0:
-        if not repetition:
+        if first_iteration:
             print(f"Following column{'s' if len(selected_col_alias) != 1 else ''} "
                   f"w{'ere' if len(selected_col_alias) != 1 else 'as'} automatically matched:")
             for index, col_alias in enumerate(selected_col_alias):
@@ -1701,9 +1717,8 @@ if __name__ == '__main__':
 
     print("\nConfiguration of log repair")
 
-    repaired_log, id_retention = create_log(config)
+    repaired_log = create_log(config)
 
     save_responses(config)
 
-    if id_retention:
-        repair_loop(repaired_log, config)
+    repair_loop(repaired_log, config)
