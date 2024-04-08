@@ -354,12 +354,12 @@ def check_directly_following_rule(config: dict, log: pd.DataFrame, ex_post: bool
     for predecessor, successor in zip(predecessors, successors):
 
         elusive_indices_predecessor = log.loc[
-            log[f"Determined {config['tf_output']}"].isna() & log[activity_column] == predecessor,
+            (log[f"Determined {config['tf_output']}"].isna()) & (log[activity_column] == predecessor),
             'original_index'
         ].tolist()
 
         elusive_indices_successor = log.loc[
-            log[f"Determined {config['tf_output']}"].isna() & log[activity_column] == successor,
+            (log[f"Determined {config['tf_output']}"].isna()) & (log[activity_column] == successor),
             'original_index'
         ].tolist()
 
@@ -400,7 +400,7 @@ def check_directly_following_rule(config: dict, log: pd.DataFrame, ex_post: bool
 
                 if closest_index is not None:
                     corresponding_case = log.loc[closest_index, f"Determined {config['tf_output']}"]
-                    if log.index.contains(idx) and log.index.contains(closest_index):
+                    if idx in log.index and closest_index in log.index:
                         if (abs(log.loc[closest_index, 'Timestamp'] - log.loc[idx, 'Timestamp']) <
                                 possible_ids[corresponding_case]['time']):
                             log.loc[idx, [f"Determined {config['tf_output']}", "Probability", "Modification"]] = [
