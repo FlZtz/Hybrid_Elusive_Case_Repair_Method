@@ -86,176 +86,6 @@ def attribute_specification() -> None:
     set_tf_input(*attributes_list)
 
 
-def expert_value_query(attributes: list) -> dict:
-    """
-    Queries expert values for given attributes.
-
-    :param attributes: A list of attribute names to query.
-    :return: A dictionary containing attribute names as keys and dictionaries as values. Each value dictionary contains
-     the expert values, the corresponding attribute name, and the occurrences of each value or combination.
-    """
-    global expert_attributes, input_config, log, responses
-    expert_values = {}
-
-    for attribute in attributes:
-        # Check if the attribute is in the expert_attributes dictionary
-        if attribute in expert_attributes:
-            attribute_type = expert_attributes[attribute]['type']
-            attribute_name = expert_attributes[attribute]['attribute']
-
-            # Initialize a dictionary to store expert values, attribute name, and occurrences
-            value_dict = {'values': None, 'attribute': attribute_name, 'occurrences': []}
-
-            if attribute_type == 'unary':
-                suggestions = []
-
-                if all(col in log.columns for col in ['concept:name', 'time:timestamp', 'case:concept:name']):
-                    if not pd.api.types.is_datetime64_any_dtype(log['time:timestamp']):
-                        log['time:timestamp'] = log[
-                            'time:timestamp'
-                        ].apply(lambda x: parser.isoparse(x) if isinstance(x, str) else x)
-                        log['time:timestamp'] = pd.to_datetime(log['time:timestamp'], utc=True)
-
-                    if attribute == 'Start Activity':
-                        start_activities = pm4py.get_start_activities(log)
-                        total_count = sum(start_activities.values())
-                        suggestions = [
-                            (activity, count / total_count)
-                            for activity, count in sorted(start_activities.items(), key=lambda x: x[1], reverse=True)
-                            [:min(3, len(start_activities))]
-                        ]
-                    elif attribute == 'End Activity':
-                        end_activities = pm4py.get_end_activities(log)
-                        total_count = sum(end_activities.values())
-                        suggestions = [
-                            (activity, count / total_count)
-                            for activity, count in sorted(end_activities.items(), key=lambda x: x[1], reverse=True)
-                            [:min(3, len(end_activities))]
-                        ]
-
-                suffix = 's' if len(suggestions) > 1 else ''
-                suggestion_str = ', '.join(
-                    [f"{activity} ({frequency * 100:.2f}%)" for activity, frequency in suggestions]
-                )
-                prompt_end = ' –\nSuggestion' + suffix + ': ' + suggestion_str + ':\n' if suggestions else ': '
-
-                expert_value = None
-                if input_config is not None:
-                    expert_value = next(input_config, None)
-
-                if expert_value is not None:
-                    print(f"Please enter the value(s) that represent(s) the attribute '{attribute}' "
-                          f"(separated by commas){prompt_end}{expert_value}")
-                else:
-                    expert_value = input(
-                        f"Please enter the value(s) that represent(s) the attribute '{attribute}' "
-                        f"(separated by commas){prompt_end}"
-                    )
-
-                if not expert_value:
-                    # Raise an error if no value is provided
-                    raise ValueError("No value provided. Please try again.")
-                # Split the input values and strip any leading/trailing whitespace
-                value_list = [value.strip() for value in expert_value.split(',')]
-                responses.append(', '.join(value_list))
-
-                # Prompt the user for occurrences for each value in value_list
-                for value in value_list:
-                    occurrence = None
-                    if input_config is not None:
-                        occurrence = next(input_config, None)
-                        occurrence = occurrence.strip().lower() if occurrence is not None else None
-
-                    if occurrence is not None:
-                        print(f"Does '{value}' always or sometimes represent the attribute '{attribute}'?\n"
-                              f"Enter 'always' or 'sometimes': {occurrence}")
-                    else:
-                        occurrence = input(f"Does '{value}' always or sometimes represent the attribute '{attribute}'?"
-                                           f"\nEnter 'always' or 'sometimes': ").strip().lower()
-
-                    if occurrence not in ['always', 'sometimes']:
-                        raise ValueError("Invalid occurrence value. Please enter 'always' or 'sometimes'.")
-                    value_dict['occurrences'].append(occurrence)
-                    responses.append(occurrence)
-
-                value_dict['values'] = value_list
-            elif attribute_type == 'binary':
-                suggestions = []
-
-                if attribute == 'Directly Following':
-                    dfg = dfg_algorithm.apply(log, variant=dfg_algorithm.Variants.FREQUENCY)
-                    total_count = sum(dfg.values())
-                    suggestions = [
-                        (activity_pair, count / total_count)
-                        for activity_pair, count in sorted(dfg.items(), key=lambda x: x[1], reverse=True)
-                        [:min(3, len(dfg))]
-                    ]
-
-                suffix = 's' if len(suggestions) > 1 else ''
-                suggestions_str = ', '.join(
-                    [f'{activity_pair[0]} + {activity_pair[1]} ({frequency * 100:.2f}%)'
-                     for activity_pair, frequency in suggestions]
-                )
-                prompt_end = ' –\nSuggestion' + suffix + ': ' + suggestions_str + ':' if suggestions else ':'
-
-                expert_value = None
-                if input_config is not None:
-                    expert_value = next(input_config, None)
-
-                if expert_value is not None:
-                    print(f"Please enter the combination(s) for the attribute '{attribute}' \n"
-                          f"(values of a combination in the correct order connected with a plus sign and "
-                          f"combinations separated by commas){prompt_end}\n{expert_value}")
-                else:
-                    expert_value = input(
-                        f"Please enter the combination(s) for the attribute '{attribute}' \n"
-                        f"(values of a combination in the correct order connected with a plus sign and "
-                        f"combinations separated by commas){prompt_end}\n"
-                    )
-
-                if not expert_value:
-                    # Raise an error if no value is provided
-                    raise ValueError("No values provided. Please try again.")
-                # Split the input values, map each combination, and strip any leading/trailing whitespace
-                value_list = [list(map(str.strip, value.split('+'))) for value in expert_value.split(',')]
-                responses.append(', '.join([f'{" + ".join(combination)}' for combination in value_list]))
-
-                # Prompt the user for occurrences for each combination in value_list
-                for combination in value_list:
-                    occurrence = None
-                    if input_config is not None:
-                        occurrence = next(input_config, None)
-                        occurrence = occurrence.strip().lower() if occurrence is not None else None
-
-                    if occurrence is not None:
-                        print(f"Does the combination '{' + '.join(combination)}' always or sometimes "
-                              f"represent the attribute '{attribute}'?\n"
-                              f"Enter 'always' or 'sometimes': {occurrence}")
-                    else:
-                        occurrence = input(f"Does the combination '{' + '.join(combination)}' always or sometimes "
-                                           f"represent the attribute '{attribute}'?\n"
-                                           f"Enter 'always' or 'sometimes': ").strip().lower()
-
-                    if occurrence not in ['always', 'sometimes']:
-                        raise ValueError("Invalid occurrence value. Please enter 'always' or 'sometimes'.")
-                    value_dict['occurrences'].append(occurrence)
-                    responses.append(occurrence)
-
-                value_dict['values'] = value_list
-            else:
-                # Raise an error if the attribute type is neither unary nor binary
-                raise ValueError(f"Invalid attribute type '{attribute_type}' for attribute '{attribute}'.")
-
-            # Store the value dictionary in the expert_values dictionary
-            expert_values[attribute] = value_dict
-
-        else:
-            # Raise an error if the attribute is not found in expert_attributes
-            raise ValueError(f"Attribute '{attribute}' not found in expert attributes.")
-
-    return expert_values
-
-
 def extract_log_name(path: str) -> str:
     """
     Extract the log name from the given log path.
@@ -269,6 +99,52 @@ def extract_log_name(path: str) -> str:
     if name.startswith("determined_"):
         name = name.replace("determined_", "", 1)
     return name
+
+
+def get_binary_attribute_values(attribute: str, attribute_type: str) -> dict:
+    """
+    Retrieve binary attribute values based on the provided attribute and attribute type.
+
+    :param attribute: The name of the attribute to retrieve values for.
+    :param attribute_type: The type of the attribute.
+    :return: A dictionary containing the attribute values, occurrences, and attribute name.
+    """
+    global expert_attributes, input_config, log, responses
+    value_dict = {'values': None, 'attribute': expert_attributes[attribute]['attribute'], 'occurrences': []}
+    suggestions = []
+
+    if attribute == 'Directly Following':
+        # Calculation of the share of each activity pair in the total log
+        dfg = dfg_algorithm.apply(log, variant=dfg_algorithm.Variants.FREQUENCY)
+        total_count = sum(dfg.values())
+        suggestions = [
+            (activity_pair, count / total_count)
+            for activity_pair, count in sorted(dfg.items(), key=lambda x: x[1], reverse=True)
+            [:min(3, len(dfg))]
+        ]
+
+    suffix = 's' if len(suggestions) > 1 else ''
+    suggestions_str = ', '.join(
+        [f'{activity_pair[0]} + {activity_pair[1]} ({frequency * 100:.2f}%)'
+         for activity_pair, frequency in suggestions]
+    )
+    prompt_end = ' –\nSuggestion' + suffix + ': ' + suggestions_str + ':' if suggestions else ':'
+
+    expert_value = get_expert_value(attribute, attribute_type, prompt_end)
+
+    if not expert_value:
+        raise ValueError("No values provided. Please try again.")
+
+    value_list = [list(map(str.strip, value.split('+'))) for value in expert_value.split(',')]
+    responses.append(', '.join([f'{" + ".join(combination)}' for combination in value_list]))
+
+    for combination in value_list:
+        occurrence = get_occurrence(attribute, ' + '.join(combination))
+        value_dict['occurrences'].append(occurrence)
+        responses.append(occurrence)
+
+    value_dict['values'] = value_list
+    return value_dict
 
 
 def get_cached_df_copy() -> pd.DataFrame or None:
@@ -327,7 +203,7 @@ def get_config() -> dict:
         expert_input_attributes = get_expert_attributes()
         expert_input_values = {}
         if expert_input_attributes:
-            expert_input_values = expert_value_query(expert_input_attributes)
+            expert_input_values = query_expert_values(expert_input_attributes)
 
     # Determine the model name based on attribute lengths
     model_name = get_model_name(len(discrete_input_attributes), len(continuous_input_attributes),
@@ -464,6 +340,47 @@ def get_expert_input_columns() -> List[str]:
     return expert_input_columns
 
 
+def get_expert_value(attribute: str, attribute_type: str, prompt: str) -> str:
+    """
+    Get expert-defined value or combination for a given attribute based on its type.
+
+    :param attribute: The name of the attribute for which the value or combination is requested.
+    :param attribute_type: The type of the attribute ('unary' or 'binary').
+    :param prompt: The prompt message to guide the user for input.
+    :return: The expert-defined value or combination as a string.
+    """
+    global input_config
+    expert_value = None
+    if input_config is not None:
+        expert_value = next(input_config, None)
+
+    if attribute_type == 'unary':
+        if expert_value is not None:
+            print(f"Please enter the value(s) that represent(s) the attribute '{attribute}' "
+                  f"(separated by commas){prompt}{expert_value}")
+        else:
+            expert_value = input(
+                f"Please enter the value(s) that represent(s) the attribute '{attribute}' "
+                f"(separated by commas){prompt}"
+            )
+    elif attribute_type == 'binary':
+        if expert_value is not None:
+            print(f"Please enter the combination(s) for the attribute '{attribute}' \n"
+                  f"(values of a combination in the correct order connected with a plus sign and "
+                  f"combinations separated by commas){prompt}\n{expert_value}")
+        else:
+            expert_value = input(
+                f"Please enter the combination(s) for the attribute '{attribute}' \n"
+                f"(values of a combination in the correct order connected with a plus sign and "
+                f"combinations separated by commas){prompt}\n"
+            )
+
+    if not expert_value:
+        raise ValueError("No value provided. Please try again.")
+
+    return expert_value
+
+
 def get_file_path(file_type: str = "event log") -> str:
     """
     Get the file path, either through GUI or manual input.
@@ -558,6 +475,33 @@ def get_model_name(discrete_len: int, continuous_len: int, expert_len: int) -> s
         return "complete"
 
 
+def get_occurrence(attribute: str, value: str) -> str:
+    """
+    Get occurrence frequency for a given attribute value.
+
+    :param attribute: The name of the attribute for which the occurrence is checked.
+    :param value: The value of the attribute to check occurrence for.
+    :return: The occurrence frequency as a string ('always' or 'sometimes').
+    """
+    global input_config, responses
+    occurrence = None
+    if input_config is not None:
+        occurrence = next(input_config, None)
+        occurrence = occurrence.strip().lower() if occurrence is not None else None
+
+    if occurrence is not None:
+        print(f"Does '{value}' always or sometimes represent the attribute '{attribute}'?\n"
+              f"Enter 'always' or 'sometimes': {occurrence}")
+    else:
+        occurrence = input(f"Does '{value}' always or sometimes represent the attribute '{attribute}'?"
+                           f"\nEnter 'always' or 'sometimes': ").strip().lower()
+
+    if occurrence not in ['always', 'sometimes']:
+        raise ValueError("Invalid occurrence value. Please enter 'always' or 'sometimes'.")
+
+    return occurrence
+
+
 def get_original_values() -> pd.DataFrame or None:
     """
     Get the original values DataFrame.
@@ -581,6 +525,65 @@ def get_prob_threshold(config: dict) -> float:
         set_prob_threshold(config)
 
     return probability_threshold
+
+
+def get_unary_attribute_values(attribute: str, attribute_name: str, attribute_type: str) -> dict:
+    """
+    Retrieve unary attribute values based on the provided attribute, attribute name, and attribute type.
+
+    :param attribute: The specific attribute to retrieve values for.
+    :param attribute_name: The name of the attribute.
+    :param attribute_type: The type of the attribute.
+    :return: A dictionary containing the attribute values, occurrences, and attribute name.
+    """
+    global expert_attributes, input_config, log, responses
+    value_dict = {'values': None, 'attribute': attribute_name, 'occurrences': []}
+    suggestions = []
+
+    if all(col in log.columns for col in ['concept:name', 'time:timestamp', 'case:concept:name']):
+        if not pd.api.types.is_datetime64_any_dtype(log['time:timestamp']):
+            log['time:timestamp'] = log['time:timestamp'].apply(
+                lambda x: parser.isoparse(x) if isinstance(x, str) else x)
+            log['time:timestamp'] = pd.to_datetime(log['time:timestamp'], utc=True)
+
+        if attribute == 'Start Activity':
+            start_activities = pm4py.get_start_activities(log)
+            total_count = sum(start_activities.values())
+            suggestions = [
+                (activity, count / total_count)
+                for activity, count in sorted(start_activities.items(), key=lambda x: x[1], reverse=True)
+                [:min(3, len(start_activities))]
+            ]
+        elif attribute == 'End Activity':
+            end_activities = pm4py.get_end_activities(log)
+            total_count = sum(end_activities.values())
+            suggestions = [
+                (activity, count / total_count)
+                for activity, count in sorted(end_activities.items(), key=lambda x: x[1], reverse=True)
+                [:min(3, len(end_activities))]
+            ]
+
+    suffix = 's' if len(suggestions) > 1 else ''
+    suggestion_str = ', '.join(
+        [f"{activity} ({frequency * 100:.2f}%)" for activity, frequency in suggestions]
+    )
+    prompt_end = ' –\nSuggestion' + suffix + ': ' + suggestion_str + ':\n' if suggestions else ': '
+
+    expert_value = get_expert_value(attribute, attribute_type, prompt_end)
+
+    if not expert_value:
+        raise ValueError("No value provided. Please try again.")
+
+    value_list = [value.strip() for value in expert_value.split(',')]
+    responses.append(', '.join(value_list))
+
+    for value in value_list:
+        occurrence = get_occurrence(attribute, value)
+        value_dict['occurrences'].append(occurrence)
+        responses.append(occurrence)
+
+    value_dict['values'] = value_list
+    return value_dict
 
 
 def get_weights_file_path(config: dict, epoch: str) -> str:
@@ -653,6 +656,36 @@ def latest_weights_file_path(config: dict, use_second_latest: bool = False) -> s
         return str(weights_files[-2]) if len(weights_files) > 1 else None
     else:
         return str(weights_files[-1])
+
+
+def query_expert_values(attributes: list) -> dict:
+    """
+    Queries expert values for given attributes.
+
+    :param attributes: A list of attribute names to query.
+    :return: A dictionary containing attribute names as keys and dictionaries as values. Each value dictionary contains
+     the expert values, the corresponding attribute name, and the occurrences of each value or combination.
+    """
+    global expert_attributes, input_config, log, responses
+    expert_values = {}
+
+    for attribute in attributes:
+        if attribute in expert_attributes:
+            attribute_type = expert_attributes[attribute]['type']
+
+            if attribute_type == 'unary':
+                value_dict = get_unary_attribute_values(attribute, expert_attributes[attribute]['attribute'],
+                                                        attribute_type)
+            elif attribute_type == 'binary':
+                value_dict = get_binary_attribute_values(attribute, attribute_type)
+            else:
+                raise ValueError(f"Invalid attribute type '{attribute_type}' for attribute '{attribute}'.")
+
+            expert_values[attribute] = value_dict
+        else:
+            raise ValueError(f"Attribute '{attribute}' not found in expert attributes.")
+
+    return expert_values
 
 
 def read_file(path: str, file_type: str = "event log") -> None:
@@ -760,13 +793,17 @@ def set_determination_probability(data: pd.DataFrame) -> None:
     global determination_probability
 
     prob = data[['Probability']]
+    follow_up_prob = data[['Follow-up Probability']]
+
+    merged_prob = pd.concat([prob, follow_up_prob], axis=1)
+
     modification = data[['Modification']]
 
     if determination_probability is None:
-        determination_probability = prob.copy()
+        determination_probability = merged_prob.copy()
     else:
-        prob_copy = prob.loc[~((prob['Probability'].isna() & ~modification['Modification']) |
-                               (prob['Probability'] == '-') & ~modification['Modification'])]
+        prob_copy = merged_prob.loc[~((prob['Probability'].isna() & ~modification['Modification']) |
+                                      (prob['Probability'] == '-') & ~modification['Modification'])]
         determination_probability.loc[prob_copy.index] = prob_copy
 
 
