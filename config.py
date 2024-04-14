@@ -114,7 +114,6 @@ def get_binary_attribute_values(attribute: str, attribute_type: str) -> dict:
     suggestions = []
 
     if attribute == 'Directly Following':
-        # Calculation of the share of each activity pair in the total log
         dfg = dfg_algorithm.apply(log, variant=dfg_algorithm.Variants.FREQUENCY)
         total_count = sum(dfg.values())
         suggestions = [
@@ -128,7 +127,8 @@ def get_binary_attribute_values(attribute: str, attribute_type: str) -> dict:
         [f'{activity_pair[0]} + {activity_pair[1]} ({frequency * 100:.2f}%)'
          for activity_pair, frequency in suggestions]
     )
-    prompt_end = ' –\nSuggestion' + suffix + ': ' + suggestions_str + ':' if suggestions else ':'
+    prompt_end = (' –\nSuggestion' + suffix + ' (proportion of corresponding ' + attribute +
+                  ' relationship in the entire event log):\n' + suggestions_str + ':' if suggestions else ':')
 
     expert_value = get_expert_value(attribute, attribute_type, prompt_end)
 
@@ -567,7 +567,8 @@ def get_unary_attribute_values(attribute: str, attribute_name: str, attribute_ty
     suggestion_str = ', '.join(
         [f"{activity} ({frequency * 100:.2f}%)" for activity, frequency in suggestions]
     )
-    prompt_end = ' –\nSuggestion' + suffix + ': ' + suggestion_str + ':\n' if suggestions else ': '
+    prompt_end = (' –\nSuggestion' + suffix + ' (proportion of cases with corresponding ' + attribute_name + ' as the '
+                  + attribute + '): ' + suggestion_str + ':\n' if suggestions else ': ')
 
     expert_value = get_expert_value(attribute, attribute_type, prompt_end)
 
