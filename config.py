@@ -240,6 +240,8 @@ def get_config() -> dict:
         "log": log,
         "log_path": log_path,
         "log_name": log_name,
+        "log_folder": f"logs/preprocessed/{model_name}",
+        "log_file": f"{log_name}.csv",
 
         # Model and Tokenizer Configurations
         "model_folder": f"weights/{model_name}/{log_name}",

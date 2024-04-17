@@ -1436,6 +1436,9 @@ def read_log(config: dict, complete: bool = False, first_iteration: bool = True)
         df = ex_ante_rule_checking(config, df, first_iteration)
         return df
 
+    os.makedirs(config['log_folder'], exist_ok=True)
+    df.to_csv(os.path.join(config['log_folder'], config['log_file']), index=False)
+
     df = prepare_dataframe_for_sequence_processing(df, config)
 
     # Return the prepared DataFrame
@@ -1637,9 +1640,12 @@ def save_created_logs(config: dict, determined_log: pd.DataFrame, repetition: bo
     os.makedirs(config['result_folder'], exist_ok=True)
     determined_log.to_csv(os.path.join(config['result_folder'], config['result_csv_file']), index=False)
 
-    os.makedirs(os.path.join(config['result_folder'], 'iterations'), exist_ok=True)
-    iteration_file = os.path.join(config['result_folder'], 'iterations',
-                                  config['result_csv_iteration_file'].format(iteration))
+    folder_path = os.path.join(config['result_folder'], 'iterations')
+    os.makedirs(folder_path, exist_ok=True)
+    if not repetition:
+        for filename in os.listdir(folder_path):
+            os.remove(os.path.join(folder_path, filename))
+    iteration_file = os.path.join(folder_path, config['result_csv_iteration_file'].format(iteration))
     determined_log.to_csv(iteration_file, index=False)
 
     common_columns = [f"Original {config['tf_output']}", "Determination Probability",
