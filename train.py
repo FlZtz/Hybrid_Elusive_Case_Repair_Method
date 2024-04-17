@@ -124,7 +124,7 @@ def check_directly_following_rule(config: dict, log: pd.DataFrame, ex_post: bool
     return log
 
 
-def create_log(config: dict, chunk_size: int = None, repetition: bool = False) -> pd.DataFrame:
+def create_log(config: dict, chunk_size: int = None, repetition: bool = False, iteration: int = 1) -> pd.DataFrame:
     """
     Creates a log with determined config['tf_output'] based on the given configuration and chunk size.
 
@@ -132,6 +132,7 @@ def create_log(config: dict, chunk_size: int = None, repetition: bool = False) -
      `tf_output`, and `seq_len`.
     :param chunk_size: Number of rows to be processed as a single chunk. Default is set to `config['seq_len'] - 2`.
     :param repetition: Flag to indicate if the log creation is a repetition. Default is set to False.
+    :param iteration: Iteration number. Default is set to 1.
     :return: DataFrame representing the log with determined config['tf_output'].
     """
     data_complete, ds_dataloader, vocab_src, vocab_tgt, device, consider_ids = prepare_log_creation_data(
@@ -149,7 +150,7 @@ def create_log(config: dict, chunk_size: int = None, repetition: bool = False) -
         consider_ids,
         repetition
     )
-    save_created_logs(config, determined_log, repetition)
+    save_created_logs(config, determined_log, repetition, iteration)
     return determined_log
 
 
@@ -1516,15 +1517,15 @@ def repair_loop(log: pd.DataFrame, config: dict) -> None:
         if repetition_input == 'no':
             break
 
+        iteration += 1
+
         threshold_input = get_user_choice("Do you want to keep the probability threshold for the next repair? "
                                           "(yes/no): ")
 
         if threshold_input == 'no':
             reset_prob_threshold()
 
-        log = create_log(config, repetition=True)
-
-        iteration += 1
+        log = create_log(config, repetition=True, iteration=iteration)
 
 
 def run_validation(model: Transformer, validation_ds: DataLoader, tokenizer_tgt: Tokenizer, max_len: int,
@@ -1624,16 +1625,22 @@ def run_validation(model: Transformer, validation_ds: DataLoader, tokenizer_tgt:
         writer.flush()
 
 
-def save_created_logs(config: dict, determined_log: pd.DataFrame, repetition: bool) -> None:
+def save_created_logs(config: dict, determined_log: pd.DataFrame, repetition: bool, iteration: int) -> None:
     """
     Save determined logs to CSV and XES formats.
 
     :param config: Configuration parameters.
     :param determined_log: DataFrame containing the determined log.
     :param repetition: Flag to indicate if the process is a repetition.
+    :param iteration: Iteration number.
     """
     os.makedirs(config['result_folder'], exist_ok=True)
     determined_log.to_csv(os.path.join(config['result_folder'], config['result_csv_file']), index=False)
+
+    os.makedirs(os.path.join(config['result_folder'], 'iterations'), exist_ok=True)
+    iteration_file = os.path.join(config['result_folder'], 'iterations',
+                                  config['result_csv_iteration_file'].format(iteration))
+    determined_log.to_csv(iteration_file, index=False)
 
     common_columns = [f"Original {config['tf_output']}", "Determination Probability",
                       "Determination Follow-up Probability"]

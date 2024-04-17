@@ -253,6 +253,7 @@ def get_config() -> dict:
         "experiment_name": f"runs/{model_name}/{log_name}",
         "result_folder": f"repaired_logs/{model_name}/{log_name}",
         "result_csv_file": f"determined_{log_name}.csv",
+        "result_csv_iteration_file": f"determined_{log_name}_iteration_{{0}}.csv",
         "result_xes_file": f"determined_{log_name}.xes",
 
         # File and Configuration Paths
