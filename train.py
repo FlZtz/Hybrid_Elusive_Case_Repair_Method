@@ -1,25 +1,26 @@
 # train.py - Script for training a Transformer model and creating a log with determined config['tf_output']
 import os  # For filesystem operations
+from pathlib import Path  # For working with file paths
 import pickle  # For object serialization
 import shutil  # For filesystem operations
 import sys
-import warnings  # For managing warnings
-from pathlib import Path  # For working with file paths
 from typing import Callable, List, Optional, Tuple  # For type hints
+import warnings  # For managing warnings
 
 # Third-party library imports
+from datasets import Dataset as HuggingfaceDataset  # For Huggingface datasets
+from dateutil import parser  # For parsing date strings
+from deepdiff import DeepDiff  # For deep comparison of dictionaries
 import pandas as pd  # For working with dataframes
 import pm4py  # For process mining operations
 from sklearn.model_selection import train_test_split  # For splitting dataset into train and
 from sklearn.preprocessing import MinMaxScaler  # For normalizing continuous data
+from tokenizers import models, pre_tokenizers, Tokenizer, trainers  # For tokenization
 import torch  # PyTorch library
 import torch.nn as nn  # PyTorch neural network module
 import torchmetrics  # For evaluation metrics
 from torch.utils.data import DataLoader, Dataset, random_split  # For working with PyTorch datasets
 from torch.utils.tensorboard import SummaryWriter  # For TensorBoard visualization
-from tokenizers import models, pre_tokenizers, Tokenizer, trainers  # For tokenization
-from datasets import Dataset as HuggingfaceDataset  # For Huggingface datasets
-from dateutil import parser  # For parsing date strings
 
 # Local application/library specific imports
 from config import (add_response, get_cached_df_copy, get_config, get_determination_probability,
@@ -899,6 +900,7 @@ def load_or_initialize_model(config: dict, device: torch.device) -> Tuple[
     Path(f"{config['model_folder']}").mkdir(parents=True, exist_ok=True)
     different_config = False
     model_config_path = os.path.dirname(config['config_file'])
+    filtered_config = {k: v for k, v in config.items() if k not in ['log', 'log_path', 'attribute_dictionary']}
 
     if os.path.exists(model_config_path):
         with open(config['config_file'], 'rb') as file:
@@ -907,9 +909,11 @@ def load_or_initialize_model(config: dict, device: torch.device) -> Tuple[
         loaded_config = {key: value.to_dict() if isinstance(value, pd.DataFrame) else value for key, value in
                          loaded_config.items()}
         curr_config = {key: value.to_dict() if isinstance(value, pd.DataFrame) else value for key, value in
-                       config.items()}
+                       filtered_config.items()}
 
-        if loaded_config != curr_config:
+        diff = DeepDiff(loaded_config, curr_config)
+
+        if diff:
             different_config = True
             choice = input("\nAttention: The model's configuration has been modified since the last training.\nIf you "
                            "proceed, previously calculated weights will be deleted. Do you want to continue? "
@@ -942,10 +946,9 @@ def load_or_initialize_model(config: dict, device: torch.device) -> Tuple[
         for file in weights_folder.glob(f"{config['model_basename']}*.pt"):
             os.remove(file)
 
-    if not os.path.exists(model_config_path):
-        os.makedirs(model_config_path)
+    os.makedirs(model_config_path, exist_ok=True)
     with open(config['config_file'], 'wb') as file:
-        pickle.dump(config, file)
+        pickle.dump(filtered_config, file)
 
     if model_filename:
         print(f'Attempting to preload model from {model_filename}')
@@ -1410,7 +1413,7 @@ def read_log(config: dict, complete: bool = False, first_iteration: bool = True)
     # Convert Timestamp column to datetime
     df['Timestamp'] = df['Timestamp'].apply(lambda x: parser.isoparse(x) if isinstance(x, str) else x)
     df['Timestamp'] = pd.to_datetime(df['Timestamp'], utc=True)
-    df = df.sort_values(['Timestamp']).reset_index(drop=True)
+    df = df.sort_values(['Timestamp', 'Activity']).reset_index(drop=True)
     df['Timestamp'] = df['Timestamp'].dt.tz_localize(None)
 
     if config['continuous_input_attributes']:

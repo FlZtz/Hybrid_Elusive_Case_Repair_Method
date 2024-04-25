@@ -545,12 +545,13 @@ def get_unary_attribute_values(attribute: str, attribute_name: str, attribute_ty
 
     if all(col in log.columns for col in ['concept:name', 'time:timestamp', 'case:concept:name']):
         if not pd.api.types.is_datetime64_any_dtype(log['time:timestamp']):
-            log['time:timestamp'] = log['time:timestamp'].apply(
+            log_copy = log.copy()
+            log_copy['time:timestamp'] = log_copy['time:timestamp'].apply(
                 lambda x: parser.isoparse(x) if isinstance(x, str) else x)
-            log['time:timestamp'] = pd.to_datetime(log['time:timestamp'], utc=True)
+            log_copy['time:timestamp'] = pd.to_datetime(log_copy['time:timestamp'], utc=True)
 
         if attribute == 'Start Activity':
-            start_activities = pm4py.get_start_activities(log)
+            start_activities = pm4py.get_start_activities(log_copy)
             total_count = sum(start_activities.values())
             suggestions = [
                 (activity, count / total_count)
@@ -558,7 +559,7 @@ def get_unary_attribute_values(attribute: str, attribute_name: str, attribute_ty
                 [:min(3, len(start_activities))]
             ]
         elif attribute == 'End Activity':
-            end_activities = pm4py.get_end_activities(log)
+            end_activities = pm4py.get_end_activities(log_copy)
             total_count = sum(end_activities.values())
             suggestions = [
                 (activity, count / total_count)
