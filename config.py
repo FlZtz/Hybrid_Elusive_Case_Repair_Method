@@ -544,8 +544,8 @@ def get_unary_attribute_values(attribute: str, attribute_name: str, attribute_ty
     suggestions = []
 
     if all(col in log.columns for col in ['concept:name', 'time:timestamp', 'case:concept:name']):
+        log_copy = log.copy()
         if not pd.api.types.is_datetime64_any_dtype(log['time:timestamp']):
-            log_copy = log.copy()
             log_copy['time:timestamp'] = log_copy['time:timestamp'].apply(
                 lambda x: parser.isoparse(x) if isinstance(x, str) else x)
             log_copy['time:timestamp'] = pd.to_datetime(log_copy['time:timestamp'], utc=True)
