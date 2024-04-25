@@ -1645,9 +1645,13 @@ def save_created_logs(config: dict, determined_log: pd.DataFrame, repetition: bo
 
     folder_path = os.path.join(config['result_folder'], 'iterations')
     os.makedirs(folder_path, exist_ok=True)
+
     if not repetition:
         for filename in os.listdir(folder_path):
-            os.remove(os.path.join(folder_path, filename))
+            file_path = os.path.join(folder_path, filename)
+            if os.path.isfile(file_path):
+                os.remove(file_path)
+
     iteration_file = os.path.join(folder_path, config['result_csv_iteration_file'].format(iteration))
     determined_log.to_csv(iteration_file, index=False)
 
