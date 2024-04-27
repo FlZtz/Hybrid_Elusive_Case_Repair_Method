@@ -47,7 +47,7 @@ pip install -r requirements.txt
    generate a training and test dataset from the original event log.
    ```bash
    python log_preparation.py
-   ``
+   ```
 
 ### Training
 
