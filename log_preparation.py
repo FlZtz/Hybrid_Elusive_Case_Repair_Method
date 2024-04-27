@@ -15,7 +15,7 @@ def prepare_logs(file_path: str, elusive_percentage: float = 0.2) -> None:
     Prepare logs for training and testing the model.
     
     :param file_path: Path to the XES file that contains the log.
-    :param elusive_percentage: Percentage of rows to set empty in the elusive log.
+    :param elusive_percentage: Percentage of rows to set empty in the elusive log. Default is 0.2.
     """
     try:
         if not os.path.isfile(file_path):
