@@ -1,4 +1,4 @@
-Copyright (c) 2024 Felix Zetzsche
+Copyright (c) 2024 Anonymized
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
