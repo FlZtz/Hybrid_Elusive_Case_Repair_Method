@@ -1413,8 +1413,9 @@ def read_log(config: dict, complete: bool = False, first_iteration: bool = True)
     # Convert Timestamp column to datetime
     df['Timestamp'] = df['Timestamp'].apply(lambda x: parser.isoparse(x) if isinstance(x, str) else x)
     df['Timestamp'] = pd.to_datetime(df['Timestamp'], utc=True)
-    df = df.sort_values(['Timestamp']).reset_index(drop=True)
+    df = df.sort_values(['Timestamp', 'Sorted Index']).reset_index(drop=True)
     df['Timestamp'] = df['Timestamp'].dt.tz_localize(None)
+    df.drop(columns='Sorted Index', inplace=True)
 
     if config['continuous_input_attributes']:
         continuous_columns = config['continuous_input_attributes'][:]
@@ -1677,8 +1678,7 @@ def save_created_logs(config: dict, determined_log: pd.DataFrame, repetition: bo
     extended_log.rename(columns={f"Determined {config['tf_output']}": f"{config['tf_output']}"}, inplace=True)
     extended_log.rename(columns=config['attribute_dictionary'], inplace=True)
 
-    log = pm4py.convert_to_event_log(extended_log)
-    pm4py.write_xes(log, os.path.join(config['result_folder'], config['result_xes_file']))
+    pm4py.write_xes(extended_log, os.path.join(config['result_folder'], config['result_xes_file']))
 
 
 def select_columns(df: pd.DataFrame, column_mapping: dict, first_iteration: bool = True) -> pd.DataFrame:
@@ -1755,9 +1755,15 @@ def select_columns(df: pd.DataFrame, column_mapping: dict, first_iteration: bool
         # Update the selected columns with the automatically matched columns
         selected_columns.update(automatically_selected_columns)
 
+    if 'Sorted Index' not in df.columns:
+        df['Sorted Index'] = df.index
+
+    original_column_names = list(selected_columns.values()) + ['Sorted Index']
+    new_column_names = list(selected_columns.keys()) + ['Sorted Index']
+
     # Select columns from DataFrame based on selected columns
-    df = df[list(selected_columns.values())]
-    df.columns = list(selected_columns.keys())
+    df = df[original_column_names]
+    df.columns = new_column_names
 
     return df
 
