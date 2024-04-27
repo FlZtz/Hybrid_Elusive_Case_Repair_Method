@@ -10,6 +10,7 @@ using a transformer model.
 - [Introduction](#introduction)
 - [Requirements](#requirements)
 - [Usage](#usage)
+  - [Data Preparation (Optional)](#data-preparation-optional)
   - [Training](#training)
   - [Evaluation](#evaluation)
   - [Creating Executable](#creating-executable)
@@ -22,7 +23,7 @@ using a transformer model.
 ## Introduction
 
 This project involves training a Transformer model using `train.py` and then evaluating the results using 
-`evaluation.ipynb`. Follow the steps below to get started.
+`quality_metrics.ipynb`. Follow the steps below to get started.
 
 ## Requirements
 
@@ -33,6 +34,20 @@ pip install -r requirements.txt
 ```
 
 ## Usage
+
+### Data Preparation (Optional)
+
+1. Download the event log dataset in XES format that you want to use for training and evaluation. You can use the 
+   following datasets for testing:
+   - Running Example: https://pm4py.fit.fraunhofer.de/static/assets/examples/running-example.xes
+   - Review Example Large: https://doi.org/10.4121/uuid:da6aafef-5a86-4769-acf3-04e8ae5ab4fe
+   - You can also use your own dataset.
+
+2. Execute the `log_preparation.py` script to prepare the event log for training and evaluation. This script will 
+   generate a training and test dataset from the original event log.
+   ```bash
+   python log_preparation.py
+   ``
 
 ### Training
 
@@ -49,7 +64,7 @@ pip install -r requirements.txt
 
 ### Evaluation
 
-1. Open `evaluation.ipynb` using Jupyter Notebook or any compatible environment.
+1. Open `quality_metrics.ipynb` using Jupyter Notebook or any compatible environment.
 
 2. Run the cells in the notebook to evaluate the performance of the trained model on a test dataset.
 
@@ -74,20 +89,23 @@ To create an executable (.exe) file for the `train.py` script, you can use pyins
 
 ## File Descriptions
 
-- `model.py`: Contains the implementation of the Transformer model. 
-- `requirements.txt`: Lists the required Python packages.
-- `evaluation.ipynb`: Jupyter Notebook for evaluating the trained model. 
-- `config.py`: Configuration file for the model. 
-- `train.py`: Script for training the Transformer model. 
+- `config.py`: Configuration file for the model.
 - `dataset.py`: Implementation of the dataset loader.
+- `LICENSE.md`: License file (MIT).
+- `log_preparation.py`: Script for preparing the event log dataset.
+- `model.py`: Contains the implementation of the Transformer model.
+- `quality_metrics.ipynb`: Jupyter Notebook for evaluating the trained model.
+- `README.md`: This file.
+- `requirements.txt`: Lists the required Python packages.
+- `train.py`: Script for training the Transformer model.
 
 ## Results
 
-The results can be seen in the `evaluation.ipynb` notebook.
+The results can be seen in the `quality_metrics.ipynb` notebook.
 
 ## Dependencies
 
-- Python 3.10 or higher
+Python 3.10 or higher
 
 ## License
 
@@ -95,7 +113,4 @@ See the [LICENSE](LICENSE.md) file for license rights and limitations (MIT).
 
 ## References
 
-- The training algorithm used in `train.py` is based on https://youtu.be/ISNdQcPhsts.
-- The datasets used for training are publicly available and can be found at the following links:
-  - Running Example: https://pm4py.fit.fraunhofer.de/static/assets/examples/running-example.xes
-  - Review Example Large: https://doi.org/10.4121/uuid:da6aafef-5a86-4769-acf3-04e8ae5ab4fe
+The training algorithm used in `train.py` is based on https://youtu.be/ISNdQcPhsts.
