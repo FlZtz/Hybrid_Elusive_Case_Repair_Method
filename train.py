@@ -807,7 +807,7 @@ def handle_directly_following_ex_post_processing(log: pd.DataFrame, config: dict
                     continue
 
                 if first_predecessor > first_successor:
-                    condition = group.loc[positions_successor < first_predecessor]
+                    condition = group.loc[group.index.isin(positions_successor) & (group.index < first_predecessor)]
                     if elusive_log:
                         condition = condition.loc[condition[f"Original {config['tf_output']}"].isna()]
                     group.loc[condition.index, [f"Determined {config['tf_output']}", "Probability",
@@ -815,7 +815,7 @@ def handle_directly_following_ex_post_processing(log: pd.DataFrame, config: dict
                     reset_count += len(condition)
 
                 if last_predecessor > last_successor:
-                    condition = group.loc[positions_predecessor > last_successor]
+                    condition = group.loc[group.index.isin(positions_predecessor) & (group.index > last_successor)]
                     if elusive_log:
                         condition = condition.loc[condition[f"Original {config['tf_output']}"].isna()]
                     group.loc[condition.index, [f"Determined {config['tf_output']}", "Probability",
