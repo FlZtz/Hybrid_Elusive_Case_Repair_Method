@@ -39,8 +39,14 @@ pip install -r requirements.txt
 
 1. Download the event log dataset in XES format that you want to use for training and evaluation. You can use the 
    following datasets for testing:
-   - Running Example: https://pm4py.fit.fraunhofer.de/static/assets/examples/running-example.xes
-   - Review Example Large: https://doi.org/10.4121/uuid:da6aafef-5a86-4769-acf3-04e8ae5ab4fe
+   - Running Example (requests for compensation within an airline):
+     https://pm4py.fit.fraunhofer.de/static/assets/examples/running-example.xes
+   - Review Example Large (reviewing process of a paper for a journal):
+     https://doi.org/10.4121/uuid:da6aafef-5a86-4769-acf3-04e8ae5ab4fe
+   - Hospital Log Low (hospital treatment process):
+     https://doi.org/10.5281/zenodo.8059488
+   - Renting Log Low (rental process):
+     https://doi.org/10.5281/zenodo.8059488
    - You can also use your own dataset.
 
 2. Execute the `log_preparation.py` script to prepare the event log for training and evaluation. This script will 
