@@ -10,7 +10,7 @@ from pm4py.objects.conversion.log import converter as log_converter
 from config import extract_log_name
 
 
-def prepare_logs(file_path: str, elusive_percentage: float = 0.2) -> None:
+def prepare_logs(file_path: str, elusive_percentage: float = 0.1) -> None:
     """
     Prepare logs for training and testing the model.
     
