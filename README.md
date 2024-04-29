@@ -43,8 +43,8 @@ pip install -r requirements.txt
      https://pm4py.fit.fraunhofer.de/static/assets/examples/running-example.xes
    - Review Example Large (reviewing process of a paper for a journal):
      https://doi.org/10.4121/uuid:da6aafef-5a86-4769-acf3-04e8ae5ab4fe
-   - Hospital Log Low (hospital treatment process):
-     https://doi.org/10.5281/zenodo.8059488
+   - Hospital Billing - Event Log (billing of medical services):
+     https://doi.org/10.4121/uuid:76c46b83-c930-4798-a1c9-4be94dfeb741
    - Renting Log Low (rental process):
      https://doi.org/10.5281/zenodo.8059488
    - You can also use your own dataset.
