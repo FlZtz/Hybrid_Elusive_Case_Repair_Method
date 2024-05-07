@@ -11,6 +11,7 @@ import warnings  # For managing warnings
 from datasets import Dataset as HuggingfaceDataset  # For Huggingface datasets
 from dateutil import parser  # For parsing date strings
 from deepdiff import DeepDiff  # For deep comparison of dictionaries
+import matplotlib.pyplot as plt  # For plotting graphs
 import pandas as pd  # For working with dataframes
 import pm4py  # For process mining operations
 from sklearn.model_selection import train_test_split  # For splitting dataset into train and
@@ -1824,10 +1825,15 @@ def train_epoch(config: dict, tokenizer_src: Tokenizer, tokenizer_tgt: Tokenizer
     writer = SummaryWriter(config['experiment_name'])
     loss_fn = nn.CrossEntropyLoss(ignore_index=tokenizer_src.token_to_id('[PAD]'), label_smoothing=0.1).to(device)
 
+    train_losses = []
+
     for epoch in range(initial_epoch, config['num_epochs']):
         torch.cuda.empty_cache()
         model.train()
         batch_iterator = tqdm(train_dataloader, desc=f"Processing Epoch {epoch:02d}")
+
+        total_loss = 0.0
+
         for batch in batch_iterator:
             encoder_input = batch['encoder_input'].to(device)
             decoder_input = batch['decoder_input'].to(device)
@@ -1848,6 +1854,7 @@ def train_epoch(config: dict, tokenizer_src: Tokenizer, tokenizer_tgt: Tokenizer
 
             loss = loss_fn(proj_output.view(-1, tokenizer_tgt.get_vocab_size()), label.view(-1))
             batch_iterator.set_postfix({"loss": f"{loss.item():6.3f}"})
+            total_loss += loss.item()
 
             writer.add_scalar('train loss', loss.item(), global_step)
             writer.flush()
@@ -1857,6 +1864,9 @@ def train_epoch(config: dict, tokenizer_src: Tokenizer, tokenizer_tgt: Tokenizer
             optimizer.zero_grad(set_to_none=True)
 
             global_step += 1
+
+        average_loss = total_loss / len(train_dataloader)
+        train_losses.append(average_loss)
 
         run_validation(model, val_dataloader, tokenizer_tgt, config['seq_len'], device,
                        lambda msg: batch_iterator.write(msg), global_step, writer, config)
@@ -1868,6 +1878,15 @@ def train_epoch(config: dict, tokenizer_src: Tokenizer, tokenizer_tgt: Tokenizer
             'optimizer_state_dict': optimizer.state_dict(),
             'global_step': global_step
         }, model_filename)
+
+    if initial_epoch != config['num_epochs']:
+        plt.plot(range(initial_epoch, config['num_epochs']), train_losses, label='Training Loss')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.title('Loss over Epochs')
+        plt.legend()
+        plt.grid(True)
+        plt.show()
 
 
 def train_model(config: dict) -> None:
