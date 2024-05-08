@@ -213,12 +213,12 @@ def get_config() -> dict:
     return {
         # Model Hyperparameters
         "batch_size": 8,
-        "num_epochs": 20,
+        "num_epochs": 30,
         "lr": 10 ** -4,
         "eps": 1e-9,
-        "seq_len": 10 + num_tokens,  # Adjusted seq_len accounting for SOS and EOS tokens
+        "seq_len": 15 + num_tokens,  # Adjusted seq_len accounting for SOS and EOS tokens
         "d_model": 512,
-        "num_layers": 6,
+        "num_layers": 3,
         "num_heads": 8,
         "dropout": 0.1,
         "dff": 2048,

@@ -1538,7 +1538,7 @@ def repair_loop(log: pd.DataFrame, config: dict) -> None:
 
 def run_validation(model: Transformer, validation_ds: DataLoader, tokenizer_tgt: Tokenizer, max_len: int,
                    device: torch.device, print_msg: Callable[[str], None], global_step: int, writer: SummaryWriter,
-                   config: dict, num_examples: int = 2) -> None:
+                   config: dict, num_examples: int = 2) -> dict:
     """
     Run validation on the trained model and log evaluation metrics.
 
@@ -1552,6 +1552,7 @@ def run_validation(model: Transformer, validation_ds: DataLoader, tokenizer_tgt:
     :param writer: TensorBoard SummaryWriter.
     :param config: Configuration options.
     :param num_examples: Number of examples to show during validation. Defaults to 2.
+    :return: Dictionary containing the validation metrics.
     """
     model.eval()
     count = 0
@@ -1559,6 +1560,8 @@ def run_validation(model: Transformer, validation_ds: DataLoader, tokenizer_tgt:
     source_texts = []
     expected = []
     predicted = []
+
+    validation_metrics = {'wer': 0.0}
 
     try:
         # get the console window width
@@ -1625,12 +1628,15 @@ def run_validation(model: Transformer, validation_ds: DataLoader, tokenizer_tgt:
         wer = metric(predicted, expected)
         writer.add_scalar('validation wer', wer, global_step)
         writer.flush()
+        validation_metrics['wer'] = wer
 
         # Compute the BLEU metric
         metric = torchmetrics.BLEUScore()
         bleu = metric(predicted, expected)
         writer.add_scalar('validation BLEU', bleu, global_step)
         writer.flush()
+
+    return validation_metrics
 
 
 def save_created_logs(config: dict, determined_log: pd.DataFrame, repetition: bool, iteration: int) -> None:
@@ -1826,6 +1832,7 @@ def train_epoch(config: dict, tokenizer_src: Tokenizer, tokenizer_tgt: Tokenizer
     loss_fn = nn.CrossEntropyLoss(ignore_index=tokenizer_src.token_to_id('[PAD]'), label_smoothing=0.1).to(device)
 
     train_losses = []
+    val_wer_values = []
 
     for epoch in range(initial_epoch, config['num_epochs']):
         torch.cuda.empty_cache()
@@ -1868,8 +1875,9 @@ def train_epoch(config: dict, tokenizer_src: Tokenizer, tokenizer_tgt: Tokenizer
         average_loss = total_loss / len(train_dataloader)
         train_losses.append(average_loss)
 
-        run_validation(model, val_dataloader, tokenizer_tgt, config['seq_len'], device,
-                       lambda msg: batch_iterator.write(msg), global_step, writer, config)
+        validation_metrics = run_validation(model, val_dataloader, tokenizer_tgt, config['seq_len'], device,
+                                            lambda msg: batch_iterator.write(msg), global_step, writer, config)
+        val_wer_values.append(validation_metrics['wer'])
 
         model_filename = get_weights_file_path(config, f"{epoch:02d}")
         torch.save({
@@ -1881,12 +1889,16 @@ def train_epoch(config: dict, tokenizer_src: Tokenizer, tokenizer_tgt: Tokenizer
 
     if initial_epoch != config['num_epochs']:
         plt.plot(range(initial_epoch, config['num_epochs']), train_losses, label='Training Loss')
+        plt.plot(range(initial_epoch, config['num_epochs']), val_wer_values, label='Validation WER')
+
         plt.xlabel('Epoch')
-        plt.ylabel('Loss')
-        plt.title('Loss over Epochs')
+        plt.ylabel('Value')
+        plt.title('Training Loss and Validation WER over Epochs')
         plt.legend()
         plt.grid(True)
         plt.show()
+
+    writer.close()
 
 
 def train_model(config: dict) -> None:
