@@ -28,6 +28,9 @@ attribute_config: dict = {
     'Value Currency': {'mapping': 'org:value:currency', 'property': 'discrete'}
 }
 cached_df_copy: Optional[pd.DataFrame] = None
+complete_expert_attributes: List[str] = []
+complete_expert_values: dict = {}
+complete_log: Optional[pd.DataFrame] = None
 determination_probability: Optional[pd.DataFrame] = None
 expert_attributes: dict = {
     'Start Activity': {'type': 'unary', 'attribute': 'Activity'},
@@ -101,6 +104,49 @@ def extract_log_name(path: str) -> str:
     return name
 
 
+def extend_expert_input() -> Tuple[List[str], dict]:
+    """
+    Extend the expert input attributes and values based on user input.
+
+    :return: A tuple containing the complete expert attributes and values.
+    """
+    global complete_expert_attributes, complete_expert_values, expert_attributes
+
+    remaining_attributes = {k: v for k, v in expert_attributes.items() if k not in complete_expert_attributes}
+
+    if not remaining_attributes:
+        return complete_expert_attributes, complete_expert_values
+
+    expert_choice = input("Do you want to add one or more expert attributes? (yes/no): ").strip().lower()
+
+    if expert_choice == "yes":
+        suffix = ' is' if len(remaining_attributes) == 1 else 's are'
+        attributes = ', '.join(
+            list(remaining_attributes.keys())[:-1]) + f" and {list(remaining_attributes.keys())[-1]}" if len(
+            remaining_attributes) > 1 else list(remaining_attributes.keys())[0]
+
+        attribute_input = input(f"Following expert attribute{suffix} available: {attributes}.\n"
+                                f"Please enter the attribute(s) for which you have expert knowledge "
+                                f"(separated by commas): ")
+
+        if not attribute_input:
+            raise ValueError("No attribute(s) provided. Please try again.")
+
+        attribute_list = [a.strip() for a in attribute_input.split(',')]
+        attributes = input_validation(attribute_list, remaining_attributes)
+
+        if attributes:
+            values = query_expert_values(attributes)
+            complete_expert_attributes.extend(attributes)
+            complete_expert_values.update(values)
+    elif expert_choice == "no":
+        pass
+    else:
+        raise ValueError("Invalid input. Please enter 'yes' or 'no'.")
+
+    return complete_expert_attributes, complete_expert_values
+
+
 def get_binary_attribute_values(attribute: str, attribute_type: str) -> dict:
     """
     Retrieve binary attribute values based on the provided attribute and attribute type.
@@ -109,12 +155,12 @@ def get_binary_attribute_values(attribute: str, attribute_type: str) -> dict:
     :param attribute_type: The type of the attribute.
     :return: A dictionary containing the attribute values, occurrences, and attribute name.
     """
-    global expert_attributes, input_config, log, responses
+    global complete_log, expert_attributes, input_config, responses
     value_dict = {'values': None, 'attribute': expert_attributes[attribute]['attribute'], 'occurrences': []}
     suggestions = []
 
     if attribute == 'Directly Following':
-        dfg = dfg_algorithm.apply(log, variant=dfg_algorithm.Variants.FREQUENCY)
+        dfg = dfg_algorithm.apply(complete_log, variant=dfg_algorithm.Variants.FREQUENCY)
         total_count = sum(dfg.values())
         suggestions = [
             (activity_pair, count / total_count)
@@ -163,14 +209,14 @@ def get_config() -> dict:
 
     :return: Dictionary containing various configuration parameters.
     """
-    global attribute_config, expert_input_attributes, expert_input_values, log_name, log_path, missing_placeholder
-    global missing_placeholder_xes, tf_input
+    global attribute_config, complete_expert_attributes, complete_expert_values, complete_log, expert_input_attributes
+    global expert_input_values, log, log_name, log_path, missing_placeholder, missing_placeholder_xes, tf_input
 
-    # If log_path is not set, get it using the get_file_path function
+    new_process = not tf_input
+
     if log_path is None:
         log_path = get_file_path()
 
-    # If log_name is not set, extract it from log_path
     if log_name is None:
         log_name = extract_log_name(log_path)
 
@@ -182,8 +228,9 @@ def get_config() -> dict:
     # Creating a dictionary to map attributes to their corresponding data mappings
     attribute_dictionary = {key: value['mapping'] for key, value in attribute_config.items()}
 
-    if not tf_input:
+    if new_process:
         attribute_specification()
+        complete_log = log.copy()
 
     if "Activity" not in tf_input:
         tf_input.append("Activity")
@@ -199,11 +246,15 @@ def get_config() -> dict:
         else:
             continuous_input_attributes.append(attr)
 
-    if not expert_input_attributes:
+    if not expert_input_attributes and new_process:
         expert_input_attributes = get_expert_attributes()
         expert_input_values = {}
         if expert_input_attributes:
             expert_input_values = query_expert_values(expert_input_attributes)
+
+    if not complete_expert_attributes:
+        complete_expert_attributes = expert_input_attributes.copy()
+        complete_expert_values = expert_input_values.copy()
 
     # Determine the model name based on attribute lengths
     model_name = get_model_name(len(discrete_input_attributes), len(continuous_input_attributes),
@@ -230,6 +281,8 @@ def get_config() -> dict:
         "continuous_input_attributes": continuous_input_attributes,
         "expert_input_attributes": expert_input_attributes,
         "expert_input_values": expert_input_values,
+        "complete_expert_attributes": complete_expert_attributes,
+        "complete_expert_values": complete_expert_values,
 
         # Placeholder Configurations
         "missing_placeholder": missing_placeholder,
@@ -539,13 +592,13 @@ def get_unary_attribute_values(attribute: str, attribute_name: str, attribute_ty
     :param attribute_type: The type of the attribute.
     :return: A dictionary containing the attribute values, occurrences, and attribute name.
     """
-    global expert_attributes, input_config, log, responses
+    global complete_log, expert_attributes, input_config, responses
     value_dict = {'values': None, 'attribute': attribute_name, 'occurrences': []}
     suggestions = []
 
-    if all(col in log.columns for col in ['concept:name', 'time:timestamp', 'case:concept:name']):
-        log_copy = log.copy()
-        if not pd.api.types.is_datetime64_any_dtype(log['time:timestamp']):
+    if all(col in complete_log.columns for col in ['concept:name', 'time:timestamp', 'case:concept:name']):
+        log_copy = complete_log.copy()
+        if not pd.api.types.is_datetime64_any_dtype(log_copy['time:timestamp']):
             log_copy['time:timestamp'] = log_copy['time:timestamp'].apply(
                 lambda x: parser.isoparse(x) if isinstance(x, str) else x)
             log_copy['time:timestamp'] = pd.to_datetime(log_copy['time:timestamp'], utc=True)
@@ -726,23 +779,26 @@ def read_file(path: str, file_type: str = "event log") -> None:
 def reset_log(new_process: bool = True) -> None:
     """
     Reset the global variables cached_df_copy, log, log_name, and log_path to None. Optionally reset
-    determination_probability, expert_input_attributes, expert_input_columns, expert_input_values, input_config,
-    original_values, probability_threshold, responses and tf_input to empty lists or dictionaries if new_process is
-    True.
+    complete_expert_attributes, complete_expert_values, complete_log, determination_probability,
+    expert_input_attributes, expert_input_columns, expert_input_values, input_config, original_values,
+    probability_threshold, responses and tf_input to empty lists or dictionaries if new_process is True.
 
-    :param new_process: Specifies whether to reset determination_probability, expert_input_attributes,
-     expert_input_columns, expert_input_values, input_config, original_values, probability_threshold, responses and
-     tf_input. Defaults to True.
+    :param new_process: Specifies whether to reset complete_expert_attributes, complete_expert_values, complete_log,
+     determination_probability, expert_input_attributes, expert_input_columns, expert_input_values, input_config,
+     original_values, probability_threshold, responses and tf_input. Defaults to True.
     """
-    global cached_df_copy, determination_probability, expert_input_attributes, expert_input_columns
-    global expert_input_values, input_config, log, log_name, log_path, original_values, probability_threshold
-    global responses, tf_input
+    global cached_df_copy, complete_expert_attributes, complete_expert_values, complete_log, determination_probability
+    global expert_input_attributes, expert_input_columns, expert_input_values, input_config, log, log_name, log_path
+    global original_values, probability_threshold, responses, tf_input
 
     cached_df_copy = None
     log = None
     log_name = None
     log_path = None
     if new_process:
+        complete_expert_attributes = []
+        complete_expert_values = {}
+        complete_log = None
         determination_probability = None
         expert_input_attributes = []
         expert_input_columns = []

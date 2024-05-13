@@ -24,7 +24,7 @@ from torch.utils.data import DataLoader, Dataset, random_split  # For working wi
 from torch.utils.tensorboard import SummaryWriter  # For TensorBoard visualization
 
 # Local application/library specific imports
-from config import (add_response, get_cached_df_copy, get_config, get_determination_probability,
+from config import (add_response, extend_expert_input, get_cached_df_copy, get_config, get_determination_probability,
                     get_expert_input_columns, get_file_path, get_input_config, get_original_values, get_prob_threshold,
                     get_weights_file_path, latest_weights_file_path, read_file, reset_log, reset_prob_threshold,
                     save_responses, set_cached_df_copy, set_determination_probability, set_expert_input_columns,
@@ -168,7 +168,7 @@ def declarative_rule_checking(config: dict, log: pd.DataFrame, ex_post: bool = F
     """
     log['Modification'] = False
 
-    if config['expert_input_attributes']:
+    if config['complete_expert_attributes']:
         examination = "ex post" if ex_post else "ex ante"
         rule_integration = get_user_choice(f"Please note that incorporating declarative rule checking may result in "
                                            f"assumption-based modifications.\nDo you want to proceed with "
@@ -177,13 +177,13 @@ def declarative_rule_checking(config: dict, log: pd.DataFrame, ex_post: bool = F
             return log
 
         if f"Determined {config['tf_output']}" in log.columns:
-            if 'Directly Following' in config['expert_input_attributes']:
+            if 'Directly Following' in config['complete_expert_attributes']:
                 log = check_directly_following_rule(config, log, ex_post)
                 print(f"Directly Following rule checking completed for {examination} analysis.")
-            if 'Start Activity' in config['expert_input_attributes']:
+            if 'Start Activity' in config['complete_expert_attributes']:
                 log = check_boundary_activity_rule(config, log, ex_post, 'start')
                 print(f"Start Activity rule checking completed for {examination} analysis.")
-            if 'End Activity' in config['expert_input_attributes']:
+            if 'End Activity' in config['complete_expert_attributes']:
                 log = check_boundary_activity_rule(config, log, ex_post, 'end')
                 print(f"End Activity rule checking completed for {examination} analysis.")
 
@@ -229,17 +229,18 @@ def get_all_sequences(ds: Dataset, data: str) -> str:
         yield item[data]
 
 
-def get_attribute_values(config: dict, attribute: str) -> Tuple[List[str], str, List[str]]:
+def get_attribute_values(config: dict, dictionary: str, attribute: str) -> Tuple[List[str], str, List[str]]:
     """
     Get values, attribute column, and occurrences for a given attribute from the configuration.
 
     :param config: Configuration parameters.
+    :param dictionary: Dictionary to extract values from.
     :param attribute: Attribute name.
     :return: Tuple containing values, attribute column, and occurrences.
     """
-    values = config['expert_input_values'][attribute]['values']
-    attribute_column = config['expert_input_values'][attribute]['attribute']
-    occurrences = config['expert_input_values'][attribute]['occurrences']
+    values = config[dictionary][attribute]['values']
+    attribute_column = config[dictionary][attribute]['attribute']
+    occurrences = config[dictionary][attribute]['occurrences']
 
     return values, attribute_column, occurrences
 
@@ -1159,7 +1160,7 @@ def process_expert_input_attributes(df: pd.DataFrame, config: dict) -> pd.DataFr
 
     expert_input_columns = []
     for attribute in config['expert_input_attributes']:
-        values, attribute_column, occurrences = get_attribute_values(config, attribute)
+        values, attribute_column, occurrences = get_attribute_values(config, 'expert_input_values', attribute)
 
         if isinstance(values, list) and all(isinstance(val, str) for val in values):
             df, columns = process_one_dimensional_values(df, attribute, attribute_column, values, occurrences)
@@ -1532,6 +1533,8 @@ def repair_loop(log: pd.DataFrame, config: dict) -> None:
 
         if threshold_input == 'no':
             reset_prob_threshold()
+
+        config['complete_expert_attributes'], config['complete_expert_values'] = extend_expert_input()
 
         log = create_log(config, repetition=True, iteration=iteration)
 
@@ -1937,7 +1940,7 @@ def validate_boundary_activity_input_data(config: dict, log: pd.DataFrame,
         raise ValueError("Invalid activity type. Please enter 'start' or 'end'.")
 
     attribute = f"{activity_type.capitalize()} Activity"
-    values, attribute_column, occurrences = get_attribute_values(config, attribute)
+    values, attribute_column, occurrences = get_attribute_values(config, 'complete_expert_values', attribute)
 
     if not any(col.lower() == attribute_column.lower() for col in log.columns):
         raise ValueError(f"The column '{attribute_column}' specified for attribute '{attribute}' does not exist in "
@@ -1984,7 +1987,7 @@ def validate_directly_following_input_data(config: dict,
     """
     attribute = 'Directly Following'
 
-    values, attribute_column, occurrences = get_attribute_values(config, attribute)
+    values, attribute_column, occurrences = get_attribute_values(config, 'complete_expert_values', attribute)
 
     if not any(col.lower() == attribute_column.lower() for col in log.columns):
         raise ValueError(f"The column '{attribute_column}' specified for attribute '{attribute}' does not exist in "
