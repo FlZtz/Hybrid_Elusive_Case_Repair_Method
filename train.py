@@ -1538,6 +1538,13 @@ def repair_loop(log: pd.DataFrame, config: dict) -> None:
 
         log = create_log(config, repetition=True, iteration=iteration)
 
+    path_until_last_slash = config['config_file'].rsplit('/', 1)[0] + '/'
+    model_config_path = os.path.join(path_until_last_slash, "repair")
+    os.makedirs(model_config_path, exist_ok=True)
+    filtered_config = {k: v for k, v in config.items() if k not in ['log', 'log_path', 'attribute_dictionary']}
+    with open(os.path.join(model_config_path, "config.pkl"), 'wb') as file:
+        pickle.dump(filtered_config, file)
+
 
 def run_validation(model: Transformer, validation_ds: DataLoader, tokenizer_tgt: Tokenizer, max_len: int,
                    device: torch.device, print_msg: Callable[[str], None], global_step: int, writer: SummaryWriter,
