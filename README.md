@@ -97,9 +97,11 @@ To create an executable (.exe) file for the `train.py` script, you can use pyins
 
 - `config.py`: Configuration file for the model.
 - `dataset.py`: Implementation of the dataset loader.
+- `dummy_transformer.py`: Dummy implementation of the interaction with the system.
 - `LICENSE.md`: License file (MIT).
 - `log_preparation.py`: Script for preparing the event log dataset.
 - `model.py`: Contains the implementation of the Transformer model.
+- `prototype_interaction.ipynb`: Jupyter Notebook for dummy interaction with the system.
 - `quality_metrics.ipynb`: Jupyter Notebook for evaluating the trained model.
 - `README.md`: This file.
 - `requirements.txt`: Lists the required Python packages.
