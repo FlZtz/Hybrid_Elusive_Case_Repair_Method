@@ -33,6 +33,8 @@ from dataset import causal_mask, InOutDataset  # Importing custom dataset and ma
 from model import build_transformer, Transformer  # Importing Transformer model builder
 from tqdm import tqdm  # For progress bars
 
+sorted_index: Optional[pd.DataFrame] = None
+
 
 def check_boundary_activity_rule(config: dict, log: pd.DataFrame, ex_post: bool, activity_type: str) -> pd.DataFrame:
     """
@@ -1193,6 +1195,8 @@ def process_log_creation_data(config: dict, vocab_src: Tokenizer, vocab_tgt: Tok
     :param repetition: Boolean flag to indicate if the process is a repetition.
     :return: DataFrame containing the processed log creation data.
     """
+    global sorted_index
+
     model = get_model(config, vocab_src.get_vocab_size(), vocab_tgt.get_vocab_size()).to(device)
     model_filename = get_weights_file_path(config, f"{config['num_epochs'] - 1}")
     state = torch.load(model_filename, map_location=device)
@@ -1300,6 +1304,9 @@ def process_log_creation_data(config: dict, vocab_src: Tokenizer, vocab_tgt: Tok
 
     determined_log = remove_redundant_columns(determined_log)
 
+    if 'Sorted Index' not in determined_log.columns:
+        determined_log = pd.concat([determined_log, sorted_index], axis=1)
+
     return determined_log
 
 
@@ -1393,6 +1400,8 @@ def read_log(config: dict, complete: bool = False, first_iteration: bool = True)
     :param first_iteration: Flag to indicate if it's the first iteration. Defaults to True.
     :return: Processed DataFrame according to the specified configuration.
     """
+    global sorted_index
+
     cached_df_copy = get_cached_df_copy()
     if cached_df_copy is not None and complete:
         cached_df_copy = ex_ante_rule_checking(config, cached_df_copy, first_iteration, False)
@@ -1417,6 +1426,7 @@ def read_log(config: dict, complete: bool = False, first_iteration: bool = True)
     df['Timestamp'] = pd.to_datetime(df['Timestamp'], utc=True)
     df = df.sort_values(['Timestamp', 'Sorted Index']).reset_index(drop=True)
     df['Timestamp'] = df['Timestamp'].dt.tz_localize(None)
+    sorted_index = df['Sorted Index'].copy()
     df.drop(columns='Sorted Index', inplace=True)
 
     if config['continuous_input_attributes']:
