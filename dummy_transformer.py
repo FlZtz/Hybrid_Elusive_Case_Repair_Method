@@ -21,8 +21,8 @@ def add_expert_input() -> None:
           "Do you want to predict the Case ID values using the event log that was used for training? (yes/no): " +
           "\033[1m" + "no\n" + "\033[0m" +
           "Please ensure the new event log and its name match the process used during training.\n"
-          "Enter the path to the file that contains the event log: " + "\033[1m" +
-          "logs/elusive/Hospital Billing - Event Log.xes\n" + "\033[0m" +
+          "Enter the path to the file that contains the event log: " +
+          "\033[1m" + "logs/elusive/renting_log_low.xes\n" + "\033[0m" +
           "XES file successfully read.\n" +
           "\033[3m" + "Data Loading" + "\033[0m")
 
@@ -32,7 +32,8 @@ def add_expert_input() -> None:
               "\033[1m" + "no" + "\033[0m")
 
     print("Please enter the minimum probability (in %) with which the Case ID must be determined in order for it to be "
-          "accepted: " + "\033[1m" + "25" + "\033[0m")
+          "accepted: " +
+          "\033[1m" + "25" + "\033[0m")
 
     if expert_knowledge:
         print("Please note that incorporating declarative rule checking may result in assumption-based modifications.\n"
@@ -95,21 +96,26 @@ def get_attribute(attribute: str, first: bool = True) -> None:
 
     if storage == 'Start Activity':
         print("Please enter the value(s) that represent(s) the attribute 'Start Activity' (separated by commas) –\n"
-              "Suggestions (proportion of cases with corresponding Activity as the Start Activity): NEW (100.00%):\n" +
-              "\033[1m" + "NEW" + "\033[0m")
-        print("Does 'NEW' always or sometimes represent the attribute 'Start Activity'?\n"
-              "Enter 'always' or 'sometimes': " + "\033[1m" + "always" + "\033[0m")
+              "Suggestions (proportion of cases with corresponding Activity as the Start Activity): "
+              "Apply for Viewing Appointment (100.00%):\n" +
+              "\033[1m" + "Apply for Viewing Appointment" + "\033[0m")
+        print("Does 'Apply for Viewing Appointment' always or sometimes represent the attribute 'Start Activity'?\n"
+              "Enter 'always' or 'sometimes': " +
+              "\033[1m" + "always" + "\033[0m")
     else:
         print("Please enter the value(s) that represent(s) the attribute 'End Activity' (separated by commas) –\n"
               "Suggestions (proportion of cases with corresponding Activity as the End Activity): "
-              "BILLED (63.50%), NEW (22.41%), DELETE (8.21%):\n" +
-              "\033[1m" + "BILLED, NEW, DELETE" + "\033[0m")
-        print("Does 'BILLED' always or sometimes represent the attribute 'End Activity'?\n"
-              "Enter 'always' or 'sometimes': " + "\033[1m" + "sometimes" + "\033[0m")
-        print("Does 'NEW' always or sometimes represent the attribute 'End Activity'?\n"
-              "Enter 'always' or 'sometimes': " + "\033[1m" + "sometimes" + "\033[0m")
-        print("Does 'DELETE' always or sometimes represent the attribute 'End Activity'?\n"
-              "Enter 'always' or 'sometimes': " + "\033[1m" + "sometimes" + "\033[0m")
+              "Reject Prospective Tenant (65.90%), Tenant Cancels Appartment (32.73%), Evict Tenant (1.37%):\n" +
+              "\033[1m" + "Reject Prospective Tenant, Tenant Cancels Appartment, Evict Tenant" + "\033[0m")
+        print("Does 'Reject Prospective Tenant' always or sometimes represent the attribute 'End Activity'?\n"
+              "Enter 'always' or 'sometimes': " +
+              "\033[1m" + "sometimes" + "\033[0m")
+        print("Does 'Tenant Cancels Appartment' always or sometimes represent the attribute 'End Activity'?\n"
+              "Enter 'always' or 'sometimes': " +
+              "\033[1m" + "sometimes" + "\033[0m")
+        print("Does 'Evict Tenant' always or sometimes represent the attribute 'End Activity'?\n"
+              "Enter 'always' or 'sometimes': " +
+              "\033[1m" + "sometimes" + "\033[0m")
 
     if first:
         expert_attribute = storage
@@ -455,15 +461,15 @@ def transformer_input() -> None:
     """
     global input_attributes
 
-    print("Do you want to use a specific response configuration file for model training? (yes/no): " + "\033[1m" +
-          "no\n\n" + "\033[0m" +
+    print("Do you want to use a specific response configuration file for model training? (yes/no): " +
+          "\033[1m" + "no\n\n" + "\033[0m" +
           "Configuration of model training\n"
-          "Enter the path to the file that contains the event log: " + "\033[1m" +
-          "logs/Hospital Billing - Event Log.xes\n" + "\033[0m" +
+          "Enter the path to the file that contains the event log: " +
+          "\033[1m" + "logs/renting_log_low.xes\n" + "\033[0m" +
           "XES file successfully read.")
 
-    attributes = input("Please enter the input attribute(s) for the transformer (separated by commas): " + "\033[1m" +
-                       "Activity, Timestamp, " + "\033[0m").strip().lower()
+    attributes = input("Please enter the input attribute(s) for the transformer (separated by commas): "
+                       "Activity, Timestamp, ").strip().lower()
 
     if attributes and attributes != 'resource':
         raise ValueError("Invalid input.")
