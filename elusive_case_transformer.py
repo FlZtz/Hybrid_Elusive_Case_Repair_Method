@@ -1,6 +1,7 @@
 # elusive_case_transformer.py - A dummy script to demonstrate the interaction between the user and the system.
 from typing import List
 
+from IPython.display import display
 import pandas as pd
 
 added_expert_knowledge: bool
@@ -42,7 +43,8 @@ def add_expert_input() -> None:
               "Do you want to proceed with ex post rule checking in this iteration? (yes/no): " +
               "\033[1m" + "no" + "\033[0m")
 
-    print("For 10.00% of the events, the Case ID has originally not been recorded.")
+    print("\nFor 90.00% of the events, the Case ID was originally recorded. This means that for 10.00% of the events, "
+          "or 9,644 events, no Case ID was originally recorded.")
 
     show_first_output()
 
@@ -308,7 +310,7 @@ def show_first_output() -> None:
     """
     Show the first output.
     """
-    print("\nRepair Iteration 1:\n")
+    print("\n" + "\033[1m" + "Repair Iteration 1:" + "\033[0m" + "\n")
 
     model = get_model()
 
@@ -322,9 +324,10 @@ def show_first_output() -> None:
             "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 9.87% of the events, the Case ID has not yet been determined.")
+        print("For 90.13% of the events, the Case ID has been determined, representing 125 more events than initially "
+              "recorded.")
     elif model == 2:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
@@ -335,9 +338,10 @@ def show_first_output() -> None:
             "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 9.96% of the events, the Case ID has not yet been determined.")
+        print("For 90.04% of the events, the Case ID has been determined, representing 38 more events than initially "
+              "recorded.")
     elif model == 3:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
@@ -348,9 +352,10 @@ def show_first_output() -> None:
             "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 9.86% of the events, the Case ID has not yet been determined.")
+        print("For 90.14% of the events, the Case ID has been determined, representing 135 more events than initially "
+              "recorded.")
     elif model == 4:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
@@ -363,9 +368,10 @@ def show_first_output() -> None:
                         ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 9.54% of the events, the Case ID has not yet been determined.")
+        print("For 90.46% of the events, the Case ID has been determined, representing 443 more events than initially "
+              "recorded.")
     elif model == 5:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
@@ -378,9 +384,10 @@ def show_first_output() -> None:
                         ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 9.87% of the events, the Case ID has not yet been determined.")
+        print("For 90.13% of the events, the Case ID has been determined, representing 125 more events than initially "
+              "recorded.")
     else:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
@@ -393,9 +400,10 @@ def show_first_output() -> None:
                         ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 9.56% of the events, the Case ID has not yet been determined.")
+        print("For 90.44% of the events, the Case ID has been determined, representing 424 more events than initially "
+              "recorded.")
 
     print('-' * 80)
 
@@ -404,7 +412,7 @@ def show_second_output() -> None:
     """
     Show the second output.
     """
-    print("\nRepair Iteration 2:\n")
+    print("\n" + "\033[1m" + "Repair Iteration 2:" + "\033[0m" + "\n")
 
     outcome = get_outcome()
 
@@ -421,9 +429,10 @@ def show_second_output() -> None:
             "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 1.14% of the events, the Case ID has not yet been determined.")
+        print("For 98.86% of the events, the Case ID has been determined, representing 8,554 more events than "
+              "initially recorded.")
     elif outcome == 2:
         df = pd.DataFrame({
             'Determined Case ID': [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -437,9 +446,10 @@ def show_second_output() -> None:
             'Timestamp': [pd.to_datetime('2015-01-05')] * 10,
             'Sorted Index': list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 9.84% of the events, the Case ID has not yet been determined.")
+        print("For 90.16% of the events, the Case ID has been determined, representing 154 more events than initially "
+              "recorded.")
     elif outcome == 3:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 6015],
@@ -453,9 +463,10 @@ def show_second_output() -> None:
             "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For all events, the Case ID has been determined.")
+        print("For 100.00% of the events, the Case ID has been determined, representing 9,644 more events than "
+              "initially recorded.")
         return
     elif outcome == 4:
         df = pd.DataFrame({
@@ -470,9 +481,10 @@ def show_second_output() -> None:
             "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 9.85% of the events, the Case ID has not yet been determined.")
+        print("For 90.15% of the events, the Case ID has been determined, representing 144 more events than initially "
+              "recorded.")
     elif outcome == 5:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -486,9 +498,10 @@ def show_second_output() -> None:
             "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 0.81% of the events, the Case ID has not yet been determined.")
+        print("For 99.19% of the events, the Case ID has been determined, representing 8,862 more events than "
+              "initially recorded.")
     elif outcome == 6:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -502,9 +515,10 @@ def show_second_output() -> None:
             "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 9.80% of the events, the Case ID has not yet been determined.")
+        print("For 90.20% of the events, the Case ID has been determined, representing 192 more events than initially "
+              "recorded.")
     elif outcome == 7:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 2112],
@@ -518,9 +532,10 @@ def show_second_output() -> None:
             "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For all events, the Case ID has been determined.")
+        print("For 100.00% of the events, the Case ID has been determined, representing 9,644 more events than "
+              "initially recorded.")
         return
     elif outcome == 8:
         df = pd.DataFrame({
@@ -535,9 +550,10 @@ def show_second_output() -> None:
             "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 9.87% of the events, the Case ID has not yet been determined.")
+        print("For 90.13% of the events, the Case ID has been determined, representing 125 more events than initially "
+              "recorded.")
     elif outcome == 9:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -551,9 +567,10 @@ def show_second_output() -> None:
             "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 1.35% of the events, the Case ID has not yet been determined.")
+        print("For 98.65% of the events, the Case ID has been determined, representing 8,342 more events than "
+              "initially recorded.")
     elif outcome == 10:
         df = pd.DataFrame({
             'Determined Case ID': [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -567,9 +584,10 @@ def show_second_output() -> None:
             'Timestamp': [pd.to_datetime('2015-01-05')] * 10,
             'Sorted Index': list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 9.94% of the events, the Case ID has not yet been determined.")
+        print("For 90.06% of the events, the Case ID has been determined, representing 57 more events than initially "
+              "recorded.")
     elif outcome == 11:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 3767],
@@ -583,9 +601,10 @@ def show_second_output() -> None:
             "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For all events, the Case ID has been determined.")
+        print("For 100.00% of the events, the Case ID has been determined, representing 9,644 more events than "
+              "initially recorded.")
         return
     elif outcome == 12:
         df = pd.DataFrame({
@@ -600,9 +619,10 @@ def show_second_output() -> None:
             "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 9.96% of the events, the Case ID has not yet been determined.")
+        print("For 90.04% of the events, the Case ID has been determined, representing 38 more events than initially "
+              "recorded.")
     elif outcome == 13:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 9875],
@@ -616,9 +636,10 @@ def show_second_output() -> None:
             "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 1.24% of the events, the Case ID has not yet been determined.")
+        print("For 98.76% of the events, the Case ID has been determined, representing 8,448 more events than"
+              "initially recorded.")
     elif outcome == 14:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873] + [float('nan')],
@@ -632,9 +653,10 @@ def show_second_output() -> None:
             "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 9.94% of the events, the Case ID has not yet been determined.")
+        print("For 90.06% of the events, the Case ID has been determined, representing 57 more events than initially "
+              "recorded.")
     elif outcome == 15:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 6789],
@@ -648,9 +670,10 @@ def show_second_output() -> None:
             "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For all events, the Case ID has been determined.")
+        print("For 100.00% of the events, the Case ID has been determined, representing 9,644 more events than "
+              "initially recorded.")
         return
     elif outcome == 16:
         df = pd.DataFrame({
@@ -665,9 +688,10 @@ def show_second_output() -> None:
             "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 9.96% of the events, the Case ID has not yet been determined.")
+        print("For 90.04% of the events, the Case ID has been determined, representing 38 more events than initially "
+              "recorded.")
     elif outcome == 17:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -681,9 +705,10 @@ def show_second_output() -> None:
             "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 0.84% of the events, the Case ID has not yet been determined.")
+        print("For 99.16% of the events, the Case ID has been determined, representing 8,833 more events than "
+              "initially recorded.")
     elif outcome == 18:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -697,9 +722,10 @@ def show_second_output() -> None:
             "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 9.82% of the events, the Case ID has not yet been determined.")
+        print("For 90.18% of the events, the Case ID has been determined, representing 173 more events than initially "
+              "recorded.")
     elif outcome == 19:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
@@ -713,9 +739,10 @@ def show_second_output() -> None:
             "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 1.19% of the events, the Case ID has not yet been determined.")
+        print("For 98.81% of the events, the Case ID has been determined, representing 8,496 more events than "
+              "initially recorded.")
     elif outcome == 20:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873] + [float('nan')],
@@ -729,9 +756,10 @@ def show_second_output() -> None:
             "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 9.86% of the events, the Case ID has not yet been determined.")
+        print("For 90.14% of the events, the Case ID has been determined, representing 135 more events than initially "
+              "recorded.")
     elif outcome == 21:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 945],
@@ -745,9 +773,10 @@ def show_second_output() -> None:
             "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For all events, the Case ID has been determined.")
+        print("For 100.00% of the events, the Case ID has been determined, representing 9,644 more events than "
+              "initially recorded.")
         return
     elif outcome == 22:
         df = pd.DataFrame({
@@ -762,9 +791,10 @@ def show_second_output() -> None:
             "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 9.86% of the events, the Case ID has not yet been determined.")
+        print("For 90.14% of the events, the Case ID has been determined, representing 135 more events than initially "
+              "recorded.")
     elif outcome == 23:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -780,9 +810,10 @@ def show_second_output() -> None:
                         ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 1.28% of the events, the Case ID has not yet been determined.")
+        print("For 98.72% of the events, the Case ID has been determined, representing 8,409 more events than "
+              "initially recorded.")
     elif outcome == 24:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -798,9 +829,10 @@ def show_second_output() -> None:
                         ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 9.52% of the events, the Case ID has not yet been determined.")
+        print("For 90.48% of the events, the Case ID has been determined, representing 462 more events than initially "
+              "recorded.")
     elif outcome == 25:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 608],
@@ -816,9 +848,10 @@ def show_second_output() -> None:
                         ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For all events, the Case ID has been determined.")
+        print("For 100.00% of the events, the Case ID has been determined, representing 9,644 more events than "
+              "initially recorded.")
         return
     elif outcome == 26:
         df = pd.DataFrame({
@@ -835,9 +868,10 @@ def show_second_output() -> None:
                         ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 9.53% of the events, the Case ID has not yet been determined.")
+        print("For 90.47% of the events, the Case ID has been determined, representing 453 more events than initially "
+              "recorded.")
     elif outcome == 27:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -853,9 +887,10 @@ def show_second_output() -> None:
                         ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 0.94% of the events, the Case ID has not yet been determined.")
+        print("For 99.06% of the events, the Case ID has been determined, representing 8,737 more events than "
+              "initially recorded.")
     elif outcome == 28:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -871,9 +906,10 @@ def show_second_output() -> None:
                         ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 9.50% of the events, the Case ID has not yet been determined.")
+        print("For 90.50% of the events, the Case ID has been determined, representing 482 more events than initially "
+              "recorded.")
     elif outcome == 29:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 6628],
@@ -889,9 +925,10 @@ def show_second_output() -> None:
                         ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For all events, the Case ID has been determined.")
+        print("For 100.00% of the events, the Case ID has been determined, representing 9,644 more events than "
+              "initially recorded.")
         return
     elif outcome == 30:
         df = pd.DataFrame({
@@ -908,9 +945,10 @@ def show_second_output() -> None:
                         ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 9.53% of the events, the Case ID has not yet been determined.")
+        print("For 90.47% of the events, the Case ID has been determined, representing 453 more events than initially "
+              "recorded.")
     elif outcome == 31:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -926,9 +964,10 @@ def show_second_output() -> None:
                         ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 1.30% of the events, the Case ID has not yet been determined.")
+        print("For 98.70% of the events, the Case ID has been determined, representing 8,390 more events than "
+              "initially recorded.")
     elif outcome == 32:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -944,9 +983,10 @@ def show_second_output() -> None:
                         ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 9.83% of the events, the Case ID has not yet been determined.")
+        print("For 90.17% of the events, the Case ID has been determined, representing 163 more events than initially "
+              "recorded.")
     elif outcome == 33:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 8652],
@@ -962,9 +1002,10 @@ def show_second_output() -> None:
                         ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For all events, the Case ID has been determined.")
+        print("For 100.00% of the events, the Case ID has been determined, representing 9,644 more events than "
+              "initially recorded.")
         return
     elif outcome == 34:
         df = pd.DataFrame({
@@ -981,9 +1022,10 @@ def show_second_output() -> None:
                         ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 9.86% of the events, the Case ID has not yet been determined.")
+        print("For 90.14% of the events, the Case ID has been determined, representing 135 more events than initially "
+              "recorded.")
     elif outcome == 35:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
@@ -999,9 +1041,10 @@ def show_second_output() -> None:
                         ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 1.19% of the events, the Case ID has not yet been determined.")
+        print("For 98.81% of the events, the Case ID has been determined, representing 8,496 more events than "
+              "initially recorded.")
     elif outcome == 36:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873] + [float('nan')],
@@ -1017,9 +1060,10 @@ def show_second_output() -> None:
                         ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 9.82% of the events, the Case ID has not yet been determined.")
+        print("For 90.18% of the events, the Case ID has been determined, representing 173 more events than initially "
+              "recorded.")
     elif outcome == 37:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 5459],
@@ -1035,9 +1079,10 @@ def show_second_output() -> None:
                         ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For all events, the Case ID has been determined.")
+        print("For 100.00% of the events, the Case ID has been determined, representing 9,644 more events than "
+              "initially recorded.")
         return
     elif outcome == 38:
         df = pd.DataFrame({
@@ -1054,9 +1099,10 @@ def show_second_output() -> None:
                         ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 9.83% of the events, the Case ID has not yet been determined.")
+        print("For 90.17% of the events, the Case ID has been determined, representing 163 more events than initially "
+              "recorded.")
     elif outcome == 39:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -1072,9 +1118,10 @@ def show_second_output() -> None:
                         ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 0.78% of the events, the Case ID has not yet been determined.")
+        print("For 99.22% of the events, the Case ID has been determined, representing 8,891 more events than "
+              "initially recorded.")
     elif outcome == 40:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -1090,9 +1137,10 @@ def show_second_output() -> None:
                         ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 9.48% of the events, the Case ID has not yet been determined.")
+        print("For 90.52% of the events, the Case ID has been determined, representing 501 more events than initially "
+              "recorded.")
     elif outcome == 41:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 9603],
@@ -1108,9 +1156,10 @@ def show_second_output() -> None:
                         ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 0.93% of the events, the Case ID has not yet been determined.")
+        print("For 99.07% of the events, the Case ID has been determined, representing 8,747 more events than "
+              "initially recorded.")
     elif outcome == 42:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873] + [float('nan')],
@@ -1126,9 +1175,10 @@ def show_second_output() -> None:
                         ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 9.53% of the events, the Case ID has not yet been determined.")
+        print("For 90.47% of the events, the Case ID has been determined, representing 453 more events than initially "
+              "recorded.")
     elif outcome == 43:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 2597],
@@ -1144,9 +1194,10 @@ def show_second_output() -> None:
                         ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For all events, the Case ID has been determined.")
+        print("For 100.00% of the events, the Case ID has been determined, representing 9,644 more events than "
+              "initially recorded.")
         return
     else:
         df = pd.DataFrame({
@@ -1163,9 +1214,10 @@ def show_second_output() -> None:
                         ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
             "Sorted Index": list(range(10))
         })
-        print(df)
+        display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 9.49% of the events, the Case ID has not yet been determined.")
+        print("For 90.51% of the events, the Case ID has been determined, representing 491 more events than initially "
+              "recorded.")
 
     print('-' * 80)
     print("Do you want to use the repaired log as the baseline for an additional repair? (yes/no): " +
