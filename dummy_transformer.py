@@ -1,6 +1,8 @@
 # dummy_transformer.py - A dummy script to demonstrate the interaction between the user and the system.
 from typing import List
 
+import pandas as pd
+
 added_expert_knowledge: bool
 expert_attribute: str
 expert_knowledge: bool
@@ -306,20 +308,94 @@ def show_first_output() -> None:
     """
     Show the first output.
     """
+    print("\nRepair Iteration 1:\n")
+
     model = get_model()
 
     if model == 1:
-        print("\033[3m" + "Output 1" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 10,
+            "Determination Follow-up Probability": [pd.NA] * 10,
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 9.87% of the events, the Case ID has not yet been determined.")
     elif model == 2:
-        print("\033[3m" + "Output 2" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 10,
+            "Determination Follow-up Probability": [pd.NA] * 10,
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 9.96% of the events, the Case ID has not yet been determined.")
     elif model == 3:
-        print("\033[3m" + "Output 3" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 10,
+            "Determination Follow-up Probability": [pd.NA] * 10,
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 9.86% of the events, the Case ID has not yet been determined.")
     elif model == 4:
-        print("\033[3m" + "Output 4" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 10,
+            "Determination Follow-up Probability": [pd.NA] * 10,
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Resource": ["Real Estate Agent 2"] + ["Hotline"] * 2 + ["Real Estate Agent 2"] * 3 +
+                        ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 9.54% of the events, the Case ID has not yet been determined.")
     elif model == 5:
-        print("\033[3m" + "Output 5" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 10,
+            "Determination Follow-up Probability": [pd.NA] * 10,
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Resource": ["Real Estate Agent 2"] + ["Hotline"] * 2 + ["Real Estate Agent 2"] * 3 +
+                        ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 9.87% of the events, the Case ID has not yet been determined.")
     else:
-        print("\033[3m" + "Output 6" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 10,
+            "Determination Follow-up Probability": [pd.NA] * 10,
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Resource": ["Real Estate Agent 2"] + ["Hotline"] * 2 + ["Real Estate Agent 2"] * 3 +
+                        ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 9.56% of the events, the Case ID has not yet been determined.")
 
     print('-' * 80)
 
@@ -328,96 +404,768 @@ def show_second_output() -> None:
     """
     Show the second output.
     """
+    print("\nRepair Iteration 2:\n")
+
     outcome = get_outcome()
 
     if outcome == 1:
-        print("\033[3m" + "Output 1" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            "Iteration Probability": [pd.NA] * 10,
+            "Iteration Follow-up Probability": [pd.NA] * 10,
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            "Determination Probability": [pd.NA] * 9 + [float('nan')],
+            "Determination Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 1.14% of the events, the Case ID has not yet been determined.")
     elif outcome == 2:
-        print("\033[3m" + "Output 2" + "\033[0m")
+        df = pd.DataFrame({
+            'Determined Case ID': [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            'Iteration Probability': [pd.NA] * 10,
+            'Iteration Follow-up Probability': [pd.NA] * 10,
+            'Previous Case ID': [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            'Determination Probability': [pd.NA] * 9 + [float('nan')],
+            'Determination Follow-up Probability': [pd.NA] * 9 + [float('nan')],
+            'Original Case ID': [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            'Activity': ['Apply for Viewing Appointment'] * 10,
+            'Timestamp': [pd.to_datetime('2015-01-05')] * 10,
+            'Sorted Index': list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 9.84% of the events, the Case ID has not yet been determined.")
     elif outcome == 3:
-        print("\033[3m" + "Output 3" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 6015],
+            "Iteration Probability": [pd.NA] * 9 + ["86.27%"],
+            "Iteration Follow-up Probability": [pd.NA] * 9 + ["0.35%"],
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 9 + [float('nan')],
+            "Determination Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For all events, the Case ID has been determined.")
+        return
     elif outcome == 4:
-        print("\033[3m" + "Output 4" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Iteration Probability": [pd.NA] * 10,
+            "Iteration Follow-up Probability": [pd.NA] * 10,
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 10,
+            "Determination Follow-up Probability": [pd.NA] * 10,
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 9.85% of the events, the Case ID has not yet been determined.")
     elif outcome == 5:
-        print("\033[3m" + "Output 5" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            "Iteration Probability": [pd.NA] * 10,
+            "Iteration Follow-up Probability": [pd.NA] * 10,
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            "Determination Probability": [pd.NA] * 9 + [float('nan')],
+            "Determination Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 0.81% of the events, the Case ID has not yet been determined.")
     elif outcome == 6:
-        print("\033[3m" + "Output 6" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            "Iteration Probability": [pd.NA] * 10,
+            "Iteration Follow-up Probability": [pd.NA] * 10,
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            "Determination Probability": [pd.NA] * 9 + [float('nan')],
+            "Determination Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 9.80% of the events, the Case ID has not yet been determined.")
     elif outcome == 7:
-        print("\033[3m" + "Output 7" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 2112],
+            "Iteration Probability": [pd.NA] * 9 + ["87.71%"],
+            "Iteration Follow-up Probability": [pd.NA] * 9 + ["0.18%"],
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 9 + [float('nan')],
+            "Determination Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For all events, the Case ID has been determined.")
+        return
     elif outcome == 8:
-        print("\033[3m" + "Output 8" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Iteration Probability": [pd.NA] * 10,
+            "Iteration Follow-up Probability": [pd.NA] * 10,
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 10,
+            "Determination Follow-up Probability": [pd.NA] * 10,
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 9.87% of the events, the Case ID has not yet been determined.")
     elif outcome == 9:
-        print("\033[3m" + "Output 9" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            "Iteration Probability": [pd.NA] * 10,
+            "Iteration Follow-up Probability": [pd.NA] * 10,
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            "Determination Probability": [pd.NA] * 9 + [float('nan')],
+            "Determination Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 1.35% of the events, the Case ID has not yet been determined.")
     elif outcome == 10:
-        print("\033[3m" + "Output 10" + "\033[0m")
+        df = pd.DataFrame({
+            'Determined Case ID': [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            'Iteration Probability': [pd.NA] * 10,
+            'Iteration Follow-up Probability': [pd.NA] * 10,
+            'Previous Case ID': [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            'Determination Probability': [pd.NA] * 9 + [float('nan')],
+            'Determination Follow-up Probability': [pd.NA] * 9 + [float('nan')],
+            'Original Case ID': [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            'Activity': ['Apply for Viewing Appointment'] * 10,
+            'Timestamp': [pd.to_datetime('2015-01-05')] * 10,
+            'Sorted Index': list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 9.94% of the events, the Case ID has not yet been determined.")
     elif outcome == 11:
-        print("\033[3m" + "Output 11" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 3767],
+            "Iteration Probability": [pd.NA] * 9 + ["94.50%"],
+            "Iteration Follow-up Probability": [pd.NA] * 9 + ["0.10%"],
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 9 + [float('nan')],
+            "Determination Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For all events, the Case ID has been determined.")
+        return
     elif outcome == 12:
-        print("\033[3m" + "Output 12" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Iteration Probability": [pd.NA] * 10,
+            "Iteration Follow-up Probability": [pd.NA] * 10,
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 10,
+            "Determination Follow-up Probability": [pd.NA] * 10,
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 9.96% of the events, the Case ID has not yet been determined.")
     elif outcome == 13:
-        print("\033[3m" + "Output 13" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 9875],
+            "Iteration Probability": [pd.NA] * 9 + ["98.60%"],
+            "Iteration Follow-up Probability": [pd.NA] * 9 + ["0.04%"],
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 9 + [float('nan')],
+            "Determination Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 1.24% of the events, the Case ID has not yet been determined.")
     elif outcome == 14:
-        print("\033[3m" + "Output 14" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873] + [float('nan')],
+            "Iteration Probability": [pd.NA] * 9 + [float('nan')],
+            "Iteration Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873] + [float('nan')],
+            "Determination Probability": [pd.NA] * 10,
+            "Determination Follow-up Probability": [pd.NA] * 10,
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873] + [float('nan')],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 9.94% of the events, the Case ID has not yet been determined.")
     elif outcome == 15:
-        print("\033[3m" + "Output 15" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 6789],
+            "Iteration Probability": [pd.NA] * 9 + ["96.54%"],
+            "Iteration Follow-up Probability": [pd.NA] * 9 + ["0.03%"],
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 9 + [float('nan')],
+            "Determination Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For all events, the Case ID has been determined.")
+        return
     elif outcome == 16:
-        print("\033[3m" + "Output 16" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Iteration Probability": [pd.NA] * 10,
+            "Iteration Follow-up Probability": [pd.NA] * 10,
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 10,
+            "Determination Follow-up Probability": [pd.NA] * 10,
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 9.96% of the events, the Case ID has not yet been determined.")
     elif outcome == 17:
-        print("\033[3m" + "Output 17" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            "Iteration Probability": [pd.NA] * 10,
+            "Iteration Follow-up Probability": [pd.NA] * 10,
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            "Determination Probability": [pd.NA] * 9 + [float('nan')],
+            "Determination Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 0.84% of the events, the Case ID has not yet been determined.")
     elif outcome == 18:
-        print("\033[3m" + "Output 18" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            "Iteration Probability": [pd.NA] * 10,
+            "Iteration Follow-up Probability": [pd.NA] * 10,
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            "Determination Probability": [pd.NA] * 9 + [float('nan')],
+            "Determination Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 9.82% of the events, the Case ID has not yet been determined.")
     elif outcome == 19:
-        print("\033[3m" + "Output 19" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Iteration Probability": [pd.NA] * 10,
+            "Iteration Follow-up Probability": [pd.NA] * 10,
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 9 + [float('nan')],
+            "Determination Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 1.19% of the events, the Case ID has not yet been determined.")
     elif outcome == 20:
-        print("\033[3m" + "Output 20" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873] + [float('nan')],
+            "Iteration Probability": [pd.NA] * 9 + [float('nan')],
+            "Iteration Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873] + [float('nan')],
+            "Determination Probability": [pd.NA] * 10,
+            "Determination Follow-up Probability": [pd.NA] * 10,
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873] + [float('nan')],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 9.86% of the events, the Case ID has not yet been determined.")
     elif outcome == 21:
-        print("\033[3m" + "Output 21" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 945],
+            "Iteration Probability": [pd.NA] * 9 + ["83.91%"],
+            "Iteration Follow-up Probability": [pd.NA] * 9 + ["0.23%"],
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 9 + [float('nan')],
+            "Determination Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For all events, the Case ID has been determined.")
+        return
     elif outcome == 22:
-        print("\033[3m" + "Output 22" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Iteration Probability": [pd.NA] * 10,
+            "Iteration Follow-up Probability": [pd.NA] * 10,
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 10,
+            "Determination Follow-up Probability": [pd.NA] * 10,
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 9.86% of the events, the Case ID has not yet been determined.")
     elif outcome == 23:
-        print("\033[3m" + "Output 23" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            "Iteration Probability": [pd.NA] * 10,
+            "Iteration Follow-up Probability": [pd.NA] * 10,
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            "Determination Probability": [pd.NA] * 9 + [float('nan')],
+            "Determination Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Resource": ["Real Estate Agent 2"] + ["Hotline"] * 2 + ["Real Estate Agent 2"] * 3 +
+                        ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 1.28% of the events, the Case ID has not yet been determined.")
     elif outcome == 24:
-        print("\033[3m" + "Output 24" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            "Iteration Probability": [pd.NA] * 10,
+            "Iteration Follow-up Probability": [pd.NA] * 10,
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            "Determination Probability": [pd.NA] * 9 + [float('nan')],
+            "Determination Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Resource": ["Real Estate Agent 2"] + ["Hotline"] * 2 + ["Real Estate Agent 2"] * 3 +
+                        ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 9.52% of the events, the Case ID has not yet been determined.")
     elif outcome == 25:
-        print("\033[3m" + "Output 25" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 608],
+            "Iteration Probability": [pd.NA] * 9 + ["91.79%"],
+            "Iteration Follow-up Probability": [pd.NA] * 9 + ["0.16%"],
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 9 + [float('nan')],
+            "Determination Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Resource": ["Real Estate Agent 2"] + ["Hotline"] * 2 + ["Real Estate Agent 2"] * 3 +
+                        ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For all events, the Case ID has been determined.")
+        return
     elif outcome == 26:
-        print("\033[3m" + "Output 26" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Iteration Probability": [pd.NA] * 10,
+            "Iteration Follow-up Probability": [pd.NA] * 10,
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 10,
+            "Determination Follow-up Probability": [pd.NA] * 10,
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Resource": ["Real Estate Agent 2"] + ["Hotline"] * 2 + ["Real Estate Agent 2"] * 3 +
+                        ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 9.53% of the events, the Case ID has not yet been determined.")
     elif outcome == 27:
-        print("\033[3m" + "Output 27" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            "Iteration Probability": [pd.NA] * 10,
+            "Iteration Follow-up Probability": [pd.NA] * 10,
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            "Determination Probability": [pd.NA] * 9 + [float('nan')],
+            "Determination Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Resource": ["Real Estate Agent 2"] + ["Hotline"] * 2 + ["Real Estate Agent 2"] * 3 +
+                        ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 0.94% of the events, the Case ID has not yet been determined.")
     elif outcome == 28:
-        print("\033[3m" + "Output 28" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            "Iteration Probability": [pd.NA] * 10,
+            "Iteration Follow-up Probability": [pd.NA] * 10,
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            "Determination Probability": [pd.NA] * 9 + [float('nan')],
+            "Determination Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Resource": ["Real Estate Agent 2"] + ["Hotline"] * 2 + ["Real Estate Agent 2"] * 3 +
+                        ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 9.50% of the events, the Case ID has not yet been determined.")
     elif outcome == 29:
-        print("\033[3m" + "Output 29" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 6628],
+            "Iteration Probability": [pd.NA] * 9 + ["93.36%"],
+            "Iteration Follow-up Probability": [pd.NA] * 9 + ["0.06%"],
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 9 + [float('nan')],
+            "Determination Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Resource": ["Real Estate Agent 2"] + ["Hotline"] * 2 + ["Real Estate Agent 2"] * 3 +
+                        ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For all events, the Case ID has been determined.")
+        return
     elif outcome == 30:
-        print("\033[3m" + "Output 30" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Iteration Probability": [pd.NA] * 10,
+            "Iteration Follow-up Probability": [pd.NA] * 10,
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 10,
+            "Determination Follow-up Probability": [pd.NA] * 10,
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Resource": ["Real Estate Agent 2"] + ["Hotline"] * 2 + ["Real Estate Agent 2"] * 3 +
+                        ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 9.53% of the events, the Case ID has not yet been determined.")
     elif outcome == 31:
-        print("\033[3m" + "Output 31" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            "Iteration Probability": [pd.NA] * 10,
+            "Iteration Follow-up Probability": [pd.NA] * 10,
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            "Determination Probability": [pd.NA] * 9 + [float('nan')],
+            "Determination Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Resource": ["Real Estate Agent 2"] + ["Hotline"] * 2 + ["Real Estate Agent 2"] * 3 +
+                        ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 1.30% of the events, the Case ID has not yet been determined.")
     elif outcome == 32:
-        print("\033[3m" + "Output 32" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            "Iteration Probability": [pd.NA] * 10,
+            "Iteration Follow-up Probability": [pd.NA] * 10,
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            "Determination Probability": [pd.NA] * 9 + [float('nan')],
+            "Determination Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Resource": ["Real Estate Agent 2"] + ["Hotline"] * 2 + ["Real Estate Agent 2"] * 3 +
+                        ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 9.83% of the events, the Case ID has not yet been determined.")
     elif outcome == 33:
-        print("\033[3m" + "Output 33" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 8652],
+            "Iteration Probability": [pd.NA] * 9 + ["95.70%"],
+            "Iteration Follow-up Probability": [pd.NA] * 9 + ["0.07%"],
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 9 + [float('nan')],
+            "Determination Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Resource": ["Real Estate Agent 2"] + ["Hotline"] * 2 + ["Real Estate Agent 2"] * 3 +
+                        ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For all events, the Case ID has been determined.")
+        return
     elif outcome == 34:
-        print("\033[3m" + "Output 34" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Iteration Probability": [pd.NA] * 10,
+            "Iteration Follow-up Probability": [pd.NA] * 10,
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 10,
+            "Determination Follow-up Probability": [pd.NA] * 10,
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Resource": ["Real Estate Agent 2"] + ["Hotline"] * 2 + ["Real Estate Agent 2"] * 3 +
+                        ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 9.86% of the events, the Case ID has not yet been determined.")
     elif outcome == 35:
-        print("\033[3m" + "Output 35" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Iteration Probability": [pd.NA] * 10,
+            "Iteration Follow-up Probability": [pd.NA] * 10,
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 9 + [float('nan')],
+            "Determination Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Resource": ["Real Estate Agent 2"] + ["Hotline"] * 2 + ["Real Estate Agent 2"] * 3 +
+                        ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 1.19% of the events, the Case ID has not yet been determined.")
     elif outcome == 36:
-        print("\033[3m" + "Output 36" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873] + [float('nan')],
+            "Iteration Probability": [pd.NA] * 9 + [float('nan')],
+            "Iteration Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873] + [float('nan')],
+            "Determination Probability": [pd.NA] * 10,
+            "Determination Follow-up Probability": [pd.NA] * 10,
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873] + [float('nan')],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Resource": ["Real Estate Agent 2"] + ["Hotline"] * 2 + ["Real Estate Agent 2"] * 3 +
+                        ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 9.82% of the events, the Case ID has not yet been determined.")
     elif outcome == 37:
-        print("\033[3m" + "Output 37" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 5459],
+            "Iteration Probability": [pd.NA] * 9 + ["93.77%"],
+            "Iteration Follow-up Probability": [pd.NA] * 9 + ["0.16%"],
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 9 + [float('nan')],
+            "Determination Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Resource": ["Real Estate Agent 2"] + ["Hotline"] * 2 + ["Real Estate Agent 2"] * 3 +
+                        ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For all events, the Case ID has been determined.")
+        return
     elif outcome == 38:
-        print("\033[3m" + "Output 38" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Iteration Probability": [pd.NA] * 10,
+            "Iteration Follow-up Probability": [pd.NA] * 10,
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 10,
+            "Determination Follow-up Probability": [pd.NA] * 10,
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Resource": ["Real Estate Agent 2"] + ["Hotline"] * 2 + ["Real Estate Agent 2"] * 3 +
+                        ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 9.83% of the events, the Case ID has not yet been determined.")
     elif outcome == 39:
-        print("\033[3m" + "Output 39" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            "Iteration Probability": [pd.NA] * 10,
+            "Iteration Follow-up Probability": [pd.NA] * 10,
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            "Determination Probability": [pd.NA] * 9 + [float('nan')],
+            "Determination Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Resource": ["Real Estate Agent 2"] + ["Hotline"] * 2 + ["Real Estate Agent 2"] * 3 +
+                        ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 0.78% of the events, the Case ID has not yet been determined.")
     elif outcome == 40:
-        print("\033[3m" + "Output 40" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            "Iteration Probability": [pd.NA] * 10,
+            "Iteration Follow-up Probability": [pd.NA] * 10,
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
+            "Determination Probability": [pd.NA] * 9 + [float('nan')],
+            "Determination Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Resource": ["Real Estate Agent 2"] + ["Hotline"] * 2 + ["Real Estate Agent 2"] * 3 +
+                        ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 9.48% of the events, the Case ID has not yet been determined.")
     elif outcome == 41:
-        print("\033[3m" + "Output 41" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 9603],
+            "Iteration Probability": [pd.NA] * 9 + ["93.77%"],
+            "Iteration Follow-up Probability": [pd.NA] * 9 + ["0.08%"],
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 9 + [float('nan')],
+            "Determination Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Resource": ["Real Estate Agent 2"] + ["Hotline"] * 2 + ["Real Estate Agent 2"] * 3 +
+                        ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 0.93% of the events, the Case ID has not yet been determined.")
     elif outcome == 42:
-        print("\033[3m" + "Output 42" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873] + [float('nan')],
+            "Iteration Probability": [pd.NA] * 9 + [float('nan')],
+            "Iteration Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873] + [float('nan')],
+            "Determination Probability": [pd.NA] * 10,
+            "Determination Follow-up Probability": [pd.NA] * 10,
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873] + [float('nan')],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Resource": ["Real Estate Agent 2"] + ["Hotline"] * 2 + ["Real Estate Agent 2"] * 3 +
+                        ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 9.53% of the events, the Case ID has not yet been determined.")
     elif outcome == 43:
-        print("\033[3m" + "Output 43" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 2597],
+            "Iteration Probability": [pd.NA] * 9 + ["75.55%"],
+            "Iteration Follow-up Probability": [pd.NA] * 9 + ["0.18%"],
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 9 + [float('nan')],
+            "Determination Follow-up Probability": [pd.NA] * 9 + [float('nan')],
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Resource": ["Real Estate Agent 2"] + ["Hotline"] * 2 + ["Real Estate Agent 2"] * 3 +
+                        ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For all events, the Case ID has been determined.")
+        return
     else:
-        print("\033[3m" + "Output 44" + "\033[0m")
+        df = pd.DataFrame({
+            "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Iteration Probability": [pd.NA] * 10,
+            "Iteration Follow-up Probability": [pd.NA] * 10,
+            "Previous Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Determination Probability": [pd.NA] * 10,
+            "Determination Follow-up Probability": [pd.NA] * 10,
+            "Original Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
+            "Activity": ["Apply for Viewing Appointment"] * 10,
+            "Timestamp": [pd.to_datetime('2015-01-05')] * 10,
+            "Resource": ["Real Estate Agent 2"] + ["Hotline"] * 2 + ["Real Estate Agent 2"] * 3 +
+                        ["Real Estate Agent 1"] + ["Hotline"] + ["Real Estate Agent 5"] + ["Real Estate Agent 1"],
+            "Sorted Index": list(range(10))
+        })
+        print(df)
+        print("\n... (+ 96430 more rows)\n")
+        print("For 9.49% of the events, the Case ID has not yet been determined.")
 
     print('-' * 80)
     print("Do you want to use the repaired log as the baseline for an additional repair? (yes/no): " +
