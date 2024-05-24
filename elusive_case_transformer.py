@@ -20,15 +20,6 @@ def add_expert_input() -> None:
     """
     global added_expert_knowledge, expert_knowledge
 
-    print("Configuration of log repair\n"
-          "Do you want to predict the Case ID values using the event log that was used for training? (yes/no): " +
-          "\033[1m" + "no\n" + "\033[0m" +
-          "Please ensure the new event log and its name match the process used during training.\n"
-          "Enter the path to the file that contains the event log: " +
-          "\033[1m" + "logs/elusive/renting_log_low.xes\n" + "\033[0m" +
-          "XES file successfully read.\n" +
-          "\033[3m" + "Data Loading" + "\033[0m")
-
     if expert_knowledge:
         print("Please note that incorporating declarative rule checking may result in assumption-based modifications.\n"
               "Do you want to proceed with ex ante rule checking in this iteration? (yes/no): " +
@@ -43,8 +34,8 @@ def add_expert_input() -> None:
               "Do you want to proceed with ex post rule checking in this iteration? (yes/no): " +
               "\033[1m" + "no" + "\033[0m")
 
-    print("\nFor 90.00% of the events, the Case ID was originally recorded. This means that for 10.00% of the events, "
-          "or 9,644 events, no Case ID was originally recorded.")
+    print("\n" + "\033[1m" + "For 90.00% of the events, the Case ID was originally recorded. This means that for "
+                             "10.00% of the events, or 9,644 events, no Case ID was originally recorded." + "\033[0m")
 
     show_first_output()
 
@@ -60,7 +51,7 @@ def add_expert_input() -> None:
 
     added_expert_knowledge = choice == 'yes'
 
-    print("\033[3m" + f"Expert attributes: {'Yes' if added_expert_knowledge else 'No'}" + "\033[0m")
+    provide_added_expert_input()
 
 
 def expert_input() -> None:
@@ -76,7 +67,7 @@ def expert_input() -> None:
 
     expert_knowledge = choice == 'yes'
 
-    print("\033[3m" + f"Expert attributes: {'Yes' if expert_knowledge else 'No'}" + "\033[0m")
+    provide_expert_input()
 
 
 def get_attribute(attribute: str, first: bool = True) -> None:
@@ -95,8 +86,6 @@ def get_attribute(attribute: str, first: bool = True) -> None:
         storage = 'Start Activity'
     else:
         storage = 'End Activity'
-
-    print("\033[3m" + f"Expert attribute: {storage}" + "\033[0m")
 
     if storage == 'Start Activity':
         print("Please enter the value(s) that represent(s) the attribute 'Start Activity' (separated by commas) –\n"
@@ -237,14 +226,15 @@ def provide_added_expert_input() -> None:
             print("Following expert attributes are available: Start Activity, End Activity and Directly Following.\n"
                   "Please enter the attribute(s) for which you have expert knowledge (separated by commas): " +
                   "\033[1m" + "End Activity" + "\033[0m")
-            new_expert_attribute = 'End Activity'
+            attribute = 'end activity'
         else:
             print("Following expert attributes are available: Start Activity, End Activity and Directly Following.\n"
                   "Please enter the attribute(s) for which you have expert knowledge (separated by commas): " +
                   "\033[1m" + "Start Activity" + "\033[0m")
-            new_expert_attribute = 'Start Activity'
+            attribute = 'start activity'
 
         predetermined = True
+        get_attribute(attribute, False)
         return
 
     attribute = input("Following expert attributes are available: Start Activity, End Activity and Directly "
@@ -303,8 +293,6 @@ def rule_check() -> None:
 
     rule_checking = choice == 'yes'
 
-    print("\033[3m" + f"Rule checking: {'Yes' if rule_checking else 'No'}" + "\033[0m")
-
 
 def show_first_output() -> None:
     """
@@ -326,8 +314,8 @@ def show_first_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 90.13% of the events, the Case ID has been determined, representing 125 more events than initially "
-              "recorded.")
+        print("\033[1m" + "For 90.13% of the events, the Case ID has been determined, representing 125 more events "
+                          "than initially recorded." + "\033[0m")
     elif model == 2:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
@@ -340,8 +328,8 @@ def show_first_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 90.04% of the events, the Case ID has been determined, representing 38 more events than initially "
-              "recorded.")
+        print("\033[1m" + "For 90.04% of the events, the Case ID has been determined, representing 38 more events than "
+                          "initially recorded." + "\033[0m")
     elif model == 3:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
@@ -354,8 +342,8 @@ def show_first_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 90.14% of the events, the Case ID has been determined, representing 135 more events than initially "
-              "recorded.")
+        print("\033[1m" + "For 90.14% of the events, the Case ID has been determined, representing 135 more events "
+                          "than initially recorded." + "\033[0m")
     elif model == 4:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
@@ -370,8 +358,8 @@ def show_first_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 90.46% of the events, the Case ID has been determined, representing 443 more events than initially "
-              "recorded.")
+        print("\033[1m" + "For 90.46% of the events, the Case ID has been determined, representing 443 more events "
+                          "than initially recorded." + "\033[0m")
     elif model == 5:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
@@ -386,8 +374,8 @@ def show_first_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 90.13% of the events, the Case ID has been determined, representing 125 more events than initially "
-              "recorded.")
+        print("\033[1m" + "For 90.13% of the events, the Case ID has been determined, representing 125 more events "
+                          "than initially recorded." + "\033[0m")
     else:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
@@ -402,8 +390,8 @@ def show_first_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 90.44% of the events, the Case ID has been determined, representing 424 more events than initially "
-              "recorded.")
+        print("\033[1m" + "For 90.44% of the events, the Case ID has been determined, representing 424 more events "
+                          "than initially recorded.")
 
     print('-' * 80)
 
@@ -431,8 +419,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 98.86% of the events, the Case ID has been determined, representing 8,554 more events than "
-              "initially recorded.")
+        print("\033[1m" + "For 98.86% of the events, the Case ID has been determined, representing 8,554 more events "
+                          "than initially recorded." + "\033[0m")
     elif outcome == 2:
         df = pd.DataFrame({
             'Determined Case ID': [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -448,8 +436,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 90.16% of the events, the Case ID has been determined, representing 154 more events than initially "
-              "recorded.")
+        print("\033[1m" + "For 90.16% of the events, the Case ID has been determined, representing 154 more events "
+                          "than initially recorded." + "\033[0m")
     elif outcome == 3:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 6015],
@@ -465,8 +453,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 100.00% of the events, the Case ID has been determined, representing 9,644 more events than "
-              "initially recorded.")
+        print("\033[1m" + "For 100.00% of the events, the Case ID has been determined, representing 9,644 more events "
+                          "than initially recorded." + "\033[0m")
         return
     elif outcome == 4:
         df = pd.DataFrame({
@@ -483,8 +471,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 90.15% of the events, the Case ID has been determined, representing 144 more events than initially "
-              "recorded.")
+        print("\033[1m" + "For 90.15% of the events, the Case ID has been determined, representing 144 more events "
+                          "than initially recorded." + "\033[0m")
     elif outcome == 5:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -500,8 +488,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 99.19% of the events, the Case ID has been determined, representing 8,862 more events than "
-              "initially recorded.")
+        print("\033[1m" + "For 99.19% of the events, the Case ID has been determined, representing 8,862 more events "
+                          "than initially recorded." + "\033[0m")
     elif outcome == 6:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -517,8 +505,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 90.20% of the events, the Case ID has been determined, representing 192 more events than initially "
-              "recorded.")
+        print("\033[1m" + "For 90.20% of the events, the Case ID has been determined, representing 192 more events "
+                          "than initially recorded." + "\033[0m")
     elif outcome == 7:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 2112],
@@ -534,8 +522,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 100.00% of the events, the Case ID has been determined, representing 9,644 more events than "
-              "initially recorded.")
+        print("\033[1m" + "For 100.00% of the events, the Case ID has been determined, representing 9,644 more events "
+                          "than initially recorded." + "\033[0m")
         return
     elif outcome == 8:
         df = pd.DataFrame({
@@ -552,8 +540,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 90.13% of the events, the Case ID has been determined, representing 125 more events than initially "
-              "recorded.")
+        print("\033[1m" + "For 90.13% of the events, the Case ID has been determined, representing 125 more events "
+                          "than initially recorded." + "\033[0m")
     elif outcome == 9:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -569,8 +557,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 98.65% of the events, the Case ID has been determined, representing 8,342 more events than "
-              "initially recorded.")
+        print("\033[1m" + "For 98.65% of the events, the Case ID has been determined, representing 8,342 more events "
+                          "than initially recorded." + "\033[0m")
     elif outcome == 10:
         df = pd.DataFrame({
             'Determined Case ID': [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -586,8 +574,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 90.06% of the events, the Case ID has been determined, representing 57 more events than initially "
-              "recorded.")
+        print("\033[1m" + "For 90.06% of the events, the Case ID has been determined, representing 57 more events than "
+                          "initially recorded." + "\033[0m")
     elif outcome == 11:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 3767],
@@ -603,8 +591,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 100.00% of the events, the Case ID has been determined, representing 9,644 more events than "
-              "initially recorded.")
+        print("\033[1m" + "For 100.00% of the events, the Case ID has been determined, representing 9,644 more events "
+                          "than initially recorded." + "\033[0m")
         return
     elif outcome == 12:
         df = pd.DataFrame({
@@ -621,8 +609,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 90.04% of the events, the Case ID has been determined, representing 38 more events than initially "
-              "recorded.")
+        print("\033[1m" + "For 90.04% of the events, the Case ID has been determined, representing 38 more events than "
+                          "initially recorded." + "\033[0m")
     elif outcome == 13:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 9875],
@@ -638,8 +626,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 98.76% of the events, the Case ID has been determined, representing 8,448 more events than"
-              "initially recorded.")
+        print("\033[1m" + "For 98.76% of the events, the Case ID has been determined, representing 8,448 more events "
+                          "than initially recorded." + "\033[0m")
     elif outcome == 14:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873] + [float('nan')],
@@ -655,8 +643,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 90.06% of the events, the Case ID has been determined, representing 57 more events than initially "
-              "recorded.")
+        print("\033[1m" + "For 90.06% of the events, the Case ID has been determined, representing 57 more events than "
+                          "initially recorded." + "\033[0m")
     elif outcome == 15:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 6789],
@@ -672,8 +660,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 100.00% of the events, the Case ID has been determined, representing 9,644 more events than "
-              "initially recorded.")
+        print("\033[1m" + "For 100.00% of the events, the Case ID has been determined, representing 9,644 more events "
+                          "than initially recorded." + "\033[0m")
         return
     elif outcome == 16:
         df = pd.DataFrame({
@@ -690,8 +678,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 90.04% of the events, the Case ID has been determined, representing 38 more events than initially "
-              "recorded.")
+        print("\033[1m" + "For 90.04% of the events, the Case ID has been determined, representing 38 more events than "
+                          "initially recorded." + "\033[0m")
     elif outcome == 17:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -707,8 +695,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 99.16% of the events, the Case ID has been determined, representing 8,833 more events than "
-              "initially recorded.")
+        print("\033[1m" + "For 99.16% of the events, the Case ID has been determined, representing 8,833 more events "
+                          "than initially recorded." + "\033[0m")
     elif outcome == 18:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -724,8 +712,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 90.18% of the events, the Case ID has been determined, representing 173 more events than initially "
-              "recorded.")
+        print("\033[1m" + "For 90.18% of the events, the Case ID has been determined, representing 173 more events "
+                          "than initially recorded." + "\033[0m")
     elif outcome == 19:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
@@ -741,8 +729,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 98.81% of the events, the Case ID has been determined, representing 8,496 more events than "
-              "initially recorded.")
+        print("\033[1m" + "For 98.81% of the events, the Case ID has been determined, representing 8,496 more events "
+                          "than initially recorded." + "\033[0m")
     elif outcome == 20:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873] + [float('nan')],
@@ -758,8 +746,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 90.14% of the events, the Case ID has been determined, representing 135 more events than initially "
-              "recorded.")
+        print("\033[1m" + "For 90.14% of the events, the Case ID has been determined, representing 135 more events "
+                          "than initially recorded." + "\033[0m")
     elif outcome == 21:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 945],
@@ -775,8 +763,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 100.00% of the events, the Case ID has been determined, representing 9,644 more events than "
-              "initially recorded.")
+        print("\033[1m" + "For 100.00% of the events, the Case ID has been determined, representing 9,644 more events "
+                          "than initially recorded." + "\033[0m")
         return
     elif outcome == 22:
         df = pd.DataFrame({
@@ -793,8 +781,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 90.14% of the events, the Case ID has been determined, representing 135 more events than initially "
-              "recorded.")
+        print("\033[1m" + "For 90.14% of the events, the Case ID has been determined, representing 135 more events "
+                          "than initially recorded." + "\033[0m")
     elif outcome == 23:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -812,8 +800,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 98.72% of the events, the Case ID has been determined, representing 8,409 more events than "
-              "initially recorded.")
+        print("\033[1m" + "For 98.72% of the events, the Case ID has been determined, representing 8,409 more events "
+                          "than initially recorded." + "\033[0m")
     elif outcome == 24:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -831,8 +819,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 90.48% of the events, the Case ID has been determined, representing 462 more events than initially "
-              "recorded.")
+        print("\033[1m" + "For 90.48% of the events, the Case ID has been determined, representing 462 more events "
+                          "than initially recorded." + "\033[0m")
     elif outcome == 25:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 608],
@@ -850,8 +838,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 100.00% of the events, the Case ID has been determined, representing 9,644 more events than "
-              "initially recorded.")
+        print("\033[1m" + "For 100.00% of the events, the Case ID has been determined, representing 9,644 more events "
+                          "than initially recorded." + "\033[0m")
         return
     elif outcome == 26:
         df = pd.DataFrame({
@@ -870,8 +858,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 90.47% of the events, the Case ID has been determined, representing 453 more events than initially "
-              "recorded.")
+        print("\033[1m" + "For 90.47% of the events, the Case ID has been determined, representing 453 more events "
+                          "than initially recorded." + "\033[0m")
     elif outcome == 27:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -889,8 +877,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 99.06% of the events, the Case ID has been determined, representing 8,737 more events than "
-              "initially recorded.")
+        print("\033[1m" + "For 99.06% of the events, the Case ID has been determined, representing 8,737 more events "
+                          "than initially recorded." + "\033[0m")
     elif outcome == 28:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -908,8 +896,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 90.50% of the events, the Case ID has been determined, representing 482 more events than initially "
-              "recorded.")
+        print("\033[1m" + "For 90.50% of the events, the Case ID has been determined, representing 482 more events "
+                          "than initially recorded." + "\033[0m")
     elif outcome == 29:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 6628],
@@ -927,8 +915,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 100.00% of the events, the Case ID has been determined, representing 9,644 more events than "
-              "initially recorded.")
+        print("\033[1m" + "For 100.00% of the events, the Case ID has been determined, representing 9,644 more events "
+                          "than initially recorded." + "\033[0m")
         return
     elif outcome == 30:
         df = pd.DataFrame({
@@ -947,8 +935,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 90.47% of the events, the Case ID has been determined, representing 453 more events than initially "
-              "recorded.")
+        print("\033[1m" + "For 90.47% of the events, the Case ID has been determined, representing 453 more events "
+                          "than initially recorded." + "\033[0m")
     elif outcome == 31:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -966,8 +954,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 98.70% of the events, the Case ID has been determined, representing 8,390 more events than "
-              "initially recorded.")
+        print("\033[1m" + "For 98.70% of the events, the Case ID has been determined, representing 8,390 more events "
+                          "than initially recorded." + "\033[0m")
     elif outcome == 32:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -985,8 +973,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 90.17% of the events, the Case ID has been determined, representing 163 more events than initially "
-              "recorded.")
+        print("\033[1m" + "For 90.17% of the events, the Case ID has been determined, representing 163 more events "
+                          "than initially recorded." + "\033[0m")
     elif outcome == 33:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 8652],
@@ -1004,8 +992,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 100.00% of the events, the Case ID has been determined, representing 9,644 more events than "
-              "initially recorded.")
+        print("\033[1m" + "For 100.00% of the events, the Case ID has been determined, representing 9,644 more events "
+                          "than initially recorded." + "\033[0m")
         return
     elif outcome == 34:
         df = pd.DataFrame({
@@ -1024,8 +1012,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 90.14% of the events, the Case ID has been determined, representing 135 more events than initially "
-              "recorded.")
+        print("\033[1m" + "For 90.14% of the events, the Case ID has been determined, representing 135 more events "
+                          "than initially recorded." + "\033[0m")
     elif outcome == 35:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, pd.NA],
@@ -1043,8 +1031,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 98.81% of the events, the Case ID has been determined, representing 8,496 more events than "
-              "initially recorded.")
+        print("\033[1m" + "For 98.81% of the events, the Case ID has been determined, representing 8,496 more events "
+                          "than initially recorded." + "\033[0m")
     elif outcome == 36:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873] + [float('nan')],
@@ -1062,8 +1050,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 90.18% of the events, the Case ID has been determined, representing 173 more events than initially "
-              "recorded.")
+        print("\033[1m" + "For 90.18% of the events, the Case ID has been determined, representing 173 more events "
+                          "than initially recorded." + "\033[0m")
     elif outcome == 37:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 5459],
@@ -1081,8 +1069,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 100.00% of the events, the Case ID has been determined, representing 9,644 more events than "
-              "initially recorded.")
+        print("\033[1m" + "For 100.00% of the events, the Case ID has been determined, representing 9,644 more events "
+                          "than initially recorded." + "\033[0m")
         return
     elif outcome == 38:
         df = pd.DataFrame({
@@ -1101,8 +1089,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 90.17% of the events, the Case ID has been determined, representing 163 more events than initially "
-              "recorded.")
+        print("\033[1m" + "For 90.17% of the events, the Case ID has been determined, representing 163 more events "
+                          "than initially recorded." + "\033[0m")
     elif outcome == 39:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -1120,8 +1108,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 99.22% of the events, the Case ID has been determined, representing 8,891 more events than "
-              "initially recorded.")
+        print("\033[1m" + "For 99.22% of the events, the Case ID has been determined, representing 8,891 more events "
+                          "than initially recorded." + "\033[0m")
     elif outcome == 40:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 190],
@@ -1139,8 +1127,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 90.52% of the events, the Case ID has been determined, representing 501 more events than initially "
-              "recorded.")
+        print("\033[1m" + "For 90.52% of the events, the Case ID has been determined, representing 501 more events "
+                          "than initially recorded." + "\033[0m")
     elif outcome == 41:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 9603],
@@ -1158,8 +1146,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 99.07% of the events, the Case ID has been determined, representing 8,747 more events than "
-              "initially recorded.")
+        print("\033[1m" + "For 99.07% of the events, the Case ID has been determined, representing 8,747 more events "
+                          "than initially recorded." + "\033[0m")
     elif outcome == 42:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873] + [float('nan')],
@@ -1177,8 +1165,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 90.47% of the events, the Case ID has been determined, representing 453 more events than initially "
-              "recorded.")
+        print("\033[1m" + "For 90.47% of the events, the Case ID has been determined, representing 453 more events "
+                          "than initially recorded." + "\033[0m")
     elif outcome == 43:
         df = pd.DataFrame({
             "Determined Case ID": [5144, 8244, 4155, 869, 52, 3467, 1249, 5514, 1873, 2597],
@@ -1196,8 +1184,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 100.00% of the events, the Case ID has been determined, representing 9,644 more events than "
-              "initially recorded.")
+        print("\033[1m" + "For 100.00% of the events, the Case ID has been determined, representing 9,644 more events "
+                          "than initially recorded." + "\033[0m")
         return
     else:
         df = pd.DataFrame({
@@ -1216,8 +1204,8 @@ def show_second_output() -> None:
         })
         display(df)
         print("\n... (+ 96430 more rows)\n")
-        print("For 90.51% of the events, the Case ID has been determined, representing 491 more events than initially "
-              "recorded.")
+        print("\033[1m" + "For 90.51% of the events, the Case ID has been determined, representing 491 more events "
+                          "than initially recorded." + "\033[0m")
 
     print('-' * 80)
     print("Do you want to use the repaired log as the baseline for an additional repair? (yes/no): " +
@@ -1243,8 +1231,6 @@ def threshold() -> None:
 
     threshold_value = value
 
-    print("\033[3m" + f"Threshold value: {threshold_value}" + "\033[0m")
-
     if expert_knowledge or added_expert_knowledge:
         suffix = 'yes' if rule_checking else 'no'
 
@@ -1261,13 +1247,6 @@ def transformer_input() -> None:
     """
     global input_attributes
 
-    print("Do you want to use a specific response configuration file for model training? (yes/no): " +
-          "\033[1m" + "no\n\n" + "\033[0m" +
-          "Configuration of model training\n"
-          "Enter the path to the file that contains the event log: " +
-          "\033[1m" + "logs/renting_log_low.xes\n" + "\033[0m" +
-          "XES file successfully read.")
-
     attributes = input("Please enter the input attribute(s) for the transformer (separated by commas): "
                        "Activity, Timestamp, ").strip().lower()
 
@@ -1278,5 +1257,3 @@ def transformer_input() -> None:
         input_attributes = ['Activity', 'Timestamp']
     else:
         input_attributes = ['Activity', 'Timestamp', 'Resource']
-
-    print("\033[3m" + f"Input attributes for the transformer: {', '.join(input_attributes)}" + "\033[0m")
