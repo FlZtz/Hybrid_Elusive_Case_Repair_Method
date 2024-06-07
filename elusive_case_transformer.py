@@ -1,17 +1,19 @@
 # elusive_case_transformer.py - A dummy script to demonstrate the interaction between the user and the system.
 from typing import List
 
-from IPython.display import display
+import ipywidgets as widgets
+from IPython.display import display, clear_output
 import pandas as pd
+import time
 
-added_expert_knowledge: bool
-expert_attribute: str
-expert_knowledge: bool
-input_attributes: List[str]
-new_expert_attribute: str
-predetermined: bool
-rule_checking: bool
-threshold_value: float
+added_expert_knowledge: bool = False
+expert_attribute: str = ''
+expert_knowledge: bool = False
+input_attributes: List[str] = []
+new_expert_attribute: str = ''
+predetermined: bool = False
+rule_checking: bool = False
+threshold_value: float = 0.0
 
 
 def add_expert_input() -> None:
@@ -19,103 +21,168 @@ def add_expert_input() -> None:
     Add expert input.
     """
     global added_expert_knowledge, expert_knowledge
+    
+    # Display messages using widgets
+    messages = [
+        "Please note that incorporating declarative rule checking may result in assumption-based modifications.\n"
+        "Do you want to proceed with ex ante rule checking in this iteration? <b> no </b>\n\n",
+        "Please enter the minimum confidence (in %) with which the Case ID must be determined in order for it to be "
+        "accepted: <b> 25.00</b>",
+        "Please note that incorporating declarative rule checking may result in assumption-based modifications.\n"
+        "Do you want to proceed with ex post rule checking in this iteration? <b> no </b>\n\n",
+        "<b>For 90.00% of the events, the Case ID was originally recorded. This means that for "
+        "10.00% of the events, or 9,644 events, no Case ID was originally recorded.</b>\n\n",
+        "Do you want to use the repaired log as the baseline for an additional repair? <b> yes </b>\n\n",
+        "Do you want to keep the probability threshold for the next repair? <b> no </b>\n\n",
+        "Do you want to add one or more expert attributes?"
+    ]
+    
+    # Define widgets
+    labels = [widgets.HTML(value=message) for message in messages]
+    input_boxes = widgets.RadioButtons(options=['Yes', 'No'], description='', disabled=False) 
+    
+    submit_button = widgets.Button(description='Submit')
 
-    if expert_knowledge:
-        print("Please note that incorporating declarative rule checking may result in assumption-based modifications.\n"
-              "Do you want to proceed with ex ante rule checking in this iteration? (yes/no): " +
-              "\033[1m" + "no" + "\033[0m")
+    # Define a function to handle the button click event
+    def on_submit_button_click(button) -> None:
+        """
+        Handle the button click event.
 
-    print("Please enter the minimum probability (in %) with which the Case ID must be determined in order for it to be "
-          "accepted: " +
-          "\033[1m" + "25" + "\033[0m")
+        :param button: Button widget.
+        """
+        global added_expert_knowledge
+        
+        # Retrieve the input values
+        added_expert_knowledge = input_boxes.value.lower() == 'yes'
+        provide_added_expert_input()
 
-    if expert_knowledge:
-        print("Please note that incorporating declarative rule checking may result in assumption-based modifications.\n"
-              "Do you want to proceed with ex post rule checking in this iteration? (yes/no): " +
-              "\033[1m" + "no" + "\033[0m")
+    # Attach the button click event to the handler function
+    submit_button.on_click(on_submit_button_click)
 
-    print("\n" + "\033[1m" + "For 90.00% of the events, the Case ID was originally recorded. This means that for "
-                             "10.00% of the events, or 9,644 events, no Case ID was originally recorded." + "\033[0m")
-
+    # Display the widgets
+    display(*labels[0:4])
     show_first_output()
+    display(*labels[4:], input_boxes, submit_button)
 
-    print("Do you want to use the repaired log as the baseline for an additional repair? (yes/no): " +
-          "\033[1m" + "yes\n" + "\033[0m" +
-          "Do you want to keep the probability threshold for the next repair? (yes/no): " +
-          "\033[1m" + "no\n" + "\033[0m")
 
-    choice = input("Do you want to add one or more expert attributes? (yes/no): ").strip().lower()
+def display_end_activity_text() -> None:
+    """
+    Display text for End Activity input.
+    """
+    end_activity_text = widgets.HTML(
+        value="Please enter the value(s) that represent(s) the attribute 'End Activity' (separated by commas) –<br>"
+              "Suggestions (proportion of cases with corresponding Activity as the End Activity):<br>"
+              "Reject Prospective Tenant (65.90%), Tenant Cancels Appartment (32.73%), "
+              "Evict Tenant (1.37%):<br>"
+              "<b>Reject Prospective Tenant, Tenant Cancels Appartment, Evict Tenant</b><br>"
+              "Does 'Reject Prospective Tenant' always or sometimes represent the attribute 'End Activity'?<br>"
+              "<b>sometimes</b><br>"
+              "Does 'Tenant Cancels Appartment' always or sometimes represent the attribute 'End Activity'?<br>"
+              "<b>sometimes</b><br>"
+              "Does 'Evict Tenant' always or sometimes represent the attribute 'End Activity'?<br>"
+              "<b>sometimes</b>"
+    )
+    display(end_activity_text)
 
-    if not choice or choice not in ['yes', 'no']:
-        raise ValueError("Invalid choice.")
 
-    added_expert_knowledge = choice == 'yes'
+def display_expert_attribute_radiobox() -> None:
+    """
+    Display a radio button group for selecting expert attribute.
+    """
+    instr = widgets.HTML(value="<b>Choose the expert attribute you want to define:</b>")
+    # Define a radio button group for expert attributes
+    expert_attribute_radio = widgets.RadioButtons(
+        options=['Start Activity', 'End Activity'],
+        disabled=False
+    )
 
-    provide_added_expert_input()
+    # Define a submit button
+    submit_button = widgets.Button(description='Submit')
+
+    # Define a function to handle the button click event
+    def on_submit_button_click(button) -> None:
+        """
+        Handle the button click event.
+
+        :param button: Button widget.
+        """
+        global expert_knowledge, expert_attribute
+
+        if expert_attribute_radio.value:
+            if expert_attribute_radio.value == 'Start Activity':
+                display_start_activity_text()
+                training_progress()
+                expert_attribute = 'Start Activity'
+            elif expert_attribute_radio.value == 'End Activity':
+                display_end_activity_text()
+                training_progress()
+                expert_attribute = 'End Activity'
+
+    # Attach the button click event to the handler function
+    submit_button.on_click(on_submit_button_click)
+
+    # Display the radio buttons and submit button
+    display(instr, expert_attribute_radio, submit_button)
+
+
+def display_start_activity_text() -> None:
+    """
+    Display text for Start Activity input.
+    """
+    start_activity_text = widgets.HTML(
+        value="Please enter the value(s) that represent(s) the attribute 'Start Activity' (separated by commas) –<br>"
+              "Suggestions (proportion of cases with corresponding Activity as the Start Activity): "
+              "Apply for Viewing Appointment (100.00%):<b><br>Apply for Viewing Appointment</b><br>"
+              "Does 'Apply for Viewing Appointment' always or sometimes represent the attribute 'Start Activity'?<br>"
+              "<b>always</b>"
+    )
+    display(start_activity_text)
 
 
 def expert_input() -> None:
     """
-    Provide expert input.
+    Display a widget for expert attribute input.
     """
     global expert_knowledge
 
-    choice = input("Do you want to add one or more expert attributes? (yes/no): ").strip().lower()
+    # Define the instruction text
+    instructions_text = widgets.HTML(value="<b>Do you want to add expert attributes?</b>")
 
-    if not choice or choice not in ['yes', 'no']:
-        raise ValueError("Invalid choice.")
+    # Define radio buttons for yes/no choice
+    choice_radio = widgets.RadioButtons(
+        options=['Yes', 'No'],
+        description='Choice:',
+        disabled=False
+    )
 
-    expert_knowledge = choice == 'yes'
+    # Define a submit button
+    submit_button = widgets.Button(description='Submit')
 
-    provide_expert_input()
+    # Define a function to handle the button click event
+    def on_submit_button_click(button) -> None:
+        """
+        Handle the button click event.
 
+        :param button: Button widget.
+        """
+        global expert_attribute, expert_knowledge
+        if choice_radio.value == 'No':
+            print("\033[3m" + "No expert attributes provided, please proceed." + "\033[0m")
+            expert_attribute = ''
+            expert_knowledge = False
+            training_progress()
 
-def get_attribute(attribute: str, first: bool = True) -> None:
-    """
-    Get the expert attribute values.
+        else:
+            expert_knowledge = True
+            display_expert_attribute_radiobox()
 
-    :param attribute: User input for the expert attribute.
-    :param first: Flag indicating whether it is the first function call. Default is True.
-    """
-    global expert_attribute, new_expert_attribute
+    # Attach the button click event to the handler function
+    submit_button.on_click(on_submit_button_click)
 
-    if not attribute or attribute not in ['start activity', 'end activity']:
-        raise ValueError("Invalid input.")
-
-    if attribute == 'start activity':
-        storage = 'Start Activity'
-    else:
-        storage = 'End Activity'
-
-    if storage == 'Start Activity':
-        print("Please enter the value(s) that represent(s) the attribute 'Start Activity' (separated by commas) –\n"
-              "Suggestions (proportion of cases with corresponding Activity as the Start Activity): "
-              "Apply for Viewing Appointment (100.00%):\n" +
-              "\033[1m" + "Apply for Viewing Appointment" + "\033[0m")
-        print("Does 'Apply for Viewing Appointment' always or sometimes represent the attribute 'Start Activity'?\n"
-              "Enter 'always' or 'sometimes': " +
-              "\033[1m" + "always" + "\033[0m")
-    else:
-        print("Please enter the value(s) that represent(s) the attribute 'End Activity' (separated by commas) –\n"
-              "Suggestions (proportion of cases with corresponding Activity as the End Activity): "
-              "Reject Prospective Tenant (65.90%), Tenant Cancels Appartment (32.73%), Evict Tenant (1.37%):\n" +
-              "\033[1m" + "Reject Prospective Tenant, Tenant Cancels Appartment, Evict Tenant" + "\033[0m")
-        print("Does 'Reject Prospective Tenant' always or sometimes represent the attribute 'End Activity'?\n"
-              "Enter 'always' or 'sometimes': " +
-              "\033[1m" + "sometimes" + "\033[0m")
-        print("Does 'Tenant Cancels Appartment' always or sometimes represent the attribute 'End Activity'?\n"
-              "Enter 'always' or 'sometimes': " +
-              "\033[1m" + "sometimes" + "\033[0m")
-        print("Does 'Evict Tenant' always or sometimes represent the attribute 'End Activity'?\n"
-              "Enter 'always' or 'sometimes': " +
-              "\033[1m" + "sometimes" + "\033[0m")
-
-    if first:
-        expert_attribute = storage
-    else:
-        new_expert_attribute = storage
-
-
+    # Display the widgets
+    display(instructions_text, choice_radio, submit_button)
+    
+    
 def get_model() -> int:
     """
     Get the model.
@@ -222,47 +289,64 @@ def provide_added_expert_input() -> None:
         return
 
     if expert_knowledge:
-        if expert_attribute == 'Start Activity':
-            print("Following expert attributes are available: Start Activity, End Activity and Directly Following.\n"
-                  "Please enter the attribute(s) for which you have expert knowledge (separated by commas): " +
-                  "\033[1m" + "End Activity" + "\033[0m")
-            attribute = 'end activity'
-        else:
-            print("Following expert attributes are available: Start Activity, End Activity and Directly Following.\n"
-                  "Please enter the attribute(s) for which you have expert knowledge (separated by commas): " +
-                  "\033[1m" + "Start Activity" + "\033[0m")
-            attribute = 'start activity'
-
         predetermined = True
-        get_attribute(attribute, False)
-        return
 
-    attribute = input("Following expert attributes are available: Start Activity, End Activity and Directly "
-                      "Following.\n"
-                      "Please enter the attribute(s) for which you have expert knowledge "
-                      "(separated by commas): ").strip().lower()
+    # Display the previously given expert attribute if any
+    expert_attribute_widget = widgets.HTML(value=f"<b>Previously given expert attribute:</b> "
+                                                 f"{expert_attribute}" if expert_attribute else "")
+    print(expert_attribute)
 
-    get_attribute(attribute, False)
+    # Define checkboxes for expert attributes
+    start_activity_checkbox = widgets.Checkbox(
+        value=expert_attribute == 'Start Activity',
+        description='Start Activity',
+        disabled=expert_attribute == 'Start Activity',
+        layout={'opacity': '1.0' if expert_attribute in ['Start Activity', 'End Activity'] else '0.5'}
+    )
+    end_activity_checkbox = widgets.Checkbox(
+        value=expert_attribute == 'End Activity',
+        description='End Activity',
+        disabled=expert_attribute == 'End Activity',
+        layout={'opacity': '1.0' if expert_attribute in ['Start Activity', 'End Activity'] else '0.5'}
+    )
+    directly_follows_checkbox = widgets.Checkbox(
+        value=False,
+        description='Directly Following',
+        disabled=True,
+        layout={'opacity': '0.5'}
+    )
 
+    # Define a submit button
+    submit_button = widgets.Button(description='Submit')
 
-def provide_expert_input() -> None:
-    """
-    Provide expert input.
-    """
-    global expert_attribute, expert_knowledge
+    # Define a function to handle the button click event
+    def on_submit_button_click(button) -> None:
+        """
+        Handle the button click event.
 
-    expert_attribute = ''
+        :param button: Button widget.
+        """
+        global expert_attribute, new_expert_attribute
 
-    if not expert_knowledge:
-        print("\033[3m" + "No expert attributes provided." + "\033[0m")
-        return
+        if expert_attribute == 'Start Activity':
+            new_expert_attribute = 'End Activity'
+            display_end_activity_text()
+        elif expert_attribute == 'End Activity':
+            new_expert_attribute = 'Start Activity'
+            display_start_activity_text()
+        elif end_activity_checkbox.value:
+            new_expert_attribute = 'End Activity'
+            display_end_activity_text()
+        else:
+            new_expert_attribute = 'Start Activity'
+            display_start_activity_text()
 
-    attribute = input("Following expert attributes are available: Start Activity, End Activity and Directly "
-                      "Following.\n"
-                      "Please enter the attribute(s) for which you have expert knowledge "
-                      "(separated by commas): ").strip().lower()
+    # Attach the button click event to the handler function
+    submit_button.on_click(on_submit_button_click)
 
-    get_attribute(attribute)
+    # Display the widgets
+    display(expert_attribute_widget, start_activity_checkbox, end_activity_checkbox, directly_follows_checkbox,
+            submit_button)
 
 
 def rule_check() -> None:
@@ -1222,12 +1306,14 @@ def threshold() -> None:
                   "it to be accepted: ").strip()
 
     if not value.isdigit():
-        raise ValueError("Invalid input.")
+        print("Invalid input.")
+        return
 
     value = float(value)
 
     if value != 0 and value != 50:
-        raise ValueError("Invalid input.")
+        print("Invalid input.")
+        return
 
     threshold_value = value
 
@@ -1241,19 +1327,77 @@ def threshold() -> None:
     show_second_output()
 
 
+def training_progress() -> None:
+    """
+    Display training progress.
+    """
+    # Define an Output widget to display the progress text
+    progress_output = widgets.Output()
+
+    # Define a function to update the progress text
+    def update_progress_text() -> None:
+        """
+        Update the progress text.
+        """
+        with progress_output:
+            print("Transformer training in progress", end="", flush=True)
+            for _ in range(5):  # Repeat animation for 5 seconds
+                for _ in range(4):  # Animate three dots
+                    time.sleep(0.5)
+                    print(".", end="", flush=True)
+                time.sleep(0.5)
+                print("\b\b\b   \b\b\b", end="", flush=True)  # Clear the dots
+            print("\u2713")  # Check mark symbol
+            # time.sleep(2)  # Keep the check mark visible for 2 seconds
+            # clear_output()  # Clear the output
+
+    # Display the Output widget
+    display(progress_output)
+
+    # Start the animation
+    update_progress_text()
+
+
 def transformer_input() -> None:
     """
-    Get the input attributes for the transformer.
+    Create an interactive form for selecting input attributes for the transformer.
     """
     global input_attributes
+    
+    # Define the instruction text
+    instructions = widgets.HTML(value="<b>Please choose which additional attributes should be incorporated when "
+                                      "training the transformer:</b>")
+    
+    # Define the checkboxes and button
+    activity_checkbox = widgets.Checkbox(value=True, description='Activity', disabled=True)
+    timestamp_checkbox = widgets.Checkbox(value=True, description='Timestamp', disabled=True)
+    resource_checkbox = widgets.Checkbox(value=False, description='Resource')
+    submit_button = widgets.Button(description='Submit')
 
-    attributes = input("Please enter the input attribute(s) for the transformer (separated by commas): "
-                       "Activity, Timestamp, ").strip().lower()
+    # Define a function to handle the button click event
+    def on_button_click(b) -> None:
+        """
+        Handle the button click event.
 
-    if attributes and attributes != 'resource':
-        raise ValueError("Invalid input.")
+        :param b: The button widget.
+        """
+        global input_attributes  # Ensure we modify the global variable
+        attributes = []
+        
+        # Add mandatory attributes (already selected and disabled)
+        attributes.extend(['Activity', 'Timestamp'])
+        
+        # Check if Resource checkbox is selected
+        if resource_checkbox.value:
+            attributes.append('Resource')
+        
+        input_attributes = attributes
+        
+        # Display the selected attributes
+        print(f"Selected input attributes: {input_attributes}")
 
-    if not attributes:
-        input_attributes = ['Activity', 'Timestamp']
-    else:
-        input_attributes = ['Activity', 'Timestamp', 'Resource']
+    # Attach the button click event to the handler function
+    submit_button.on_click(on_button_click)
+
+    # Display the instructions, checkboxes, and button
+    display(instructions, activity_checkbox, timestamp_checkbox, resource_checkbox, submit_button)
