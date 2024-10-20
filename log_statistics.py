@@ -19,6 +19,7 @@ def get_log_statistics(log: pd.DataFrame) -> dict:
         "number_of_events": len(log),
         "number_of_variants": len(variants_filter.get_variants(log)),
         "average_event_count_per_trace": case_counts.mean(),
+        "std_dev_event_count_per_trace": case_counts.std(),
         "number_of_cases": case_counts.size,
     }
     return stats
@@ -47,6 +48,7 @@ def run_log_statistics() -> None:
         print(f"Number of events in the log: {stats['number_of_events']}")
         print(f"Number of variants in the log: {stats['number_of_variants']}")
         print(f"Average event count per trace: {int(stats['average_event_count_per_trace'])}")
+        print(f"Standard deviation of event count per trace: {int(stats['std_dev_event_count_per_trace'])}")
         print(f"Number of cases in the log: {stats['number_of_cases']}")
     except FileNotFoundError:
         print(f"Error: The file '{file_path}' was not found.")
