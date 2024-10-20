@@ -46,7 +46,7 @@ def run_log_statistics() -> None:
 
         print(f"Number of events in the log: {stats['number_of_events']}")
         print(f"Number of variants in the log: {stats['number_of_variants']}")
-        print(f"Average event count per trace: {stats['average_event_count_per_trace']:.2f}")
+        print(f"Average event count per trace: {int(stats['average_event_count_per_trace'])}")
         print(f"Number of cases in the log: {stats['number_of_cases']}")
     except FileNotFoundError:
         print(f"Error: The file '{file_path}' was not found.")
