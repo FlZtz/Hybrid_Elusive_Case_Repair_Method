@@ -1,4 +1,4 @@
-# Elusive Case Transformer
+# Hybrid Elusive Case Repair Method
 
 ## Overview
 
@@ -49,10 +49,14 @@ pip install -r requirements.txt
      https://doi.org/10.5281/zenodo.8059488
    - You can also use your own dataset.
 
-2. Execute the `log_preparation.py` script to prepare the event log for training and evaluation. This script will 
-   generate a training and test dataset from the original event log.
+2. Execute the `log_preparation.py` script to prepare the event log for training and evaluation.
    ```bash
    python log_preparation.py
+   ```
+   
+3. (Optional) Run the `log_statistics.py` script to calculate statistics from the event log.
+   ```bash
+   python log_statistics.py
    ```
 
 ### Training
@@ -72,7 +76,7 @@ pip install -r requirements.txt
 
 1. Open `quality_metrics.ipynb` using Jupyter Notebook or any compatible environment.
 
-2. Run the cells in the notebook to evaluate the performance of the trained model on a test dataset.
+2. Run the cells in the notebook to evaluate the performance of the trained model on a dataset.
 
 3. Analyse the evaluation results and make any necessary adjustments to improve the model's performance.
 
@@ -89,9 +93,9 @@ To create an executable (.exe) file for the `train.py` script, you can use pyins
 
 3. Run the following command to create a standalone executable:
    ```bash
-    pyinstaller --onefile -n ElusiveRepairer --distpath . train.py
+    pyinstaller --onefile -n HERE --distpath . train.py
    ```
-   This will generate an executable named `ElusiveRepairer.exe` in the current directory.
+   This will generate an executable named `HERE.exe` in the current directory.
 
 ## File Descriptions
 
@@ -104,7 +108,7 @@ To create an executable (.exe) file for the `train.py` script, you can use pyins
 - `model.py`: Contains the implementation of the Transformer model.
 - `prototype_interaction.ipynb`: Jupyter Notebook for dummy interaction with the system.
 - `quality_metrics.ipynb`: Jupyter Notebook for evaluating the trained model.
-- `README.md`: This file.
+- `README.md`: This file. Contains an overview of the project.
 - `requirements.txt`: Lists the required Python packages.
 - `train.py`: Script for training the Transformer model.
 
