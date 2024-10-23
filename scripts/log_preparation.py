@@ -7,7 +7,7 @@ import pandas as pd
 import pm4py
 from pm4py.objects.conversion.log import converter as log_converter
 
-from config import extract_log_name
+from src.config import extract_log_name
 
 
 def prepare_logs(file_path: str, elusive_percentage: float = 0.1) -> None:
@@ -22,8 +22,8 @@ def prepare_logs(file_path: str, elusive_percentage: float = 0.1) -> None:
             raise FileNotFoundError("The provided path does not point to a valid file.")
 
         file_name = extract_log_name(file_path)
-        result_folder = 'logs/created'
-        result_folder_elusive = 'logs/created/elusive'
+        result_folder = '../logs/created'
+        result_folder_elusive = '../logs/created/elusive'
         result_csv_file = f'{file_name}.csv'
         result_xes_file = f'{file_name}.xes'
 

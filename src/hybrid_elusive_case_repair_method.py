@@ -1,4 +1,4 @@
-# elusive_case_transformer.py - A dummy script to demonstrate the interaction between the user and the system.
+# hybrid_elusive_case_repair_method.py - A dummy script to demonstrate the interaction between the user and the system.
 from typing import List
 
 import ipywidgets as widgets

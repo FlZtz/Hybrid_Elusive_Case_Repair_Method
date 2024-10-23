@@ -22,8 +22,8 @@ using a transformer model.
 
 ## Introduction
 
-This project involves training a Transformer model using `train.py` and then evaluating the results using 
-`quality_metrics.ipynb`. Follow the steps below to get started.
+This project involves training a Transformer model using `scripts/train.py` and then evaluating the results using 
+`notebooks/quality_metrics.ipynb`. Follow the steps below to get started.
 
 ## Requirements
 
@@ -49,21 +49,21 @@ pip install -r requirements.txt
      https://doi.org/10.5281/zenodo.8059488
    - You can also use your own dataset.
 
-2. Execute the `log_preparation.py` script to prepare the event log for training and evaluation.
+2. Execute the `scripts/log_preparation.py` script to prepare the event log for training and evaluation.
    ```bash
-   python log_preparation.py
+   python scripts/log_preparation.py
    ```
    
-3. (Optional) Run the `log_statistics.py` script to calculate statistics from the event log.
+3. (Optional) Run the `scripts/log_statistics.py` script to calculate statistics from the event log.
    ```bash
-   python log_statistics.py
+   python scripts/log_statistics.py
    ```
 
 ### Training
 
-1. Execute the `train.py` script to train the model.
+1. Execute the `scripts/train.py` script to train the model.
    ```bash
-   python train.py
+   python scripts/train.py
    ```
 
 2. The script will prompt you to provide an event log in XES format as input for training. Please ensure that your 
@@ -74,7 +74,7 @@ pip install -r requirements.txt
 
 ### Evaluation
 
-1. Open `quality_metrics.ipynb` using Jupyter Notebook or any compatible environment.
+1. Open `notebooks/quality_metrics.ipynb` using Jupyter Notebook or any compatible environment.
 
 2. Run the cells in the notebook to evaluate the performance of the trained model on a dataset.
 
@@ -82,39 +82,42 @@ pip install -r requirements.txt
 
 ### Creating Executable
 
-To create an executable (.exe) file for the `train.py` script, you can use pyinstaller. Follow these steps:
+To create an executable (.exe) file for the `scripts/train.py` script, you can use pyinstaller. Follow these steps:
 
 1. Install `pyinstaller` if you haven't already:
    ```bash
     pip install pyinstaller
    ```
    
-2. Navigate to the project directory containing `train.py`.
+2. Navigate to the project directory containing `scripts/train.py`.
 
 3. Run the following command to create a standalone executable:
    ```bash
-    pyinstaller --onefile -n HERE --distpath . train.py
+    pyinstaller --onefile -n HERE --distpath . scripts/train.py
    ```
    This will generate an executable named `HERE.exe` in the current directory.
 
 ## File Descriptions
 
-- `config.py`: Configuration file for the model.
-- `dataset.py`: Implementation of the dataset loader.
-- `elusive_case_transformer.py`: Dummy implementation of the interaction with the system.
+- `notebooks/`: Contains Jupyter Notebooks for interaction and evaluation.
+  - `prototype_interaction.ipynb`: Dummy interaction with the system.
+  - `quality_metrics.ipynb`: Evaluation of the trained model.
+- `scripts/`: Contains Python scripts for data preparation, statistics, and training.
+  - `log_preparation.py`: Script for preparing the event log dataset.
+  - `log_statistics.py`: Calculates statistics from XES event logs.
+  - `train.py`: Script for training the Transformer model.
+- `src/`: Contains the source code files for the project.
+  - `config.py`: Configuration file for the model.
+  - `dataset.py`: Implementation of the dataset loader.
+  - `hybrid_elusive_case_repair.py`: Dummy implementation of the interaction with the system.
+  - `model.py`: Contains the implementation of the Transformer model.
 - `LICENSE.md`: License file (MIT).
-- `log_preparation.py`: Script for preparing the event log dataset.
-- `log_statistics.py`: Calculates statistics from XES event logs.
-- `model.py`: Contains the implementation of the Transformer model.
-- `prototype_interaction.ipynb`: Jupyter Notebook for dummy interaction with the system.
-- `quality_metrics.ipynb`: Jupyter Notebook for evaluating the trained model.
 - `README.md`: This file. Contains an overview of the project.
 - `requirements.txt`: Lists the required Python packages.
-- `train.py`: Script for training the Transformer model.
 
 ## Results
 
-The results can be seen in the `quality_metrics.ipynb` notebook.
+The results can be seen in the `notebooks/quality_metrics.ipynb` notebook.
 
 ## Dependencies
 
@@ -126,4 +129,4 @@ See the [LICENSE](LICENSE.md) file for license rights and limitations (MIT).
 
 ## References
 
-The training algorithm used in `train.py` is based on https://youtu.be/ISNdQcPhsts.
+The training algorithm used in `scripts/train.py` is based on https://youtu.be/ISNdQcPhsts.
