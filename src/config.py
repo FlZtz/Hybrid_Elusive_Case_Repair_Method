@@ -31,6 +31,7 @@ cached_df_copy: Optional[pd.DataFrame] = None
 complete_expert_attributes: List[str] = []
 complete_expert_values: dict = {}
 complete_log: Optional[pd.DataFrame] = None
+count: int = 0
 determination_probability: Optional[pd.DataFrame] = None
 expert_attributes: dict = {
     'Start Activity': {'type': 'unary', 'attribute': 'Activity'},
@@ -753,7 +754,7 @@ def read_file(path: str, file_type: str = "event log") -> None:
     :param path: File path.
     :param file_type: Type of file to read. Supported types are "event log" & "configuration". Defaults to "event log".
     """
-    global input_config, log, missing_placeholder, missing_placeholder_xes
+    global count, input_config, log, missing_placeholder, missing_placeholder_xes
 
     if file_type == "event log":
         if not path.endswith('.xes'):
@@ -762,6 +763,13 @@ def read_file(path: str, file_type: str = "event log") -> None:
         file = pm4py.read_xes(path)
         log = log_converter.apply(file, variant=log_converter.Variants.TO_DATA_FRAME)
         log.replace(missing_placeholder_xes, missing_placeholder, inplace=True)
+
+        # Only delete rows with missing_placeholder the first time read_file is called (log used for training)
+        if count == 0:
+            log = log[log['case:concept:name'] != missing_placeholder]
+
+        count += 1
+
         print("XES file successfully read.")
 
     elif file_type == "configuration":
