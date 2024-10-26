@@ -13,6 +13,7 @@ using a transformer model.
   - [Data Preparation (Optional)](#data-preparation-optional)
   - [Training](#training)
   - [Evaluation](#evaluation)
+  - [Prototype Interaction](#prototype-interaction)
   - [Creating Executable](#creating-executable)
 - [File Descriptions](#file-descriptions)
 - [Results](#results)
@@ -79,6 +80,27 @@ pip install -r requirements.txt
 2. Run the cells in the notebook to evaluate the performance of the trained model on a dataset.
 
 3. Analyse the evaluation results and make any necessary adjustments to improve the model's performance.
+
+### Prototype Interaction
+
+1. Ensure you have Jupyter Notebook installed. If not, you can install it using:
+    ```bash
+    pip install notebook
+    ```
+   
+2. Navigate to the directory containing the `prototype_interaction.ipynb` notebook:
+    ```bash
+    cd path/to/your/notebook
+    ```
+   
+3. Start the Jupyter Notebook server:
+    ```bash
+    jupyter notebook
+    ```
+
+4. Open your web browser and go to the URL displayed in the terminal (usually `http://localhost:8888`).
+
+5. In the Jupyter Notebook interface, open the `prototype_interaction.ipynb` notebook to interact with the system.
 
 ### Creating Executable
 
