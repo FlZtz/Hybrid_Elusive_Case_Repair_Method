@@ -2,8 +2,8 @@
 
 ## Overview
 
-This code can be used to repair the elusive case in event logs, i.e. (missing) case IDs of an event log are determined 
-using a transformer model.
+This project provides a method to repair elusive cases in event logs by determining missing case IDs using a 
+Transformer model.
 
 ## Table of Contents
 
@@ -23,12 +23,12 @@ using a transformer model.
 
 ## Introduction
 
-This project involves training a Transformer model using `scripts/train.py` and then evaluating the results using 
+This project involves training a Transformer model using `scripts/train.py` and evaluating the results using 
 `notebooks/quality_metrics.ipynb`. Follow the steps below to get started.
 
 ## Requirements
 
-Make sure to install the required dependencies before running the code:
+Install the required dependencies before running the code:
 
 ```bash
 pip install -r requirements.txt
@@ -38,8 +38,8 @@ pip install -r requirements.txt
 
 ### Data Preparation (Optional)
 
-1. Download the event log dataset in XES format that you want to use for training and evaluation. You can use the 
-   following datasets for testing:
+1. Download the event log dataset in XES format for training and evaluation. You can use the following datasets for 
+   testing:
    - Running Example (requests for compensation within an airline):
      https://pm4py.fit.fraunhofer.de/static/assets/examples/running-example.xes
    - Review Example Large (reviewing process of a paper for a journal):
@@ -54,11 +54,13 @@ pip install -r requirements.txt
    ```bash
    python scripts/log_preparation.py
    ```
+   **Hint**: Ensure your run configuration is set to the folder where the `scripts/log_preparation.py` file is located.
    
 3. (Optional) Run the `scripts/log_statistics.py` script to calculate statistics from the event log.
    ```bash
    python scripts/log_statistics.py
    ```
+   **Hint**: Ensure your run configuration is set to the folder where the `scripts/log_statistics.py` file is located.
 
 ### Training
 
@@ -66,12 +68,12 @@ pip install -r requirements.txt
    ```bash
    python scripts/train.py
    ```
+   **Hint**: Ensure your run configuration is set to the folder where the `scripts/train.py` file is located.
 
-2. The script will prompt you to provide an event log in XES format as input for training. Please ensure that your 
-   event log is formatted correctly and follows the specified structure.
+2. Provide an event log in XES format as input for training. Ensure the event log is formatted correctly.
 
-3. The training process may take some time depending on the size of the dataset and the complexity of the model. Once 
-   completed, the trained model will be saved for further evaluation.
+3. The training process may take some time depending on the dataset size and model complexity. Once completed, the 
+   trained model will be saved for further evaluation.
 
 ### Evaluation
 
@@ -83,7 +85,7 @@ pip install -r requirements.txt
 
 ### Prototype Interaction
 
-1. Ensure you have Jupyter Notebook installed. If not, you can install it using:
+1. Ensure you have Jupyter Notebook installed. If not, install it using:
     ```bash
     pip install notebook
     ```
@@ -104,7 +106,7 @@ pip install -r requirements.txt
 
 ### Creating Executable
 
-To create an executable (.exe) file for the `scripts/train.py` script, you can use pyinstaller. Follow these steps:
+To create an executable (.exe) file for the `scripts/train.py` script, use pyinstaller:
 
 1. Install `pyinstaller` if you haven't already:
    ```bash
