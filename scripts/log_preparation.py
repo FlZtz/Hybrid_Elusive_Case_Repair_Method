@@ -1,10 +1,10 @@
 # log_preparation.py - Prepare logs for training and testing the model.
 import os
 
-from dateutil import parser
 import numpy as np
 import pandas as pd
 import pm4py
+from dateutil import parser
 from pm4py.objects.conversion.log import converter as log_converter
 
 from src.config import extract_log_name
@@ -17,12 +17,10 @@ def prepare_logs(file_path: str, elusive_percentage: float = 0.1) -> None:
     :param file_path: Path to the XES file that contains the log.
     :param elusive_percentage: Percentage of rows to set empty in the elusive log. Default is 0.1.
     """
-    try:
-        if not os.path.isfile(file_path):
-            raise FileNotFoundError("The provided path does not point to a valid file.")
-        if not file_path.endswith('.xes'):
-            raise ValueError("The provided file is not a valid XES file.")
+    if not (os.path.isfile(file_path) and file_path.endswith('.xes')):
+        raise ValueError("The provided path does not point to a valid XES file.")
 
+    try:
         file_name = extract_log_name(file_path)
         result_folder = '../logs/created'
         result_folder_elusive = '../logs/created/elusive'
@@ -54,10 +52,6 @@ def prepare_logs(file_path: str, elusive_percentage: float = 0.1) -> None:
         pm4py.write_xes(elusive_log, os.path.join(result_folder_elusive, result_xes_file))
 
         print("Logs prepared successfully.")
-    except FileNotFoundError as fnf_error:
-        print(f"File not found: {fnf_error}")
-    except ValueError as val_error:
-        print(f"Value error: {val_error}")
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
 
