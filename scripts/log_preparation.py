@@ -36,7 +36,7 @@ def prepare_logs(file_path: str, elusive_percentage: float = 0.1) -> None:
         log = log.sort_values(['time:timestamp']).reset_index(drop=True)
         log['time:timestamp'] = log['time:timestamp'].dt.tz_localize(None)
 
-        log = log[~log['case:concept:name'].isin(['UNK', 'PAD', 'SOS', 'EOS'])]
+        log = log[~log['case:concept:name'].isin(['UNK', 'PAD', 'SOS', 'EOS', 'NONE'])]
 
         log['Sorted Index'] = log.index
 
