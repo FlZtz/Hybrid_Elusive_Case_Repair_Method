@@ -1,15 +1,15 @@
 # config.py - Configuration parameters and utility functions for the model.
 import os
+import tkinter as tk
 from pathlib import Path
+from tkinter import filedialog
 from typing import Iterator, List, Optional, Tuple, Union
 
-from dateutil import parser
 import pandas as pd
 import pm4py
+from dateutil import parser
 from pm4py.algo.discovery.dfg import algorithm as dfg_algorithm
 from pm4py.objects.conversion.log import converter as log_converter
-import tkinter as tk
-from tkinter import filedialog
 
 attribute_config: dict = {
     'Case ID': {'mapping': 'case:concept:name', 'property': 'discrete'},
@@ -767,8 +767,6 @@ def read_file(path: str, file_type: str = "event log") -> None:
         # Only delete rows with missing_placeholder the first time read_file is called (log used for training)
         if count == 0:
             log = log[log['case:concept:name'] != missing_placeholder]
-
-        # TODO: log = log ohne SOS, EOS, UNK, PAD
 
         count += 1
 

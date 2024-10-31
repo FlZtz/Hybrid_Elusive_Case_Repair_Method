@@ -15,11 +15,13 @@ def prepare_logs(file_path: str, elusive_percentage: float = 0.1) -> None:
     Prepare logs for training and testing the model.
     
     :param file_path: Path to the XES file that contains the log.
-    :param elusive_percentage: Percentage of rows to set empty in the elusive log. Default is 0.2.
+    :param elusive_percentage: Percentage of rows to set empty in the elusive log. Default is 0.1.
     """
     try:
         if not os.path.isfile(file_path):
             raise FileNotFoundError("The provided path does not point to a valid file.")
+        if not file_path.endswith('.xes'):
+            raise ValueError("The provided file is not a valid XES file.")
 
         file_name = extract_log_name(file_path)
         result_folder = '../logs/created'
@@ -33,6 +35,8 @@ def prepare_logs(file_path: str, elusive_percentage: float = 0.1) -> None:
         log['time:timestamp'] = pd.to_datetime(log['time:timestamp'], utc=True)
         log = log.sort_values(['time:timestamp']).reset_index(drop=True)
         log['time:timestamp'] = log['time:timestamp'].dt.tz_localize(None)
+
+        log = log[~log['case:concept:name'].isin(['UNK', 'PAD', 'SOS', 'EOS'])]
 
         log['Sorted Index'] = log.index
 
@@ -50,8 +54,12 @@ def prepare_logs(file_path: str, elusive_percentage: float = 0.1) -> None:
         pm4py.write_xes(elusive_log, os.path.join(result_folder_elusive, result_xes_file))
 
         print("Logs prepared successfully.")
+    except FileNotFoundError as fnf_error:
+        print(f"File not found: {fnf_error}")
+    except ValueError as val_error:
+        print(f"Value error: {val_error}")
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"An unexpected error occurred: {e}")
 
 
 if __name__ == '__main__':

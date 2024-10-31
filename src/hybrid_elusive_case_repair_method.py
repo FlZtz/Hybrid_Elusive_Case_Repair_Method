@@ -21,7 +21,7 @@ def add_expert_input() -> None:
     Add expert input.
     """
     global added_expert_knowledge, expert_knowledge
-    
+
     # Display messages using widgets
     messages = [
         "Please note that incorporating declarative rule checking may result in assumption-based modifications.\n"
@@ -36,11 +36,11 @@ def add_expert_input() -> None:
         "Do you want to keep the probability threshold for the next repair? <b> no </b>\n\n",
         "Do you want to add one or more expert attributes?"
     ]
-    
+
     # Define widgets
     labels = [widgets.HTML(value=message) for message in messages]
-    input_boxes = widgets.RadioButtons(options=['Yes', 'No'], description='', disabled=False) 
-    
+    input_boxes = widgets.RadioButtons(options=['Yes', 'No'], description='', disabled=False)
+
     submit_button = widgets.Button(description='Submit')
 
     # Define a function to handle the button click event
@@ -51,7 +51,7 @@ def add_expert_input() -> None:
         :param button: Button widget.
         """
         global added_expert_knowledge
-        
+
         # Retrieve the input values
         added_expert_knowledge = input_boxes.value.lower() == 'yes'
         provide_added_expert_input()
@@ -181,8 +181,8 @@ def expert_input() -> None:
 
     # Display the widgets
     display(instructions_text, choice_radio, submit_button)
-    
-    
+
+
 def get_model() -> int:
     """
     Get the model.
@@ -1363,11 +1363,11 @@ def transformer_input() -> None:
     Create an interactive form for selecting input attributes for the transformer.
     """
     global input_attributes
-    
+
     # Define the instruction text
     instructions = widgets.HTML(value="<b>Please choose which additional attributes should be incorporated when "
                                       "training the transformer:</b>")
-    
+
     # Define the checkboxes and button
     activity_checkbox = widgets.Checkbox(value=True, description='Activity', disabled=True)
     timestamp_checkbox = widgets.Checkbox(value=True, description='Timestamp', disabled=True)
@@ -1383,16 +1383,16 @@ def transformer_input() -> None:
         """
         global input_attributes  # Ensure we modify the global variable
         attributes = []
-        
+
         # Add mandatory attributes (already selected and disabled)
         attributes.extend(['Activity', 'Timestamp'])
-        
+
         # Check if Resource checkbox is selected
         if resource_checkbox.value:
             attributes.append('Resource')
-        
+
         input_attributes = attributes
-        
+
         # Display the selected attributes
         print(f"Selected input attributes: {input_attributes}")
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project provides a method to repair elusive cases in event logs by determining missing case IDs using a 
+This project provides a method to repair elusive cases in event logs by determining missing case IDs using a
 Transformer model.
 
 ## Table of Contents
@@ -10,11 +10,11 @@ Transformer model.
 - [Introduction](#introduction)
 - [Requirements](#requirements)
 - [Usage](#usage)
-  - [Data Preparation (Optional)](#data-preparation-optional)
-  - [Training](#training)
-  - [Evaluation](#evaluation)
-  - [Prototype Interaction](#prototype-interaction)
-  - [Creating Executable](#creating-executable)
+    - [Data Preparation (Optional)](#data-preparation-optional)
+    - [Training](#training)
+    - [Evaluation](#evaluation)
+    - [Prototype Interaction](#prototype-interaction)
+    - [Creating Executable](#creating-executable)
 - [File Descriptions](#file-descriptions)
 - [Results](#results)
 - [Dependencies](#dependencies)
@@ -23,7 +23,7 @@ Transformer model.
 
 ## Introduction
 
-This project involves training a Transformer model using `scripts/train.py` and evaluating the results using 
+This project involves training a Transformer model using `scripts/train.py` and evaluating the results using
 `notebooks/quality_metrics.ipynb`. Follow the steps below to get started.
 
 ## Requirements
@@ -38,24 +38,24 @@ pip install -r requirements.txt
 
 ### Data Preparation (Optional)
 
-1. Download the event log dataset in XES format for training and evaluation. You can use the following datasets for 
+1. Download the event log dataset in XES format for training and evaluation. You can use the following datasets for
    testing:
-   - Running Example (requests for compensation within an airline):
-     https://pm4py.fit.fraunhofer.de/static/assets/examples/running-example.xes
-   - Review Example Large (reviewing process of a paper for a journal):
-     https://doi.org/10.4121/uuid:da6aafef-5a86-4769-acf3-04e8ae5ab4fe
-   - Hospital Billing - Event Log (billing of medical services):
-     https://doi.org/10.4121/uuid:76c46b83-c930-4798-a1c9-4be94dfeb741
-   - Renting Log Low (rental process):
-     https://doi.org/10.5281/zenodo.8059488
-   - You can also use your own dataset.
+    - Running Example (requests for compensation within an airline):
+      https://pm4py.fit.fraunhofer.de/static/assets/examples/running-example.xes
+    - Review Example Large (reviewing process of a paper for a journal):
+      https://doi.org/10.4121/uuid:da6aafef-5a86-4769-acf3-04e8ae5ab4fe
+    - Hospital Billing - Event Log (billing of medical services):
+      https://doi.org/10.4121/uuid:76c46b83-c930-4798-a1c9-4be94dfeb741
+    - Renting Log Low (rental process):
+      https://doi.org/10.5281/zenodo.8059488
+    - You can also use your own dataset.
 
 2. Execute the `scripts/log_preparation.py` script to prepare the event log for training and evaluation.
    ```bash
    python scripts/log_preparation.py
    ```
    **Hint**: Ensure your run configuration is set to the folder where the `scripts/log_preparation.py` file is located.
-   
+
 3. (Optional) Run the `scripts/log_statistics.py` script to calculate statistics from the event log.
    ```bash
    python scripts/log_statistics.py
@@ -72,7 +72,7 @@ pip install -r requirements.txt
 
 2. Provide an event log in XES format as input for training. Ensure the event log is formatted correctly.
 
-3. The training process may take some time depending on the dataset size and model complexity. Once completed, the 
+3. The training process may take some time depending on the dataset size and model complexity. Once completed, the
    trained model will be saved for further evaluation.
 
 ### Evaluation
@@ -89,12 +89,12 @@ pip install -r requirements.txt
     ```bash
     pip install notebook
     ```
-   
+
 2. Navigate to the directory containing the `prototype_interaction.ipynb` notebook:
     ```bash
     cd path/to/your/notebook
     ```
-   
+
 3. Start the Jupyter Notebook server:
     ```bash
     jupyter notebook
@@ -112,7 +112,7 @@ To create an executable (.exe) file for the `scripts/train.py` script, use pyins
    ```bash
     pip install pyinstaller
    ```
-   
+
 2. Navigate to the project directory containing `scripts/train.py`.
 
 3. Run the following command to create a standalone executable:
@@ -124,17 +124,17 @@ To create an executable (.exe) file for the `scripts/train.py` script, use pyins
 ## File Descriptions
 
 - `notebooks/`: Contains Jupyter Notebooks for interaction and evaluation.
-  - `prototype_interaction.ipynb`: Dummy interaction with the system.
-  - `quality_metrics.ipynb`: Evaluation of the trained model.
+    - `prototype_interaction.ipynb`: Dummy interaction with the system.
+    - `quality_metrics.ipynb`: Evaluation of the trained model.
 - `scripts/`: Contains Python scripts for data preparation, statistics, and training.
-  - `log_preparation.py`: Script for preparing the event log dataset.
-  - `log_statistics.py`: Calculates statistics from XES event logs.
-  - `train.py`: Script for training the Transformer model.
+    - `log_preparation.py`: Script for preparing the event log dataset.
+    - `log_statistics.py`: Calculates statistics from XES event logs.
+    - `train.py`: Script for training the Transformer model.
 - `src/`: Contains the source code files for the project.
-  - `config.py`: Configuration file for the model.
-  - `dataset.py`: Implementation of the dataset loader.
-  - `hybrid_elusive_case_repair.py`: Dummy implementation of the interaction with the system.
-  - `model.py`: Contains the implementation of the Transformer model.
+    - `config.py`: Configuration file for the model.
+    - `dataset.py`: Implementation of the dataset loader.
+    - `hybrid_elusive_case_repair.py`: Dummy implementation of the interaction with the system.
+    - `model.py`: Contains the implementation of the Transformer model.
 - `LICENSE.md`: License file (MIT).
 - `README.md`: This file. Contains an overview of the project.
 - `requirements.txt`: Lists the required Python packages.

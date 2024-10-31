@@ -8,6 +8,7 @@ class InOutDataset(Dataset):
     """
     Dataset class for handling input and output data.
     """
+
     def __init__(self, ds: Dataset, tokenizer_src: Tokenizer, tokenizer_tgt: Tokenizer, disc_input: str,
                  cont_input: str, tf_output: str, seq_len: int, num_disc_attr: int, num_cont_attr: int) -> None:
         """

@@ -848,7 +848,7 @@ def initialize_device() -> torch.device:
     """
     device = ("cuda" if torch.cuda.is_available()
               else "mps" if torch.has_mps or torch.backends.mps.is_available()
-              else "cpu")
+    else "cpu")
     print("Using device:", device)
     if device == 'cuda':
         print(f"Device name: {torch.cuda.get_device_name(torch.cuda.current_device())}")
@@ -940,7 +940,7 @@ def load_or_initialize_model(config: dict, device: torch.device) -> Tuple[
     preload = config['preload']
     model_filename = (latest_weights_file_path(config) if preload == 'latest'
                       else get_weights_file_path(config, preload) if preload
-                      else None)
+    else None)
 
     if different_config:
         model_filename = None
@@ -1016,9 +1016,9 @@ def prepare_dataframe_for_sequence_processing(df: pd.DataFrame, config: dict, ch
     # Create a list with normalized column names for continuous attributes and original column names for others,
     # then extend with expert input columns
     all_input_columns = [
-        col + '_normalized' if col in config['continuous_input_attributes'] else col
-        for col in config['tf_input']
-    ] + expert_input_columns
+                            col + '_normalized' if col in config['continuous_input_attributes'] else col
+                            for col in config['tf_input']
+                        ] + expert_input_columns
 
     # Create a copy of DataFrame with required attributes
     df = df[[*all_input_columns, config['tf_output']]].copy()
@@ -1067,7 +1067,7 @@ def prepare_dataframe_for_sequence_processing(df: pd.DataFrame, config: dict, ch
     # Concatenate values from discrete input attributes and expert input columns into a single column
     df['Discrete Attributes'] = df[
         config['discrete_input_attributes'] + expert_input_columns
-    ].apply(lambda row: ' '.join(row), axis=1)
+        ].apply(lambda row: ' '.join(row), axis=1)
 
     # Drop the original columns
     df.drop(config['discrete_input_attributes'] + expert_input_columns, axis=1, inplace=True)
@@ -1381,10 +1381,10 @@ def process_two_dimensional_values(df: pd.DataFrame, attribute: str, attribute_c
         for val, occurrence in zip(filtered_values, filtered_occurrences):
             if occurrence.lower() == 'always':
                 df.loc[df[transformed_attribute_column].str.lower().isin([val[1].lower()]),
-                       f'{attribute}_{transformed_value}'] = f'expert_always_{attribute_name}_{transformed_value}'
+                f'{attribute}_{transformed_value}'] = f'expert_always_{attribute_name}_{transformed_value}'
             elif occurrence.lower() == 'sometimes':
                 df.loc[df[transformed_attribute_column].str.lower().isin([val[1].lower()]),
-                       f'{attribute}_{transformed_value}'] = f'expert_sometimes_{attribute_name}_{transformed_value}'
+                f'{attribute}_{transformed_value}'] = f'expert_sometimes_{attribute_name}_{transformed_value}'
             else:
                 raise ValueError("Invalid occurrence value. Please enter 'always' or 'sometimes'.")
 
@@ -1495,11 +1495,11 @@ def repair_loop(log: pd.DataFrame, config: dict) -> None:
     :param config: Configuration object containing necessary parameters.
     """
     percentage_na = (
-        log[f"Original {config['tf_output']}"]
-        .isna().
-        sum()
-        / len(log[f"Original {config['tf_output']}"])
-    ) * 100
+                            log[f"Original {config['tf_output']}"]
+                            .isna().
+                            sum()
+                            / len(log[f"Original {config['tf_output']}"])
+                    ) * 100
     print(f"\nFor {percentage_na:.2f}% of the events, the {config['tf_output']} has originally not been recorded.")
 
     iteration = 1
@@ -1515,11 +1515,11 @@ def repair_loop(log: pd.DataFrame, config: dict) -> None:
             print(f"\n... (+ {remaining_rows} more row{'s' if remaining_rows > 1 else ''})")
 
         percentage_na = (
-            log[f"Determined {config['tf_output']}"]
-            .isna().
-            sum()
-            / len(log[f"Determined {config['tf_output']}"])
-        ) * 100
+                                log[f"Determined {config['tf_output']}"]
+                                .isna().
+                                sum()
+                                / len(log[f"Determined {config['tf_output']}"])
+                        ) * 100
 
         if percentage_na == 0:
             print(f"\nFor all events, the {config['tf_output']} has been determined.")

@@ -10,6 +10,7 @@ class LayerNormalization(nn.Module):
     """
     Layer normalization module.
     """
+
     def __init__(self, features: int, eps: float = 10 ** -6) -> None:
         """
         Initialize the layer normalization module.
@@ -38,6 +39,7 @@ class FeedForwardBlock(nn.Module):
     """
     Feedforward block module.
     """
+
     def __init__(self, d_model: int, d_ff: int, dropout: float) -> None:
         """
         Initialize the feedforward block module.
@@ -65,6 +67,7 @@ class InputEmbeddings(nn.Module):
     """
     Input embeddings module.
     """
+
     def __init__(self, d_model: int, vocab_size: int) -> None:
         """
         Initialize the input embeddings module.
@@ -91,6 +94,7 @@ class PositionalEncoding(nn.Module):
     """
     Positional encoding module.
     """
+
     def __init__(self, d_model: int, seq_len: int, dropout: float) -> None:
         """
         Initialize the positional encoding module.
@@ -128,6 +132,7 @@ class ContinuousEmbedding(nn.Module):
     """
     Continuous embedding module.
     """
+
     def __init__(self, d_model: int, dropout: float) -> None:
         """
         Initialize the continuous embedding module.
@@ -153,6 +158,7 @@ class ResidualConnection(nn.Module):
     """
     Residual connection module.
     """
+
     def __init__(self, features: int, dropout: float) -> None:
         """
         Initialize the residual connection module.
@@ -179,6 +185,7 @@ class MultiHeadAttentionBlock(nn.Module):
     """
     Multi-head attention block module.
     """
+
     def __init__(self, d_model: int, h: int, dropout: float) -> None:
         """
         Initialize the multi-head attention block module.
@@ -245,6 +252,7 @@ class EncoderBlock(nn.Module):
     """
     Encoder block module.
     """
+
     def __init__(self, features: int, self_attention_block: MultiHeadAttentionBlock,
                  feed_forward_block: FeedForwardBlock, dropout: float) -> None:
         """
@@ -277,6 +285,7 @@ class Encoder(nn.Module):
     """
     Encoder module.
     """
+
     def __init__(self, features: int, layers: nn.ModuleList) -> None:
         """
         Initialize the encoder module.
@@ -305,6 +314,7 @@ class DecoderBlock(nn.Module):
     """
     Decoder block module.
     """
+
     def __init__(self, features: int, self_attention_block: MultiHeadAttentionBlock,
                  cross_attention_block: MultiHeadAttentionBlock, feed_forward_block: FeedForwardBlock,
                  dropout: float) -> None:
@@ -345,6 +355,7 @@ class Decoder(nn.Module):
     """
     Decoder module.
     """
+
     def __init__(self, features: int, layers: nn.ModuleList) -> None:
         """
         Initialize the decoder module.
@@ -376,6 +387,7 @@ class ProjectionLayer(nn.Module):
     """
     Projection layer module.
     """
+
     def __init__(self, d_model: int, vocab_size: int) -> None:
         """
         Initialize the projection layer module.
@@ -400,6 +412,7 @@ class Transformer(nn.Module):
     """
     Transformer module.
     """
+
     def __init__(self, encoder: Encoder, decoder: Decoder, src_embed: InputEmbeddings, cont_embed: ContinuousEmbedding,
                  cont_ff_block: FeedForwardBlock, tgt_embed: InputEmbeddings, src_pos: PositionalEncoding,
                  tgt_pos: PositionalEncoding, projection_layer: ProjectionLayer) -> None:
