@@ -768,6 +768,8 @@ def read_file(path: str, file_type: str = "event log") -> None:
         if count == 0:
             log = log[log['case:concept:name'] != missing_placeholder]
 
+        # TODO: log = log ohne SOS, EOS, UNK, PAD
+
         count += 1
 
         print("XES file successfully read.")
