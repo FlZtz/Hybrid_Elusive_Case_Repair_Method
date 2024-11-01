@@ -440,7 +440,8 @@ def greedy_decode(model: Transformer, source: torch.Tensor, source_mask: torch.T
     follow_up_probabilities = []
 
     # Define a weight vector to influence the probability of certain tokens
-    weights = torch.ones(model.vocab_size, device=device)
+    vocab_size = tokenizer_tgt.get_vocab_size()
+    weights = torch.ones(vocab_size, device=device)
     weights[unk_idx] = 0.1  # Reduce the weight of `[UNK]` token
 
     while True:
