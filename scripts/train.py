@@ -423,6 +423,7 @@ def greedy_decode(model: Transformer, source: torch.Tensor, source_mask: torch.T
     """
     sos_idx = tokenizer_tgt.token_to_id('[SOS]')
     eos_idx = tokenizer_tgt.token_to_id('[EOS]')
+    unk_idx = tokenizer_tgt.token_to_id('[UNK]')
     none_idx = tokenizer_tgt.token_to_id(config['missing_placeholder'])
 
     # Precompute the encoder output and reuse it for every step
@@ -438,6 +439,10 @@ def greedy_decode(model: Transformer, source: torch.Tensor, source_mask: torch.T
     probabilities = []
     follow_up_probabilities = []
 
+    # Define a weight vector to influence the probability of certain tokens
+    weights = torch.ones(model.vocab_size, device=device)
+    weights[unk_idx] = 0.1  # Reduce the weight of `[UNK]` token
+
     while True:
         if decoder_input.size(1) == max_len - 1:
             break
@@ -448,11 +453,16 @@ def greedy_decode(model: Transformer, source: torch.Tensor, source_mask: torch.T
         # Calculate output
         out = model.decode(encoder_output, source_mask, decoder_input, decoder_mask)
 
-        # get next token
+        # Get next token probabilities
         prob = model.project(out[:, -1])
-        prob = torch.softmax(prob, dim=1)
-        probs, indices = torch.topk(prob, k=3, dim=1)
+
+        # Apply weights to penalize `[UNK]` and boost preferred tokens
+        weighted_prob = prob * weights
+        weighted_prob = torch.softmax(weighted_prob, dim=1)
+
+        probs, indices = torch.topk(weighted_prob, k=3, dim=1)
         next_index = indices[:, 0]
+
         if next_index == eos_idx:
             if probs[:, 1].item() >= prob_threshold:
                 next_output = indices[:, 1].item()
