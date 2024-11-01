@@ -1,27 +1,28 @@
 # train.py - Script for training a Transformer model and creating a log with determined config['tf_output']
 import os  # For filesystem operations
-from pathlib import Path  # For working with file paths
 import pickle  # For object serialization
 import shutil  # For filesystem operations
 import sys
-from typing import Callable, List, Optional, Tuple  # For type hints
 import warnings  # For managing warnings
+from pathlib import Path  # For working with file paths
+from typing import Callable, List, Optional, Tuple  # For type hints
 
 # Third-party library imports
-from datasets import Dataset as HuggingfaceDataset  # For Huggingface datasets
-from dateutil import parser  # For parsing date strings
-from deepdiff import DeepDiff  # For deep comparison of dictionaries
 import matplotlib.pyplot as plt  # For plotting graphs
 import pandas as pd  # For working with dataframes
 import pm4py  # For process mining operations
-from sklearn.model_selection import train_test_split  # For splitting dataset into train and
-from sklearn.preprocessing import MinMaxScaler  # For normalizing continuous data
-from tokenizers import models, pre_tokenizers, Tokenizer, trainers  # For tokenization
 import torch  # PyTorch library
 import torch.nn as nn  # PyTorch neural network module
 import torchmetrics  # For evaluation metrics
+from datasets import Dataset as HuggingfaceDataset  # For Huggingface datasets
+from dateutil import parser  # For parsing date strings
+from deepdiff import DeepDiff  # For deep comparison of dictionaries
+from sklearn.model_selection import train_test_split  # For splitting dataset into train and
+from sklearn.preprocessing import MinMaxScaler  # For normalizing continuous data
+from tokenizers import models, pre_tokenizers, Tokenizer, trainers  # For tokenization
 from torch.utils.data import DataLoader, Dataset, random_split  # For working with PyTorch datasets
 from torch.utils.tensorboard import SummaryWriter  # For TensorBoard visualization
+from tqdm import tqdm  # For progress bars
 
 # Local application/library specific imports
 from src.config import (add_response, extend_expert_input, get_cached_df_copy, get_config,
@@ -31,8 +32,9 @@ from src.config import (add_response, extend_expert_input, get_cached_df_copy, g
                         set_determination_probability, set_expert_input_columns, set_log_path, set_original_values)
 from src.dataset import causal_mask, InOutDataset  # Importing custom dataset and mask functions
 from src.model import build_transformer, Transformer  # Importing Transformer model builder
-from tqdm import tqdm  # For progress bars
 
+case_id_dict: Optional[dict] = None
+reverse_case_id_dict: Optional[dict] = None
 sorted_index: Optional[pd.DataFrame] = None
 
 
@@ -203,12 +205,20 @@ def ex_ante_rule_checking(config: dict, log: pd.DataFrame, first_iteration: bool
     :param elusive_log: Flag to indicate if the log is elusive. Defaults to True.
     :return: Event log after rule checking as a pandas DataFrame.
     """
+    global reverse_case_id_dict
+
     log.rename(columns={f"{config['tf_output']}": f"Determined {config['tf_output']}"}, inplace=True)
     log[f"Determined {config['tf_output']}"].replace(config['missing_placeholder'], pd.NA, inplace=True)
     log[['Probability', 'Follow-up Probability']] = pd.NA
     if first_iteration:
-        set_original_values(log[[f"Determined {config['tf_output']}"]]
-                            .rename(columns={f"Determined {config['tf_output']}": f"Original {config['tf_output']}"}))
+        # Create a copy of the relevant column and apply the reverse mapping
+        original_values_copy = log[[f"Determined {config['tf_output']}"]].copy()
+        original_values_copy[f"Determined {config['tf_output']}"] = original_values_copy[
+            f"Determined {config['tf_output']}"].map(reverse_case_id_dict)
+
+        # Pass the copied DataFrame to set_original_values
+        set_original_values(original_values_copy.rename(
+            columns={f"Determined {config['tf_output']}": f"Original {config['tf_output']}"}))
     if elusive_log or not first_iteration:
         log = declarative_rule_checking(config, log)
         set_determination_probability(log[['Probability', 'Follow-up Probability', 'Modification']])
@@ -1195,7 +1205,7 @@ def process_log_creation_data(config: dict, vocab_src: Tokenizer, vocab_tgt: Tok
     :param repetition: Boolean flag to indicate if the process is a repetition.
     :return: DataFrame containing the processed log creation data.
     """
-    global sorted_index
+    global reverse_case_id_dict, sorted_index
 
     model = get_model(config, vocab_src.get_vocab_size(), vocab_tgt.get_vocab_size()).to(device)
     model_filename = get_weights_file_path(config, f"{config['num_epochs'] - 1}")
@@ -1247,6 +1257,11 @@ def process_log_creation_data(config: dict, vocab_src: Tokenizer, vocab_tgt: Tok
             f"Previous {config['tf_output']}"
         ]
     )
+
+    determined_log[f"Determined {config['tf_output']}"] = determined_log[f"Determined {config['tf_output']}"].map(
+        reverse_case_id_dict)
+    determined_log[f"Previous {config['tf_output']}"] = determined_log[f"Previous {config['tf_output']}"].map(
+        reverse_case_id_dict)
 
     determined_log.replace(config['missing_placeholder'], pd.NA, inplace=True)
 
@@ -1400,7 +1415,7 @@ def read_log(config: dict, complete: bool = False, first_iteration: bool = True)
     :param first_iteration: Flag to indicate if it's the first iteration. Defaults to True.
     :return: Processed DataFrame according to the specified configuration.
     """
-    global sorted_index
+    global case_id_dict, reverse_case_id_dict, sorted_index
 
     cached_df_copy = get_cached_df_copy()
     if cached_df_copy is not None and complete:
@@ -1428,6 +1443,17 @@ def read_log(config: dict, complete: bool = False, first_iteration: bool = True)
     df['Timestamp'] = df['Timestamp'].dt.tz_localize(None)
     sorted_index = df['Sorted Index'].copy()
     df.drop(columns='Sorted Index', inplace=True)
+
+    if not case_id_dict:
+        # Create a dictionary for Case ID values
+        case_id_dict = {case_id: idx + 1 for idx, case_id in enumerate(df[config['tf_output']].unique())}
+        case_id_dict[config['missing_placeholder']] = config['missing_placeholder']
+
+        # Create a reverse mapping dictionary
+        reverse_case_id_dict = {v: k for k, v in case_id_dict.items()}
+
+    # Replace Case ID values with dummy values
+    df[config['tf_output']] = df[config['tf_output']].map(case_id_dict)
 
     if config['continuous_input_attributes']:
         continuous_columns = config['continuous_input_attributes'][:]
