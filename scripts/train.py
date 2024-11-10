@@ -215,6 +215,7 @@ def ex_ante_rule_checking(config: dict, log: pd.DataFrame, first_iteration: bool
         original_values_copy = log[[f"Determined {config['tf_output']}"]].copy()
         original_values_copy[f"Determined {config['tf_output']}"] = original_values_copy[
             f"Determined {config['tf_output']}"].map(reverse_case_id_dict)
+        original_values_copy[f"Determined {config['tf_output']}"].fillna(pd.NA, inplace=True)
 
         # Pass the copied DataFrame to set_original_values
         set_original_values(original_values_copy.rename(
@@ -1267,6 +1268,14 @@ def process_log_creation_data(config: dict, vocab_src: Tokenizer, vocab_tgt: Tok
             "Follow-up Probability",
             f"Previous {config['tf_output']}"
         ]
+    )
+
+    # Convert numeric values in the column to integers and keep [NONE] as is
+    determined_log[f"Determined {config['tf_output']}"] = determined_log[f"Determined {config['tf_output']}"].apply(
+        lambda x: int(x) if str(x).isdigit() else str(x)
+    )
+    determined_log[f"Previous {config['tf_output']}"] = determined_log[f"Previous {config['tf_output']}"].apply(
+        lambda x: int(x) if str(x).isdigit() else str(x)
     )
 
     determined_log[f"Determined {config['tf_output']}"] = determined_log[f"Determined {config['tf_output']}"].map(
