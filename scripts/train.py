@@ -1220,7 +1220,7 @@ def process_log_creation_data(config: dict, vocab_src: Tokenizer, vocab_tgt: Tok
     global reverse_case_id_dict, sorted_index
 
     model = get_model(config, vocab_src.get_vocab_size(), vocab_tgt.get_vocab_size()).to(device)
-    model_filename = get_weights_file_path(config, f"{config['num_epochs'] - 1}")
+    model_filename = get_weights_file_path(config, str(config['num_epochs'] - 1).zfill(2))
     state = torch.load(model_filename, map_location=device)
     model.load_state_dict(state['model_state_dict'])
 
