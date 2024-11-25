@@ -205,7 +205,7 @@ def repair_missing_case_ids(model: Sequential, df_original: pd.DataFrame, onehot
 
 
 def train_lstm_model(X_train: np.ndarray, y_train: np.ndarray, X_val: np.ndarray, y_val: np.ndarray,
-                     model_save_path: str = "model_checkpoints", batch_size: int = 32, epochs: int = 20) -> tuple[
+                     model_save_path: str = 'model_checkpoints', batch_size: int = 32, epochs: int = 20) -> tuple[
     dict, str]:
     """
     Train an LSTM model on the training data.
