@@ -5,7 +5,7 @@ import shutil  # For filesystem operations
 import sys
 import warnings  # For managing warnings
 from pathlib import Path  # For working with file paths
-from typing import Callable, List, Optional, Tuple  # For type hints
+from typing import Callable, Optional  # For type hints
 
 # Third-party library imports
 import matplotlib.pyplot as plt  # For plotting graphs
@@ -242,7 +242,7 @@ def get_all_sequences(ds: Dataset, data: str) -> str:
         yield item[data]
 
 
-def get_attribute_values(config: dict, dictionary: str, attribute: str) -> Tuple[List[str], str, List[str]]:
+def get_attribute_values(config: dict, dictionary: str, attribute: str) -> tuple[list[str], str, list[str]]:
     """
     Get values, attribute column, and occurrences for a given attribute from the configuration.
 
@@ -258,7 +258,7 @@ def get_attribute_values(config: dict, dictionary: str, attribute: str) -> Tuple
     return values, attribute_column, occurrences
 
 
-def get_ds(config: dict, different_configuration: bool = False) -> Tuple[DataLoader, DataLoader, Tokenizer, Tokenizer]:
+def get_ds(config: dict, different_configuration: bool = False) -> tuple[DataLoader, DataLoader, Tokenizer, Tokenizer]:
     """
     Gets training and validation DataLoaders along with tokenizers for the dataset.
 
@@ -406,7 +406,7 @@ def get_user_choice(prompt: str) -> str:
 
 def greedy_decode(model: Transformer, source: torch.Tensor, source_mask: torch.Tensor, cont_input: torch.Tensor,
                   cont_mask: torch.Tensor, tokenizer_tgt: Tokenizer, max_len: int, device: torch.device,
-                  config: dict, prob_threshold: float = 0) -> Tuple[torch.Tensor, List[float], List[float]]:
+                  config: dict, prob_threshold: float = 0) -> tuple[torch.Tensor, list[float], list[float]]:
     """
     Greedy decoding algorithm for generating target sequences based on a trained Transformer model.
 
@@ -493,7 +493,7 @@ def greedy_decode(model: Transformer, source: torch.Tensor, source_mask: torch.T
     return decoder_input.squeeze(0), probabilities, follow_up_probabilities
 
 
-def handle_boundary_activity_ex_ante_processing(log: pd.DataFrame, config: dict, always_boundary_activities: List[str],
+def handle_boundary_activity_ex_ante_processing(log: pd.DataFrame, config: dict, always_boundary_activities: list[str],
                                                 activity_type: str, activity_column: str,
                                                 attribute: str) -> pd.DataFrame:
     """
@@ -576,7 +576,7 @@ def handle_boundary_activity_ex_ante_processing(log: pd.DataFrame, config: dict,
 
 
 def handle_boundary_activity_ex_post_processing(log: pd.DataFrame, config: dict,
-                                                possible_boundary_activities: List[str], activity_type: str,
+                                                possible_boundary_activities: list[str], activity_type: str,
                                                 activity_column: str, attribute: str) -> pd.DataFrame:
     """
     Handle the ex-post processing logic for boundary activity rule checking.
@@ -652,7 +652,7 @@ def handle_boundary_activity_ex_post_processing(log: pd.DataFrame, config: dict,
     return log
 
 
-def handle_directly_following_ex_ante_processing(log: pd.DataFrame, config: dict, always_directly_following: List[str],
+def handle_directly_following_ex_ante_processing(log: pd.DataFrame, config: dict, always_directly_following: list[str],
                                                  activity_column: str, attribute: str) -> pd.DataFrame:
     """
     Handle the ex-ante processing logic for directly following rule checking.
@@ -746,7 +746,7 @@ def handle_directly_following_ex_ante_processing(log: pd.DataFrame, config: dict
     return log
 
 
-def handle_directly_following_ex_post_processing(log: pd.DataFrame, config: dict, always_directly_following: List[str],
+def handle_directly_following_ex_post_processing(log: pd.DataFrame, config: dict, always_directly_following: list[str],
                                                  activity_column: str, attribute: str) -> pd.DataFrame:
     """
     Handle the ex-post processing logic for directly following rule checking.
@@ -889,7 +889,7 @@ def initialize_device() -> torch.device:
 
 
 def load_model_from_file(filename: str, model: torch.nn.Module, optimizer: torch.optim.Optimizer,
-                         device: torch.device) -> Tuple[Optional[int], Optional[int]]:
+                         device: torch.device) -> tuple[Optional[int], Optional[int]]:
     """
     Load model and optimizer state from a file.
 
@@ -912,7 +912,7 @@ def load_model_from_file(filename: str, model: torch.nn.Module, optimizer: torch
         return None, None
 
 
-def load_or_initialize_model(config: dict, device: torch.device) -> Tuple[
+def load_or_initialize_model(config: dict, device: torch.device) -> tuple[
     Transformer, int, int, DataLoader, DataLoader, Tokenizer, Tokenizer, torch.optim.Adam
 ]:
     """
@@ -995,7 +995,7 @@ def load_or_initialize_model(config: dict, device: torch.device) -> Tuple[
     return model, initial_epoch, global_step, train_dataloader, val_dataloader, tokenizer_src, tokenizer_tgt, optimizer
 
 
-def normalize_continuous_attributes(df: pd.DataFrame, continuous_columns: List[str]) -> pd.DataFrame:
+def normalize_continuous_attributes(df: pd.DataFrame, continuous_columns: list[str]) -> pd.DataFrame:
     """
     Normalize continuous attributes in the DataFrame using MinMaxScaler.
 
@@ -1108,7 +1108,7 @@ def prepare_dataframe_for_sequence_processing(df: pd.DataFrame, config: dict, ch
     return df
 
 
-def prepare_log_creation_data(config: dict, repetition: bool, chunk_size: int) -> Tuple[
+def prepare_log_creation_data(config: dict, repetition: bool, chunk_size: int) -> tuple[
     pd.DataFrame, DataLoader, Tokenizer, Tokenizer, torch.device, bool
 ]:
     """
@@ -1345,8 +1345,8 @@ def process_log_creation_data(config: dict, vocab_src: Tokenizer, vocab_tgt: Tok
     return determined_log
 
 
-def process_one_dimensional_values(df: pd.DataFrame, attribute: str, attribute_column: str, values: List[str],
-                                   occurrences: List[str]) -> Tuple[pd.DataFrame, List[str]]:
+def process_one_dimensional_values(df: pd.DataFrame, attribute: str, attribute_column: str, values: list[str],
+                                   occurrences: list[str]) -> tuple[pd.DataFrame, list[str]]:
     """
     Process one-dimensional values and append them to the DataFrame.
 
@@ -1379,8 +1379,8 @@ def process_one_dimensional_values(df: pd.DataFrame, attribute: str, attribute_c
     return df, [attribute]
 
 
-def process_two_dimensional_values(df: pd.DataFrame, attribute: str, attribute_column: str, values: List[str],
-                                   occurrences: List[str]) -> Tuple[pd.DataFrame, List[str]]:
+def process_two_dimensional_values(df: pd.DataFrame, attribute: str, attribute_column: str, values: list[str],
+                                   occurrences: list[str]) -> tuple[pd.DataFrame, list[str]]:
     """
     Process two-dimensional values and append them to the DataFrame.
 
@@ -1990,7 +1990,7 @@ def train_model(config: dict) -> None:
 
 
 def validate_boundary_activity_input_data(config: dict, log: pd.DataFrame,
-                                          activity_type: str) -> Tuple[str, List[str], List[str], str]:
+                                          activity_type: str) -> tuple[str, list[str], list[str], str]:
     """
     Validate the input data for boundary activity rule checking.
 
@@ -2040,7 +2040,7 @@ def validate_config_and_columns(config: dict, df: pd.DataFrame) -> None:
 
 
 def validate_directly_following_input_data(config: dict,
-                                           log: pd.DataFrame) -> Tuple[str, List[str], List[str], str]:
+                                           log: pd.DataFrame) -> tuple[str, list[str], list[str], str]:
     """
     Validate the input data based for directly following rule checking.
 

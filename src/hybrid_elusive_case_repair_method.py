@@ -1,15 +1,14 @@
 # hybrid_elusive_case_repair_method.py - A dummy script to demonstrate the interaction between the user and the system.
-from typing import List
+import time
 
 import ipywidgets as widgets
-from IPython.display import display, clear_output
 import pandas as pd
-import time
+from IPython.display import display
 
 added_expert_knowledge: bool = False
 expert_attribute: str = ''
 expert_knowledge: bool = False
-input_attributes: List[str] = []
+input_attributes: list[str] = []
 new_expert_attribute: str = ''
 predetermined: bool = False
 rule_checking: bool = False

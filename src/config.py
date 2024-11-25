@@ -3,7 +3,7 @@ import os
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog
-from typing import Iterator, List, Optional, Tuple, Union
+from typing import Iterator, Optional, Union
 
 import pandas as pd
 import pm4py
@@ -28,7 +28,7 @@ attribute_config: dict = {
     'Value Currency': {'mapping': 'org:value:currency', 'property': 'discrete'}
 }
 cached_df_copy: Optional[pd.DataFrame] = None
-complete_expert_attributes: List[str] = []
+complete_expert_attributes: list[str] = []
 complete_expert_values: dict = {}
 complete_log: Optional[pd.DataFrame] = None
 count: int = 0
@@ -38,8 +38,8 @@ expert_attributes: dict = {
     'End Activity': {'type': 'unary', 'attribute': 'Activity'},
     'Directly Following': {'type': 'binary', 'attribute': 'Activity'}
 }
-expert_input_attributes: List[str] = []
-expert_input_columns: List[str] = []
+expert_input_attributes: list[str] = []
+expert_input_columns: list[str] = []
 expert_input_values: dict = {}
 input_config: Optional[Iterator[str]] = None
 log: Optional[pd.DataFrame] = None
@@ -49,8 +49,8 @@ missing_placeholder: str = "[NONE]"
 missing_placeholder_xes: str = ""
 original_values: Optional[pd.DataFrame] = None
 probability_threshold: Optional[float] = None
-responses: List[str] = []
-tf_input: List[str] = []
+responses: list[str] = []
+tf_input: list[str] = []
 
 
 def add_response(response: str) -> None:
@@ -105,7 +105,7 @@ def extract_log_name(path: str) -> str:
     return name
 
 
-def extend_expert_input() -> Tuple[List[str], dict]:
+def extend_expert_input() -> tuple[list[str], dict]:
     """
     Extend the expert input attributes and values based on user input.
 
@@ -331,7 +331,7 @@ def get_determination_probability() -> pd.DataFrame or None:
     return determination_probability
 
 
-def get_expert_attributes() -> List[str]:
+def get_expert_attributes() -> list[str]:
     """
     Asks the user whether to add expert attributes and retrieves them if desired.
 
@@ -387,7 +387,7 @@ def get_expert_attributes() -> List[str]:
         raise ValueError("Invalid input. Please enter 'yes' or 'no'.")
 
 
-def get_expert_input_columns() -> List[str]:
+def get_expert_input_columns() -> list[str]:
     """
     Get the expert input columns.
 
@@ -469,7 +469,7 @@ def get_file_path(file_type: str = "event log") -> str:
             raise ValueError("Error: No file selected.")
 
 
-def get_input_config() -> Tuple[Optional[Iterator[str]], Optional[str]]:
+def get_input_config() -> tuple[Optional[Iterator[str]], Optional[str]]:
     """
     Get the input configuration and the next value from that configuration.
 
@@ -658,7 +658,7 @@ def get_weights_file_path(config: dict, epoch: str) -> str:
     return str(Path('.') / model_folder / model_filename)
 
 
-def input_validation(attributes: Union[List[str], Tuple[str, ...]], dictionary: dict) -> List[str]:
+def input_validation(attributes: Union[list[str], tuple[str, ...]], dictionary: dict) -> list[str]:
     """
     Validates a list of attributes against a dictionary.
 
@@ -876,7 +876,7 @@ def set_determination_probability(data: pd.DataFrame) -> None:
         determination_probability.loc[prob_copy.index] = prob_copy
 
 
-def set_expert_input_columns(columns: List[str]) -> None:
+def set_expert_input_columns(columns: list[str]) -> None:
     """
     Set the expert input columns.
 

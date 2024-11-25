@@ -1,6 +1,5 @@
 # model.py - Definition of Transformer model and related modules.
 import math
-from typing import Tuple
 
 import torch
 import torch.nn as nn
@@ -207,7 +206,7 @@ class MultiHeadAttentionBlock(nn.Module):
 
     @staticmethod
     def attention(query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, mask: torch.Tensor,
-                  dropout: nn.Dropout) -> Tuple[torch.Tensor, torch.Tensor]:
+                  dropout: nn.Dropout) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Compute the scaled dot-product attention.
 
