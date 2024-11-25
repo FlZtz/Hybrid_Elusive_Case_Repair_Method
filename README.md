@@ -16,7 +16,6 @@ Transformer model.
     - [Prototype Interaction](#prototype-interaction)
     - [Creating Executable](#creating-executable)
 - [File Descriptions](#file-descriptions)
-- [Results](#results)
 - [Dependencies](#dependencies)
 - [License](#license)
 - [References](#references)
@@ -24,7 +23,7 @@ Transformer model.
 ## Introduction
 
 This project involves training a Transformer model using `scripts/train.py` and evaluating the results using
-`notebooks/quality_metrics.ipynb`. Follow the steps below to get started.
+`scripts/quality_metrics.py`. Follow the steps below to get started.
 
 ## Requirements
 
@@ -77,9 +76,19 @@ pip install -r requirements.txt
 
 ### Evaluation
 
-1. Open `notebooks/quality_metrics.ipynb` using Jupyter Notebook or any compatible environment.
+1. Train a benchmark using the `scripts/lstm_repair.py` script.
+   ```bash
+   python scripts/lstm_repair.py
+   ```
+    **Hint**: Ensure your run configuration is set to the folder where the `scripts/lstm_repair.py` file is located. 
+    This script is a dummy implementation of the LSTM repair method which needs to be replaced with a real 
+    implementation.
 
-2. Run the cells in the notebook to evaluate the performance of the trained model on a dataset.
+2. Execute the `scripts/quality_metrics.py` script to evaluate the performance of the trained model.
+   ```bash
+   python scripts/quality_metrics.py
+   ```
+   **Hint**: Ensure your run configuration is set to the folder where the `scripts/quality_metrics.py` file is located.
 
 3. Analyse the evaluation results and make any necessary adjustments to improve the model's performance.
 
@@ -125,10 +134,11 @@ To create an executable (.exe) file for the `scripts/train.py` script, use pyins
 
 - `notebooks/`: Contains Jupyter Notebooks for interaction and evaluation.
     - `prototype_interaction.ipynb`: Dummy interaction with the system.
-    - `quality_metrics.ipynb`: Evaluation of the trained model.
 - `scripts/`: Contains Python scripts for data preparation, statistics, and training.
     - `log_preparation.py`: Script for preparing the event log dataset.
     - `log_statistics.py`: Calculates statistics from XES event logs.
+    - `lstm_repair.py`: Dummy implementation of the LSTM repair method.
+    - `quality_metrics.py`: Implementation of quality metrics for evaluation.
     - `train.py`: Script for training the Transformer model.
 - `src/`: Contains the source code files for the project.
     - `config.py`: Configuration file for the model.
@@ -138,10 +148,6 @@ To create an executable (.exe) file for the `scripts/train.py` script, use pyins
 - `LICENSE.md`: License file (MIT).
 - `README.md`: This file. Contains an overview of the project.
 - `requirements.txt`: Lists the required Python packages.
-
-## Results
-
-The results can be seen in the `notebooks/quality_metrics.ipynb` notebook.
 
 ## Dependencies
 

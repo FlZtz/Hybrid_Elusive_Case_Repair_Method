@@ -1,4 +1,4 @@
-# new_eval.py - Evaluate the repaired logs using various metrics.
+# quality_metrics.py - Evaluate the repaired logs using various metrics.
 import os
 
 import numpy as np
