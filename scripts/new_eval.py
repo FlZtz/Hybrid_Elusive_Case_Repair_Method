@@ -11,18 +11,17 @@ from tqdm.auto import tqdm
 memorized_distances: dict = {}  # Memoization dictionary to store distances between traces
 
 
-def bigram_similarity(df, ins_col='y_pred', true_col='y_true', activity_col='activity', timestamp_col='timestamp',
-                      event_id_col='event_id'):
+def bigram_similarity(df: pd.DataFrame, ins_col: str = 'y_pred', true_col: str = 'y_true',
+                      timestamp_col: str = 'timestamp', event_id_col: str = 'event_id') -> float:
     """
     Computes the bigram similarity (L2L2gram) between the predicted and true cases.
-    Args:
-        df: A pandas DataFrame containing event log data.
-        ins_col: The column name representing the predicted case ID.
-        true_col: The column name representing the true case ID.
-        activity_col: The column name representing activity names.
-        timestamp_col: The column name representing event timestamps.
-    Returns:
-        The bigram similarity value.
+
+    :param df: A pandas DataFrame containing event log data.
+    :param ins_col: The column name representing the predicted case ID. Default is 'y_pred'.
+    :param true_col: The column name representing the true case ID. Default is 'y_true'.
+    :param timestamp_col: The column name representing event timestamps. Default is 'timestamp'.
+    :param event_id_col: The column name representing the event ID. Default is 'event_id'.
+    :return: The bigram similarity value.
     """
     # Extract true and predicted cases
     true_cases = (
@@ -44,11 +43,20 @@ def bigram_similarity(df, ins_col='y_pred', true_col='y_true', activity_col='act
     )
 
     # Compute bigram similarity
-    def case_bigram_similarity(case):
+    def case_bigram_similarity(case: list) -> float:
+        """
+        Compute the bigram similarity for a single case.
+
+        :param case: A list of event IDs in the case.
+        :return: The bigram similarity for the case.
+        """
         bigrams = [(case[i], case[i + 1]) for i in range(len(case) - 1)]
+
         if not bigrams:
             return 0  # Avoid division by zero for single-event cases
+
         matching_bigrams = sum(1 for bigram in bigrams if bigram in pred_bigrams)
+
         return matching_bigrams / len(bigrams)
 
     total_similarity = sum(case_bigram_similarity(case) for case in true_cases)
@@ -57,11 +65,18 @@ def bigram_similarity(df, ins_col='y_pred', true_col='y_true', activity_col='act
     # Normalize over all cases
     if num_cases == 0:
         return 0.0
+
     return total_similarity / num_cases
 
 
-def calculate_metrics_for_log(data_path, log_name):
-    """Calculate metrics for a single log."""
+def calculate_metrics_for_log(data_path: str, log_name: str) -> dict:
+    """
+    Calculate metrics for a given log.
+
+    :param data_path: Path to the folder containing the log.
+    :param log_name: Name of the log file.
+    :return: A dictionary containing the calculated metrics
+    """
     # Load and preprocess data
     df, correct_predictions, wrong_predictions = prepare_data(data_path, log_name)
     df['y_pred'] = df['y_pred'].fillna(-1)
@@ -86,26 +101,32 @@ def calculate_metrics_for_log(data_path, log_name):
         "Event-Time Deviation (SMAPEET)": event_time_deviation(df),
         "Case Cycle Time Deviation (SMAPECT)": case_cycle_time_deviation(df)
     }
+
     return metrics
 
 
-def case_cycle_time_deviation(df, ins_col='y_pred', true_col='y_true', timestamp_col='timestamp',
-                              activity_col='activity'):
+def case_cycle_time_deviation(df: pd.DataFrame, ins_col: str = 'y_pred', true_col: str = 'y_true',
+                              timestamp_col: str = 'timestamp', activity_col: str = 'activity'):
     """
     Computes the case cycle time deviation (SMAPECT) between the predicted and true logs.
-    Args:
-        df: A pandas DataFrame containing event log data.
-        ins_col: The column name representing the predicted case ID.
-        true_col: The column name representing the true case ID.
-        timestamp_col: The column name representing timestamps of events.
-        activity_col: The column name representing the event activity.
-    Returns:
-        The case cycle time deviation (SMAPECT).
+
+    :param df: A pandas DataFrame containing event log data.
+    :param ins_col: The column name representing the predicted case ID. Default is 'y_pred'.
+    :param true_col: The column name representing the true case ID. Default is 'y_true'.
+    :param timestamp_col: The column name representing timestamps of events. Default is 'timestamp'.
+    :param activity_col: The column name representing the event activity. Default is 'activity'.
+    :return: The case cycle time deviation (SMAPECT).
     """
 
     # Compute the first and last timestamps for each case in true and predicted logs
-    def compute_cycle_time(df, case_col):
-        """Helper function to calculate cycle times for each case."""
+    def compute_cycle_time(df: pd.DataFrame, case_col: str) -> pd.DataFrame:
+        """
+        Helper function to calculate cycle times for each case.
+
+        :param df: A pandas DataFrame containing event log data.
+        :param case_col: The column name representing the case ID.
+        :return: A DataFrame containing the cycle times for each case.
+        """
         case_stats = (
             df.groupby(case_col)[timestamp_col]
             .agg(['min', 'max'])  # Min is start time, max is end time
@@ -140,18 +161,17 @@ def case_cycle_time_deviation(df, ins_col='y_pred', true_col='y_true', timestamp
     return smapect
 
 
-def case_similarity(df, ins_col='y_pred', true_col='y_true', activity_col='activity', timestamp_col='timestamp',
-                    event_id_col='event_id'):
+def case_similarity(df: pd.DataFrame, ins_col: str = 'y_pred', true_col: str = 'y_true',
+                    timestamp_col: str = 'timestamp', event_id_col: str = 'event_id') -> float:
     """
     Computes the case similarity (L2Lcase) between the predicted and true cases.
-    Args:
-        df: A pandas DataFrame containing event log data.
-        ins_col: The column name representing the predicted case ID.
-        true_col: The column name representing the true case ID.
-        activity_col: The column name representing activity names.
-        timestamp_col: The column name representing event timestamps.
-    Returns:
-        The case similarity value.
+
+    :param df: A pandas DataFrame containing event log data.
+    :param ins_col: The column name representing the predicted case ID. Default is 'y_pred'.
+    :param true_col: The column name representing the true case ID. Default is 'y_true'.
+    :param timestamp_col: The column name representing event timestamps. Default is 'timestamp'.
+    :param event_id_col: The column name representing the event ID. Default is 'event_id'.
+    :return: The case similarity value.
     """
     # Extract true and predicted cases as sorted tuples of activities
     true_cases = set(
@@ -170,11 +190,15 @@ def case_similarity(df, ins_col='y_pred', true_col='y_true', activity_col='activ
     return intersection_count / total_cases if total_cases > 0 else 0.0
 
 
-def compute_distance_matrix(log1, log2, distance_function):
+def compute_distance_matrix(log1: list, log2: list, distance_function: callable) -> np.ndarray:
     """
     Compute the distance matrix between traces in two logs using the given distance function.
-    """
 
+    :param log1: List of traces from the first log.
+    :param log2: List of traces from the second log.
+    :param distance_function: Function to compute the distance between two traces.
+    :return: The distance matrix.
+    """
     distance_matrix = np.zeros((len(log1), len(log2)))
 
     for i, trace1 in tqdm(enumerate(log1), total=len(log1)):
@@ -185,13 +209,26 @@ def compute_distance_matrix(log1, log2, distance_function):
 
 
 # Optimized version of compute_distance_matrix
-def compute_distance_matrix_parallel(log1, log2, distance_function, n_jobs=-1):
+def compute_distance_matrix_parallel(log1: list, log2: list, distance_function: callable,
+                                     n_jobs: int = -1) -> np.ndarray:
     """
-    Compute the distance matrix between traces in two logs using the given distance function
-    with parallel processing.
+    Compute the distance matrix between traces in two logs using the given distance function with parallel processing.
+
+    :param log1: List of traces from the first log.
+    :param log2: List of traces from the second log.
+    :param distance_function: Function to compute the distance between two traces.
+    :param n_jobs: Number of parallel jobs (default: -1, which uses all available cores).
+    :return: The distance matrix.
     """
 
-    def compute_row(i, trace1):
+    def compute_row(i: int, trace1: list) -> list:
+        """
+        Compute the distances between a single trace and all traces in the second log.
+
+        :param i: Index of the trace in the first log.
+        :param trace1: The trace from the first log.
+        :return: List of distances between the trace and all traces in the second log.
+        """
         return [distance_function(trace1, trace2) for trace2 in log2]
 
     # Parallel computation of rows in the distance matrix
@@ -202,26 +239,34 @@ def compute_distance_matrix_parallel(log1, log2, distance_function, n_jobs=-1):
     return np.array(distance_matrix)
 
 
-def event_time_deviation(df, ins_col='y_pred', true_col='y_true', timestamp_col='timestamp'):
+def event_time_deviation(df: pd.DataFrame, ins_col: str = 'y_pred', true_col: str = 'y_true',
+                         timestamp_col: str = 'timestamp'):
     """
     Computes the event-time deviation (SMAPEET) between the predicted and true logs.
-    Args:
-        df: A pandas DataFrame containing event log data.
-        ins_col: The column name representing the predicted case ID.
-        true_col: The column name representing the true case ID.
-        timestamp_col: The column name representing timestamps of events.
-    Returns:
-        The event-time deviation (SMAPEET).
+
+    :param df: A pandas DataFrame containing event log data.
+    :param ins_col: The column name representing the predicted case ID. Default is 'y_pred'.
+    :param true_col: The column name representing the true case ID. Default is 'y_true'.
+    :param timestamp_col: The column name representing timestamps of events. Default is 'timestamp'.
+    :return: The event-time deviation (SMAPEET).
     """
 
-    def compute_elapsed_times(df, case_col, timestamp_col):
-        """Helper function to calculate elapsed times for each event in a case."""
+    def compute_elapsed_times(df: pd.DataFrame, case_col: str, timestamp_col: str) -> pd.Series:
+        """
+        Helper function to calculate elapsed times for each event in a case.
+
+        :param df: A pandas DataFrame containing event log data.
+        :param case_col: The column name representing the case ID.
+        :param timestamp_col: The column name representing timestamps of events.
+        :return: Series containing the elapsed times for each event in a case.
+        """
         elapsed_times = (
             df.sort_values(by=[case_col, timestamp_col])
             .groupby(case_col)[timestamp_col]
             .diff()
             .fillna(pd.Timedelta(seconds=0))
         )
+
         # Convert timedelta to seconds as float
         return elapsed_times.dt.total_seconds()
 
@@ -242,9 +287,13 @@ def event_time_deviation(df, ins_col='y_pred', true_col='y_true', timestamp_col=
     return smapeet
 
 
-def get_minimal_distances(repaired_traces, true_traces):
+def get_minimal_distances(repaired_traces: list, true_traces: list) -> tuple[list, list]:
     """
     Calculates the minimal distances between each repaired trace and the closest true trace.
+
+    :param repaired_traces: List of repaired traces.
+    :param true_traces: List of true traces.
+    :return: Tuple containing the minimal distances and the closest true traces.
     """
     minimal_distances = []
     closest_traces = []
@@ -266,15 +315,32 @@ def get_minimal_distances(repaired_traces, true_traces):
 
 
 # Parallelized computation of minimal distances
-def get_minimal_distances_parallel(repaired_traces, true_traces, n_jobs=-1):
-    def compute_for_repaired_trace(repaired_trace):
+def get_minimal_distances_parallel(repaired_traces: list, true_traces: list, n_jobs: int = -1) -> tuple[list, list]:
+    """
+    Calculates the minimal distances between each repaired trace and the closest true trace with parallel processing.
+
+    :param repaired_traces: List of repaired traces.
+    :param true_traces: List of true traces.
+    :param n_jobs: Number of parallel jobs (default: -1, which uses all available cores).
+    :return: Tuple containing the minimal distances and the closest true traces.
+    """
+
+    def compute_for_repaired_trace(repaired_trace: list) -> tuple[float, list]:
+        """
+        Helper function to compute the minimal distance for a single repaired trace.
+
+        :param repaired_trace: The repaired trace.
+        :return: Tuple containing the minimal distance and the closest true trace.
+        """
         min_distance = float('inf')
         closest_trace = None
+
         for true_trace in true_traces:
             distance = optimized_ins_del_distance(repaired_trace, true_trace)
             if distance < min_distance:
                 min_distance = distance
                 closest_trace = true_trace
+
         return min_distance, closest_trace
 
     results = Parallel(n_jobs=n_jobs)(
@@ -283,12 +349,17 @@ def get_minimal_distances_parallel(repaired_traces, true_traces, n_jobs=-1):
     )
 
     minimal_distances, closest_traces = zip(*results)
+
     return list(minimal_distances), list(closest_traces)
 
 
-def ins_del_distance(trace1, trace2):
+def ins_del_distance(trace1: list, trace2: list) -> int:
     """
-    Calculates the levenshtein distance between two traces with only insertions and deletions.
+    Calculates the Levenshtein distance between two traces with only insertions and deletions.
+
+    :param trace1: The first trace.
+    :param trace2: The second trace.
+    :return: The Levenshtein distance between the two traces.
     """
     global memorized_distances
 
@@ -314,11 +385,20 @@ def ins_del_distance(trace1, trace2):
     # Store result in memoization dictionary
     distance = dp[len1][len2]
     memorized_distances[(trace1, trace2)] = distance
+
     return distance
 
 
 # Optimized ins_del_distance using two-row matrix
-def optimized_ins_del_distance(trace1, trace2):
+def optimized_ins_del_distance(trace1: list, trace2: list) -> int:
+    """
+    Calculates the Levenshtein distance between two traces with only insertions and deletions using optimized
+    operations.
+
+    :param trace1: The first trace.
+    :param trace2: The second trace.
+    :return: The Levenshtein distance between the two traces.
+    """
     len1, len2 = len(trace1), len(trace2)
     previous_row = list(range(len2 + 1))
     current_row = [0] * (len2 + 1)
@@ -335,18 +415,17 @@ def optimized_ins_del_distance(trace1, trace2):
     return previous_row[len2]
 
 
-def partial_case_similarity_optimized(df, ins_col='y_pred', true_col='y_true', activity_col='activity',
-                                      timestamp_col='timestamp', event_id_col='event_id'):
+def partial_case_similarity_optimized(df: pd.DataFrame, ins_col: str = 'y_pred', true_col: str = 'y_true',
+                                      timestamp_col: str = 'timestamp', event_id_col: str = 'event_id'):
     """
     Computes the partial case similarity (L2Lfirst) directly from a DataFrame using optimized operations.
-    Args:
-        df: A pandas DataFrame containing event log data.
-        ins_col: The column name representing the predicted case ID.
-        true_col: The column name representing the true case ID.
-        activity_col: The column name representing activity names.
-        timestamp_col: The column name representing event timestamps.
-    Returns:
-        The partial case similarity value.
+
+    :param df: A pandas DataFrame containing event log data.
+    :param ins_col: The column name representing the predicted case ID. Default is 'y_pred'.
+    :param true_col: The column name representing the true case ID. Default is 'y_true'.
+    :param timestamp_col: The column name representing event timestamps. Default is 'timestamp'.
+    :param event_id_col: The column name representing the event ID. Default is 'event_id'.
+    :return: The partial case similarity value.
     """
     # Sort and extract cases
     true_cases = (
@@ -368,9 +447,16 @@ def partial_case_similarity_optimized(df, ins_col='y_pred', true_col='y_true', a
     matched_cases = pd.merge(true_starts, pred_starts, on='start_event', suffixes=('_true', '_pred'))
 
     # Compute intersections efficiently
-    def compute_intersection(row):
+    def compute_intersection(row: pd.Series) -> tuple[int, int]:
+        """
+        Compute the intersection of events between the true and predicted cases.
+
+        :param row: A row from the DataFrame containing the start events of matched cases.
+        :return: Tuple containing the number of intersecting events and the total number of non-start events.
+        """
         true_case = true_cases[row[true_col]]
         pred_case = pred_cases[row[ins_col]]
+
         return len(set(true_case[1:]).intersection(pred_case[1:])), len(true_case[1:])
 
     intersections = matched_cases.apply(compute_intersection, axis=1)
@@ -384,10 +470,18 @@ def partial_case_similarity_optimized(df, ins_col='y_pred', true_col='y_true', a
         return 0.0
 
     similarity = total_intersections / total_non_start_events
+
     return similarity
 
 
-def prepare_data(data_path: str, log_name: str):
+def prepare_data(data_path: str, log_name: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """
+    Load and prepare data for evaluation.
+
+    :param data_path: Path to the folder containing the log.
+    :param log_name: Name of the log file.
+    :return: Tuple containing the DataFrame, correct predictions, and wrong predictions.
+    """
     file_path = os.path.join(data_path, log_name)
 
     df = pd.read_csv(file_path)
@@ -405,15 +499,14 @@ def prepare_data(data_path: str, log_name: str):
     return df, correct_predictions, wrong_predictions
 
 
-def trace_to_trace_frequency_similarity(log1, log2, ins_del_distance):
+def trace_to_trace_frequency_similarity(log1: list, log2: list, ins_del_distance: callable) -> float:
     """
     Compute the trace-to-trace frequency similarity between two event logs.
-    Args:
-        log1: List of traces from the first log.
-        log2: List of traces from the second log.
-        ins_del_distance: Function to compute the insertion-deletion distance.
-    Returns:
-        L2Lfreq: The trace-to-trace frequency similarity value.
+
+    :param log1: List of traces from the first log.
+    :param log2: List of traces from the second log.
+    :param ins_del_distance: Function to compute the insertion-deletion distance.
+    :return: L2Lfreq: The trace-to-trace frequency similarity value.
     """
     # Step 1: Compute the distance matrix
     print("Computing distance matrix...")
@@ -431,20 +524,21 @@ def trace_to_trace_frequency_similarity(log1, log2, ins_del_distance):
     # Step 4: Compute the similarity
     print("Computing similarity...")
     L2Lfreq = 1 - (minimal_total_distance / (2 * total_events))
+
     return L2Lfreq
 
 
 # Optimized trace_to_trace_frequency_similarity
-def trace_to_trace_frequency_similarity_parallel(log1, log2, ins_del_distance, n_jobs=-1):
+def trace_to_trace_frequency_similarity_parallel(log1: list, log2: list, ins_del_distance: callable,
+                                                 n_jobs: int = -1) -> float:
     """
     Compute the trace-to-trace frequency similarity between two event logs with parallel processing.
-    Args:
-        log1: List of traces from the first log.
-        log2: List of traces from the second log.
-        ins_del_distance: Function to compute the insertion-deletion distance.
-        n_jobs: Number of parallel jobs (default: -1, which uses all available cores).
-    Returns:
-        L2Lfreq: The trace-to-trace frequency similarity value.
+
+    :param log1: List of traces from the first log.
+    :param log2: List of traces from the second log.
+    :param ins_del_distance: Function to compute the insertion-deletion distance.
+    :param n_jobs: Number of parallel jobs (default: -1, which uses all available cores).
+    :return: L2Lfreq: The trace-to-trace frequency similarity value.
     """
     # Step 1: Compute the distance matrix
     print("Computing distance matrix...")
@@ -462,40 +556,55 @@ def trace_to_trace_frequency_similarity_parallel(log1, log2, ins_del_distance, n
     # Step 4: Compute the similarity
     print("Computing similarity...")
     L2Lfreq = 1 - (minimal_total_distance / (2 * total_events))
+
     return L2Lfreq
 
 
-def trace2trace_similarity(repaired_traces, true_traces):
+def trace2trace_similarity(repaired_traces: list, true_traces: list) -> float:
+    """
+    Compute the trace-to-trace similarity.
+
+    :param repaired_traces: List of repaired traces.
+    :param true_traces: List of true traces.
+    :return: The trace-to-trace similarity.
+    """
     minimal_distances, closest_traces = get_minimal_distances(repaired_traces, true_traces)
     sum_minimal_distances = sum(minimal_distances)
     total_length = sum(len(trace) for trace in repaired_traces) + sum(len(trace) for trace in closest_traces)
     similarity = 1 - (sum_minimal_distances / total_length)
+
     return similarity
 
 
 # Compute similarity with the parallelized function
-def trace2trace_similarity_parallel(repaired_traces, true_traces):
+def trace2trace_similarity_parallel(repaired_traces: list, true_traces: list) -> float:
+    """
+    Compute the trace-to-trace similarity.
+
+    :param repaired_traces: List of repaired traces.
+    :param true_traces: List of true traces.
+    :return: The trace-to-trace similarity.
+    """
     minimal_distances, closest_traces = get_minimal_distances_parallel(repaired_traces, true_traces)
     sum_minimal_distances = sum(minimal_distances)
     total_length = sum(len(trace) for trace in repaired_traces) + sum(len(trace) for trace in closest_traces)
     similarity = 1 - (sum_minimal_distances / total_length)
+
     return similarity
 
 
 # Example Usage
-
-def trigram_similarity(df, ins_col='y_pred', true_col='y_true', activity_col='activity', timestamp_col='timestamp',
-                       event_id_col='event_id'):
+def trigram_similarity(df: pd.DataFrame, ins_col: str = 'y_pred', true_col: str = 'y_true',
+                       timestamp_col: str = 'timestamp', event_id_col: str = 'event_id') -> float:
     """
     Computes the trigram similarity (L2L3gram) between the predicted and true cases.
-    Args:
-        df: A pandas DataFrame containing event log data.
-        ins_col: The column name representing the predicted case ID.
-        true_col: The column name representing the true case ID.
-        activity_col: The column name representing activity names.
-        timestamp_col: The column name representing event timestamps.
-    Returns:
-        The trigram similarity value.
+
+    :param df: A pandas DataFrame containing event log data.
+    :param ins_col: The column name representing the predicted case ID. Default is 'y_pred'.
+    :param true_col: The column name representing the true case ID. Default is 'y_true'.
+    :param timestamp_col: The column name representing event timestamps. Default is 'timestamp'.
+    :param event_id_col: The column name representing the event ID. Default is 'event_id'.
+    :return: The trigram similarity value.
     """
     # Extract true and predicted cases
     true_cases = (
@@ -538,21 +647,21 @@ def trigram_similarity(df, ins_col='y_pred', true_col='y_true', activity_col='ac
 if __name__ == "__main__":
     # Define base paths and folder structure
     base_paths = [
-        # '../Data/LSTM_Repair/Hospital Billing',
+        '../Data/LSTM_Repair/Hospital Billing',
         '../Data/LSTM_Repair/Renting',
         '../Data/LSTM_Repair/Review',
-        # '../Data/Transformer_Repair/Hospital Billing/Configuration 1',
-        # '../Data/Transformer_Repair/Hospital Billing/Configuration 2',
+        '../Data/Transformer_Repair/Hospital Billing/Configuration 1',
+        '../Data/Transformer_Repair/Hospital Billing/Configuration 2',
         '../Data/Transformer_Repair/Renting/Configuration 1',
         '../Data/Transformer_Repair/Renting/Configuration 2',
         '../Data/Transformer_Repair/Review/Configuration 1',
         '../Data/Transformer_Repair/Review/Configuration 2',
         '../Data/RandomWithDist_Repair/Renting',
         '../Data/RandomWithDist_Repair/Review',
-        # '../Data/RandomWithDist_Repair/Hospital Billing',
+        '../Data/RandomWithDist_Repair/Hospital Billing',
         '../Data/Random_Repair/Renting',
         '../Data/Random_Repair/Review',
-        # '../Data/Random_Repair/Hospital Billing'
+        '../Data/Random_Repair/Hospital Billing'
     ]
 
     # Path to the results CSV
