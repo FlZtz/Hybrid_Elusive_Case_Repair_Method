@@ -3,12 +3,12 @@ import os
 
 import numpy as np
 import pandas as pd
-from joblib import Parallel, delayed
+from joblib import delayed, Parallel
 from scipy.optimize import linear_sum_assignment
 from tqdm import tqdm
 from tqdm.auto import tqdm
 
-memorized_distances: dict = {}  # Memoization dictionary to store distances between traces
+memorized_distances: dict = {}  # Memorization dictionary to store distances between traces
 
 
 def bigram_similarity(df: pd.DataFrame, ins_col: str = 'y_pred', true_col: str = 'y_true',
