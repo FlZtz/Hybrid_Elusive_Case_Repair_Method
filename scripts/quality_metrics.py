@@ -1,5 +1,6 @@
 # quality_metrics.py - Evaluate the repaired logs using various metrics.
 import os
+import pickle
 
 import numpy as np
 import pandas as pd
@@ -69,16 +70,18 @@ def bigram_similarity(df: pd.DataFrame, ins_col: str = 'y_pred', true_col: str =
     return total_similarity / num_cases
 
 
-def calculate_metrics_for_log(data_path: str, log_name: str) -> dict:
+def calculate_metrics_for_log(data_path: str, log_name: str, configuration_path: str) -> dict:
     """
     Calculate metrics for a given log.
 
     :param data_path: Path to the folder containing the log.
     :param log_name: Name of the log file.
+    :param configuration_path: Path to the configuration file.
     :return: A dictionary containing the calculated metrics
     """
     # Load and preprocess data
-    df, correct_predictions, wrong_predictions = prepare_data(data_path, log_name)
+    df, correct_predictions, wrong_predictions, config = prepare_data(data_path, log_name, configuration_path)
+    df_completeness = df.copy()
     df['y_pred'] = df['y_pred'].fillna(-1)
     df = df[df['y_pred'] != -1].reset_index(drop=True)
 
@@ -88,8 +91,12 @@ def calculate_metrics_for_log(data_path: str, log_name: str) -> dict:
     distinct_true_traces = list(set(true_traces))
     distinct_repaired_traces = list(set(repaired_traces))
 
+    consistency_metrics = consistency(df, config)
+
     # Calculate metrics
     metrics = {
+        "Completeness": completeness(df_completeness),
+        **consistency_metrics,
         "Trace-to-Trace Similarity": trace2trace_similarity_parallel(distinct_true_traces, distinct_repaired_traces),
         "Trace-to-Trace Frequency Similarity": trace_to_trace_frequency_similarity_parallel(true_traces,
                                                                                             repaired_traces,
@@ -190,6 +197,28 @@ def case_similarity(df: pd.DataFrame, ins_col: str = 'y_pred', true_col: str = '
     return intersection_count / total_cases if total_cases > 0 else 0.0
 
 
+def completeness(df: pd.DataFrame, ins_col: str = 'y_pred', ori_col: str = 'is_erroneous') -> float:
+    """
+    Calculate the completeness improvement fraction.
+
+    :param df: DataFrame containing the event log data.
+    :param ins_col: Column name representing the predicted case ID. Default is 'y_pred'.
+    :param ori_col: Column name representing whether the original case ID is erroneous. Default is 'is_erroneous'.
+    :return: Fractional improvement in completeness.
+    """
+    # Calculate original completeness
+    original_completeness = (~df[ori_col]).mean() * 100
+
+    # Calculate predicted completeness
+    predicted_completeness = (1 - df[ins_col].isna().mean()) * 100
+
+    # Calculate fractional improvement
+    max_possible_increase = 100 - original_completeness
+    improvement_fraction = (predicted_completeness - original_completeness) / max_possible_increase
+
+    return improvement_fraction
+
+
 def compute_distance_matrix(log1: list, log2: list, distance_function: callable) -> np.ndarray:
     """
     Compute the distance matrix between traces in two logs using the given distance function.
@@ -237,6 +266,144 @@ def compute_distance_matrix_parallel(log1: list, log2: list, distance_function: 
     )
 
     return np.array(distance_matrix)
+
+
+def consistency(df: pd.DataFrame, config: dict) -> dict:
+    """
+    Calculate the consistency metrics for the log.
+
+    :param df: DataFrame containing the event log data.
+    :param config: Configuration dictionary.
+    :return: Dictionary containing the consistency metrics.
+    """
+    consistency_metrics = {
+        "Consistency Start Activity": consistency_start_activity(df, config),
+        "Consistency End Activity": consistency_end_activity(df, config),
+        "Consistency Directly Following": consistency_directly_following(df, config)
+    }
+
+    # Remove key-value pairs where the value is -1
+    consistency_metrics = {k: v for k, v in consistency_metrics.items() if v != -1}
+
+    return consistency_metrics
+
+
+def consistency_directly_following(df: pd.DataFrame, config: dict, ins_col: str = 'y_pred',
+                                   act_col: str = 'activity') -> float:
+    """
+    Calculate the proportion of cases containing solely correct directly following activities.
+
+    Solely correct directly following activities means that, for each case, it verifies whether the directly following
+    activities occur in the correct order and have the same non-zero number of predecessors and successors as defined
+    in the configuration.
+
+    :param df: The DataFrame containing the log.
+    :param config: The configuration dictionary.
+    :param ins_col: Column name representing the predicted case ID. Default is 'y_pred'.
+    :param act_col: Column name representing the activity. Default is 'activity'.
+    :return: The proportion of correct directly following activities in all cases.
+    """
+    if 'Directly Following' not in config.get('complete_expert_attributes', []):
+        return -1
+
+    directly_following = config['complete_expert_values']['Directly Following']
+    always_directly_following = [pair for pair, occurrence in zip(
+        directly_following['values'], directly_following['occurrences']) if occurrence == 'always']
+
+    if not always_directly_following:
+        return -1
+
+    num_correct_directly_following = 0
+
+    for case_id, group in df.groupby(ins_col):
+        is_consistent_case = True
+
+        for predecessor, successor in always_directly_following:
+            positions_predecessor = group[group[act_col] == predecessor].index.tolist()
+            positions_successor = group[group[act_col] == successor].index.tolist()
+
+            if len(positions_predecessor) != len(positions_successor):
+                is_consistent_case = False
+                break
+
+            if not positions_predecessor or not positions_successor:
+                continue
+
+            first_predecessor, last_predecessor = positions_predecessor[0], positions_predecessor[-1]
+            first_successor, last_successor = positions_successor[0], positions_successor[-1]
+
+            if first_predecessor > first_successor or last_predecessor > last_successor:
+                is_consistent_case = False
+                break
+
+            group = group.drop(positions_predecessor + positions_successor)
+
+        if is_consistent_case:
+            num_correct_directly_following += 1
+
+    num_cases = len(df[ins_col].unique())
+
+    return (num_correct_directly_following / num_cases) if num_cases else -1
+
+
+def consistency_end_activity(df: pd.DataFrame, config: dict, ins_col: str = 'y_pred',
+                             act_col: str = 'activity') -> float:
+    """
+    Calculate the proportion of cases containing correct end activities.
+
+    A correct end activity is one that is present in the expert input values for the end activity.
+
+    :param df: DataFrame containing the event log data.
+    :param config: Configuration dictionary.
+    :param ins_col: Column name representing the predicted case ID. Default is 'y_pred'.
+    :param act_col: Column name representing the activity. Default is 'activity'.
+    :return: The proportion of correct end activities in all cases.
+    """
+    if 'End Activity' not in config.get('complete_expert_attributes', []):
+        return -1
+
+    end_activities = set(config['complete_expert_values']['End Activity']['values'])
+
+    # Group by the case ID and get the last activity for each case
+    last_activities = df.groupby(ins_col)[act_col].last()
+
+    # Count the number of cases with correct end activity
+    num_correct_end = last_activities.isin(end_activities).sum()
+
+    # Total number of cases
+    num_cases = len(last_activities)
+
+    return (num_correct_end / num_cases) if num_cases else -1
+
+
+def consistency_start_activity(df: pd.DataFrame, config: dict, ins_col: str = 'y_pred',
+                               act_col: str = 'activity') -> float:
+    """
+    Calculate the proportion of cases containing correct start activities.
+
+    A correct start activity is one that is present in the expert input values for the start activity.
+
+    :param df: DataFrame containing the event log data.
+    :param config: Configuration dictionary.
+    :param ins_col: Column name representing the predicted case ID. Default is 'y_pred'.
+    :param act_col: Column name representing the activity. Default is 'activity'.
+    :return: The proportion of correct start activities in all cases.
+    """
+    if 'Start Activity' not in config.get('complete_expert_attributes', []):
+        return -1
+
+    start_activities = set(config['complete_expert_values']['Start Activity']['values'])
+
+    # Group by the case ID and get the first activity for each case
+    first_activities = df.groupby(ins_col)[act_col].first()
+
+    # Count the number of cases with correct start activity
+    num_correct_start = first_activities.isin(start_activities).sum()
+
+    # Total number of cases
+    num_cases = len(first_activities)
+
+    return (num_correct_start / num_cases) if num_cases else -1
 
 
 def event_time_deviation(df: pd.DataFrame, ins_col: str = 'y_pred', true_col: str = 'y_true',
@@ -474,13 +641,15 @@ def partial_case_similarity_optimized(df: pd.DataFrame, ins_col: str = 'y_pred',
     return similarity
 
 
-def prepare_data(data_path: str, log_name: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def prepare_data(data_path: str, log_name: str,
+                 config_path: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict]:
     """
     Load and prepare data for evaluation.
 
     :param data_path: Path to the folder containing the log.
     :param log_name: Name of the log file.
-    :return: Tuple containing the DataFrame, correct predictions, and wrong predictions.
+    :param config_path: Path to the configuration file.
+    :return: Tuple containing the DataFrame, correct predictions, wrong predictions, and the model configuration.
     """
     file_path = os.path.join(data_path, log_name)
 
@@ -496,7 +665,16 @@ def prepare_data(data_path: str, log_name: str) -> tuple[pd.DataFrame, pd.DataFr
     correct_predictions = repaired_events[repaired_events.y_true == repaired_events.y_pred].copy()
     wrong_predictions = repaired_events[repaired_events.y_true != repaired_events.y_pred].copy()
 
-    return df, correct_predictions, wrong_predictions
+    model_configuration = {}
+    for file in os.listdir(config_path):
+        if file.endswith('.pkl'):
+            with open(os.path.join(config_path, file), 'rb') as f:
+                model_configuration = pickle.load(f)
+
+            model_configuration = {key: value.to_dict() if isinstance(value, pd.DataFrame) else value for key, value in
+                                   model_configuration.items()}
+
+    return df, correct_predictions, wrong_predictions, model_configuration
 
 
 def trace_to_trace_frequency_similarity(log1: list, log2: list, ins_del_distance: callable) -> float:
@@ -656,13 +834,19 @@ if __name__ == "__main__":
         '../Data/Transformer_Repair/Renting/Configuration 2',
         '../Data/Transformer_Repair/Review/Configuration 1',
         '../Data/Transformer_Repair/Review/Configuration 2',
+        '../Data/RandomWithDist_Repair/Hospital Billing',
         '../Data/RandomWithDist_Repair/Renting',
         '../Data/RandomWithDist_Repair/Review',
-        '../Data/RandomWithDist_Repair/Hospital Billing',
+        '../Data/Random_Repair/Hospital Billing',
         '../Data/Random_Repair/Renting',
-        '../Data/Random_Repair/Review',
-        '../Data/Random_Repair/Hospital Billing'
+        '../Data/Random_Repair/Review'
     ]
+
+    configuration_paths = {
+        'Hospital Billing': '../Data/Configuration/Hospital Billing',
+        'Renting': '../Data/Configuration/Renting',
+        'Review': '../Data/Configuration/Review'
+    }
 
     # Path to the results CSV
     results_csv_path = "../Data/log_metrics_results.csv"
@@ -682,11 +866,15 @@ if __name__ == "__main__":
 
     # Iterate through each folder and process logs
     for base_path in base_paths:
-        model_type = "LSTM_Repair" if "LSTM_Repair" in base_path else "Transformer_Repair"
-        log_type = "Hospital Billing" if "Hospital Billing" in base_path else \
-            "Renting" if "Renting" in base_path else "Review"
-        configuration = "/" if "LSTM_Repair" in base_path else \
-            "Configuration 1" if "Configuration 1" in base_path else "Configuration 2"
+        model_type = "LSTM_Repair" if "LSTM_Repair" in base_path \
+            else "Transformer_Repair" if "Transformer_Repair" in base_path \
+            else "RandomWithDist_Repair" if "RandomWithDist_Repair" in base_path else "Random_Repair"
+        log_type = "Hospital Billing" if "Hospital Billing" in base_path \
+            else "Renting" if "Renting" in base_path else "Review"
+        configuration = "/" if "LSTM_Repair" in base_path \
+            else "Configuration 1" if "Configuration 1" in base_path else "Configuration 2"
+
+        config_path = configuration_paths.get(log_type, None)
 
         # Iterate over all logs in the folder
         for log_name in os.listdir(base_path):
@@ -699,7 +887,7 @@ if __name__ == "__main__":
                 print(f"Processing {log_name} in {base_path}...")
                 try:
                     # Calculate metrics
-                    log_metrics = calculate_metrics_for_log(base_path, log_name)
+                    log_metrics = calculate_metrics_for_log(base_path, log_name, config_path)
 
                     # Append results
                     result = {

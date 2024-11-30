@@ -80,15 +80,18 @@ pip install -r requirements.txt
    ```bash
    python scripts/lstm_repair.py
    ```
-    **Hint**: Ensure your run configuration is set to the folder where the `scripts/lstm_repair.py` file is located. 
-    This script is a dummy implementation of the LSTM repair method which needs to be replaced with a real 
-    implementation.
+   **Hint**: Ensure your run configuration is set to the folder where the `scripts/lstm_repair.py` file is located.
+   This script is a dummy implementation of the LSTM repair method which needs to be replaced with a real
+   implementation.
 
 2. Execute the `scripts/quality_metrics.py` script to evaluate the performance of the trained model.
    ```bash
    python scripts/quality_metrics.py
    ```
    **Hint**: Ensure your run configuration is set to the folder where the `scripts/quality_metrics.py` file is located.
+   Before running the script, make sure that relevant files are available in the corresponding directories. Also,
+   ensure that the event logs are in CSV format and include a column named `Ground Truth Case ID` containing the
+   correct case IDs for each event.
 
 3. Analyse the evaluation results and make any necessary adjustments to improve the model's performance.
 
