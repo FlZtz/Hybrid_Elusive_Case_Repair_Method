@@ -871,8 +871,8 @@ if __name__ == "__main__":
             else "RandomWithDist_Repair" if "RandomWithDist_Repair" in base_path else "Random_Repair"
         log_type = "Hospital Billing" if "Hospital Billing" in base_path \
             else "Renting" if "Renting" in base_path else "Review"
-        configuration = "/" if "LSTM_Repair" in base_path \
-            else "Configuration 1" if "Configuration 1" in base_path else "Configuration 2"
+        configuration = "Configuration 1" if "Configuration 1" in base_path \
+            else "Configuration 2" if "Configuration 2" in base_path else "/"
 
         config_path = configuration_paths.get(log_type, None)
 
