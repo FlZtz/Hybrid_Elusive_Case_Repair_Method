@@ -1,5 +1,6 @@
 # random_repair.py - Repair case IDs using random predictors.
 import os
+from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -85,7 +86,8 @@ def prepare_data(data_path: str, log_name: str) -> tuple[pd.DataFrame, pd.DataFr
     return df, df_cleaned
 
 
-def repair_case_ids(df: pd.DataFrame, predictor: FullyRandomPredictor) -> pd.DataFrame:
+def repair_case_ids(df: pd.DataFrame,
+                    predictor: Union[FullyRandomPredictor, RandomPredictorWithDistribution]) -> pd.DataFrame:
     """
     Repairs missing case IDs in the dataframe using the specified predictor.
 
@@ -117,7 +119,7 @@ if __name__ == "__main__":
 
     # Combine the repaired predictions with the original dataframe
     df_combined_random_dist = pd.concat([df[~df['case_id'].isna()], df_repaired_random_dist])
-    # Replace NaN values in 'case_id' with corresponding 'predicted_case_id' values
+    # Replace NaN values in 'predicted_case_id' with corresponding 'case_id' values
     df_combined_random_dist['predicted_case_id'].fillna(df_combined_random_dist['case_id'], inplace=True)
 
     df_repaired = df_combined_random_dist.copy()
