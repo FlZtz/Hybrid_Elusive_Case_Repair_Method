@@ -76,13 +76,16 @@ pip install -r requirements.txt
 
 ### Evaluation
 
-1. Train a benchmark using the `scripts/lstm_repair.py` script.
+1. Train benchmarks using the `scripts/lstm_repair.py` and `scripts/random_repair.py` scripts.
    ```bash
    python scripts/lstm_repair.py
    ```
-   **Hint**: Ensure your run configuration is set to the folder where the `scripts/lstm_repair.py` file is located.
-   This script is a dummy implementation of the LSTM repair method which needs to be replaced with a real
-   implementation.
+    ```bash
+   python scripts/random_repair.py
+    ```
+   **Hint**: Ensure your run configuration is set to the folder where the `scripts/lstm_repair.py` and
+   `scripts/random_repair.py` file are located. These scripts are dummy implementations of the LSTM and Random repair
+   methods, respectively, and need to be replaced with real implementations.
 
 2. Execute the `scripts/quality_metrics.py` script to evaluate the performance of the trained model.
    ```bash
@@ -142,6 +145,7 @@ To create an executable (.exe) file for the `scripts/train.py` script, use pyins
     - `log_statistics.py`: Calculates statistics from XES event logs.
     - `lstm_repair.py`: Dummy implementation of the LSTM repair method.
     - `quality_metrics.py`: Implementation of quality metrics for evaluation.
+    - `random_repair.py`: Dummy implementation of the random repair methods.
     - `train.py`: Script for training the Transformer model.
 - `src/`: Contains the source code files for the project.
     - `config.py`: Configuration file for the model.
