@@ -4,19 +4,30 @@ import os
 import numpy as np
 import pandas as pd
 
+
 class FullyRandomPredictor:
     """
-    Predicts those case IDs observed in df_cleaned completely random.
+    Predicts case IDs observed in df_cleaned completely at random.
     """
 
-    def __init__(self, df_cleaned):
+    def __init__(self, df_cleaned: pd.DataFrame) -> None:
+        """
+        Initializes the Fully Random Predictor.
+
+        :param df_cleaned: DataFrame with cleaned data.
+        """
         print("Initializing Fully Random Predictor...")
         self.df_cleaned = df_cleaned
         self.case_ids = df_cleaned['case_id'].unique()
 
-    def predict(self, df):
+    def predict(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Predicts case IDs for the given dataframe using a fully random approach.
+
+        :param df: DataFrame with missing case IDs.
+        :return: DataFrame with predicted case IDs.
+        """
         print("Predicting case IDs using Fully Random Predictor...")
-        # Randomly pick a case_id from the list of known case IDs
         df['predicted_case_id'] = np.random.choice(self.case_ids, size=len(df))
         print("Fully Random Predictor prediction complete.")
         return df
@@ -24,17 +35,27 @@ class FullyRandomPredictor:
 
 class RandomPredictorWithDistribution:
     """
-    Predicts Case IDs given the frequencies of case IDs in df_cleaned.
+    Predicts case IDs given the frequencies of case IDs in df_cleaned.
     """
 
-    def __init__(self, df_cleaned):
+    def __init__(self, df_cleaned: pd.DataFrame) -> None:
+        """
+        Initializes the Random Predictor with Distribution.
+
+        :param df_cleaned: DataFrame with cleaned data.
+        """
         print("Initializing Random Predictor with Distribution...")
         self.df_cleaned = df_cleaned
         self.case_id_frequencies = df_cleaned['case_id'].value_counts(normalize=True)
 
-    def predict(self, df):
+    def predict(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Predicts case IDs for the given dataframe based on the distribution of case IDs.
+
+        :param df: DataFrame with missing case IDs.
+        :return: DataFrame with predicted case IDs.
+        """
         print("Predicting case IDs using Random Predictor with Distribution...")
-        # For each erroneous event, randomly pick a case_id based on the distribution
         case_ids = self.case_id_frequencies.index
         case_id_probs = self.case_id_frequencies.values
         df['predicted_case_id'] = np.random.choice(case_ids, size=len(df), p=case_id_probs)
@@ -42,9 +63,15 @@ class RandomPredictorWithDistribution:
         return df
 
 
-def prepare_data(data_path, log_name):
+def prepare_data(data_path: str, log_name: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Loads and preprocesses the data.
+
+    :param data_path: Path to the data directory.
+    :param log_name: Name of the log file.
+    :return: Original and cleaned dataframes.
+    """
     print(f"Loading data from {data_path}{log_name}...")
-    # Load and preprocess the data as before
     df = pd.read_csv(os.path.join(data_path, log_name))
     resource_col = [col for col in df.columns if 'resource' in col.lower()][0]
     df = df[['Sorted Index', 'case:concept:name', 'concept:name', 'time:timestamp', resource_col]]
@@ -58,7 +85,14 @@ def prepare_data(data_path, log_name):
     return df, df_cleaned
 
 
-def repair_case_ids(df, predictor):
+def repair_case_ids(df: pd.DataFrame, predictor: FullyRandomPredictor) -> pd.DataFrame:
+    """
+    Repairs missing case IDs in the dataframe using the specified predictor.
+
+    :param df: DataFrame with missing case IDs.
+    :param predictor: Predictor to use for repairing case IDs.
+    :return: DataFrame with repaired case IDs.
+    """
     print("Starting case ID repair...")
     df_repaired = predictor.predict(df)
     print("Case ID repair complete.")
@@ -75,11 +109,11 @@ if __name__ == "__main__":
     df_erroneous = df[df['case_id'].isna()]
 
     # Initialize predictors
-    # random_dist_predictor = RandomPredictorWithDistribution(df_cleaned)
+    # predictor = RandomPredictorWithDistribution(df_cleaned)
     predictor = FullyRandomPredictor(df_cleaned)
 
     # Use random predictor with distribution to repair erroneous case IDs
-    df_repaired_random_dist = repair_case_ids(df_erroneous, FullyRandomPredictor)
+    df_repaired_random_dist = repair_case_ids(df_erroneous, predictor)
 
     # Combine the repaired predictions with the original dataframe
     df_combined_random_dist = pd.concat([df[~df['case_id'].isna()], df_repaired_random_dist])
