@@ -40,7 +40,7 @@ pip install -r requirements.txt
 1. Download the event log dataset in XES format for training and evaluation. You can use the following datasets for
    testing:
     - Running Example (requests for compensation within an airline):
-      https://pm4py.fit.fraunhofer.de/static/assets/examples/running-example.xes
+      https://processintelligence.solutions/static/data/getting_started/running-example.xes
     - Review Example Large (reviewing process of a paper for a journal):
       https://doi.org/10.4121/uuid:da6aafef-5a86-4769-acf3-04e8ae5ab4fe
     - Hospital Billing - Event Log (billing of medical services):
