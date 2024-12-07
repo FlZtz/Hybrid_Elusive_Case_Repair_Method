@@ -158,7 +158,8 @@ To create an executable (.exe) file for the `scripts/train.py` script, use pyins
 
 ## Dependencies
 
-Python 3.10 or higher
+- Python 3.10 or higher
+- Windows operating system
 
 ## License
 
