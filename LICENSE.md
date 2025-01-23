@@ -1,6 +1,7 @@
 MIT License
 
-Copyright (c) 2024 Anonymized
+Copyright (c) 2025 Felix Zetzsche, Robert Andrews, Arthur H. M. ter Hofstede,
+Maximilian Röglinger, Sebastian Johannes Schmid, and Moe Thandar Wynn
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

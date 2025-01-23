@@ -5,6 +5,10 @@
 This project provides a method to repair elusive cases in event logs by determining missing case IDs using a
 Transformer model.
 
+**Note:** This code is the instantiation source code of the journal paper titled "Case ID Revealed HERE: Hybrid Elusive
+Case Repair Method for Transformer-Driven Business Process Event Log Enhancement" (_**LINK**_). Please refer to the
+publication for detailed information.
+
 ## Table of Contents
 
 - [Introduction](#introduction)
