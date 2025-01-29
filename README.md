@@ -55,13 +55,13 @@ pip install -r requirements.txt
 
 2. Execute the `scripts/log_preparation.py` script to prepare the event log for training and evaluation.
    ```bash
-   python scripts/log_preparation.py
+   python3 scripts/log_preparation.py
    ```
    **Hint**: Ensure your run configuration is set to the folder where the `scripts/log_preparation.py` file is located.
 
 3. (Optional) Run the `scripts/log_statistics.py` script to calculate statistics from the event log.
    ```bash
-   python scripts/log_statistics.py
+   python3 scripts/log_statistics.py
    ```
    **Hint**: Ensure your run configuration is set to the folder where the `scripts/log_statistics.py` file is located.
 
@@ -69,7 +69,7 @@ pip install -r requirements.txt
 
 1. Execute the `scripts/train.py` script to train the model.
    ```bash
-   python scripts/train.py
+   python3 scripts/train.py
    ```
    **Hint**: Ensure your run configuration is set to the folder where the `scripts/train.py` file is located.
 
@@ -82,10 +82,10 @@ pip install -r requirements.txt
 
 1. Train benchmarks using the `scripts/lstm_repair.py` and `scripts/random_repair.py` scripts.
    ```bash
-   python scripts/lstm_repair.py
+   python3 scripts/lstm_repair.py
    ```
     ```bash
-   python scripts/random_repair.py
+   python3 scripts/random_repair.py
     ```
    **Hint**: Ensure your run configuration is set to the folder where the `scripts/lstm_repair.py` and
    `scripts/random_repair.py` file are located. These scripts are dummy implementations of the LSTM and Random repair
@@ -93,7 +93,7 @@ pip install -r requirements.txt
 
 2. Execute the `scripts/quality_metrics.py` script to evaluate the performance of the trained model.
    ```bash
-   python scripts/quality_metrics.py
+   python3 scripts/quality_metrics.py
    ```
    **Hint**: Ensure your run configuration is set to the folder where the `scripts/quality_metrics.py` file is located.
    Before running the script, make sure that relevant files are available in the corresponding directories. Also,
